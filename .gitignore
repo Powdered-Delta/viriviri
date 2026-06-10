@@ -1,0 +1,42 @@
+# Gradle / Android
+.gradle/
+build/
+**/build/
+
+# Local Android SDK and machine state
+local.properties
+*.iml
+.idea/
+.cxx/
+.externalNativeBuild/
+
+# Android Studio generated output
+captures/
+outputs/
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+
+# JVM / Kotlin generated files
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Keystores and signing files
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Keep wrapper jar if a Gradle wrapper is added later.
+!gradle/wrapper/gradle-wrapper.jar

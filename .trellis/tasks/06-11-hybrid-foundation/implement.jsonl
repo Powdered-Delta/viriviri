@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking checklist for cross-layer implementation decisions."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The task spans core data, shared UI, and platform app layers; dependency direction must remain explicit."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Use shared modules rather than duplicating transition or UI concepts across platform layers."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/meta-hybrid.md", "reason": "Meta Hybrid Activity, manifest, and transition patterns required for app-meta implementation."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/pico-portability.md", "reason": "Portability constraints defining what must stay out of Meta-specific modules."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/gradle-compose-foundation.md", "reason": "Gradle multi-module and Compose module structure guidance."}
