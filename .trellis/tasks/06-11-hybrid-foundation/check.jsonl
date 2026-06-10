@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared quality and thinking checklist for final verification."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify core/ui/platform boundaries and dependency direction."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify shared abstractions are not duplicated across modules."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/meta-hybrid.md", "reason": "Check manifest and transition scaffolding against researched Meta Hybrid patterns."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/pico-portability.md", "reason": "Check future PICO portability constraints."}
+{"file": ".trellis/tasks/06-11-hybrid-foundation/research/gradle-compose-foundation.md", "reason": "Check Gradle and module layout against researched foundation guidance."}
