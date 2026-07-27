@@ -19,7 +19,7 @@ code belongs only in platform app modules such as `app-meta` or a future
 
 ## Prerequisites
 
-Use JDK 17, Gradle, Android SDK 34/35, Android Studio, the Meta Horizon Android
+Use JDK 17, Android SDK 36, Android Studio, the Meta Horizon Android
 Studio plugin, Meta Spatial Editor, and a Quest device or emulator setup.
 
 Do not commit local machine configuration such as `local.properties`.
@@ -29,26 +29,25 @@ Do not commit local machine configuration such as `local.properties`.
 Run commands from the repository root.
 
 ```bash
-gradle projects
-gradle :core:compileDebugKotlin
-gradle :ui-compose:compileDebugKotlin
-gradle :app-meta:assembleDebug
+./gradlew projects
+./gradlew :core:compileDebugKotlin
+./gradlew :ui-compose:compileDebugKotlin
+./gradlew :app-meta:assembleDebug
 ```
 
 Clean generated output:
 
 ```bash
-gradle clean
+./gradlew clean
 ```
 
 Install a debug APK after a successful build:
 
 ```bash
-adb install app-meta/build/outputs/apk/debug/app-meta-debug.apk
+adb install -r app-meta/build/outputs/apk/debug/app-meta-debug.apk
 ```
 
-If a Gradle wrapper is added later, replace `gradle` with `./gradlew` on Unix
-shells or `gradlew.bat` on Windows shells.
+On Windows PowerShell, use `./gradlew.bat` instead of `./gradlew`.
 
 ## Hybrid Flow
 
@@ -61,6 +60,13 @@ panel task.
 
 ## Current Scope
 
-This foundation intentionally does not implement Bilibili APIs, real playback,
-danmaku, store signing, or PICO runtime code. Those layers should build on top
-of the module boundaries established here.
+The current proof of concept includes one app-owned Media3 ExoPlayer that plays
+the bundled `app-meta/src/main/assets/poc/rick.mp4` test video and hands its
+output between compact and cinema-sized TextureViews inside the 2D panel. Quest
+device validation confirmed continuous playback with only an occasional short
+white frame during Surface handoff.
+
+This foundation intentionally does not implement Bilibili APIs, danmaku, store
+signing, real Meta Spatial video surfaces, cross-Activity player handoff, or
+PICO runtime code. Those layers should build on top of the module boundaries
+established here.

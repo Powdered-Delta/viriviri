@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Keep shared Compose UI independent of vendor-specific platform SDKs and app hosting code."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Use explicit callbacks and composable inputs for platform behavior while preserving reusable shared UI."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Validate the state and Surface lifecycle boundary between shared UI and the app-level Media3 owner."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Keep Surface lifecycle and playback metrics in one owner rather than duplicating behavior across views."}

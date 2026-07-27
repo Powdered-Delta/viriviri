@@ -8,8 +8,7 @@ repository root and keep machine-specific paths in local shell or IDE settings.
 Required tools:
 
 - JDK 17
-- Gradle
-- Android SDK 34/35
+- Android SDK Platform 36 and Build-Tools 36
 - Android Studio with the Meta Horizon plugin
 - Meta Spatial Editor for future glXF scene authoring
 - ADB for device installation
@@ -19,39 +18,60 @@ configuration, keep it in `local.properties`, which is ignored by Git.
 
 ## Common Commands
 
+All commands use the committed Gradle 8.11.1 Wrapper. On Windows, replace
+`./gradlew` below with `./gradlew.bat`.
+
 List projects:
 
 ```bash
-gradle projects
+./gradlew projects
 ```
 
 Compile shared modules:
 
 ```bash
-gradle :core:compileDebugKotlin
-gradle :ui-compose:compileDebugKotlin
+./gradlew :core:compileDebugKotlin
+./gradlew :ui-compose:compileDebugKotlin
 ```
 
 Build the Meta debug APK:
 
 ```bash
-gradle :app-meta:assembleDebug
+./gradlew :app-meta:assembleDebug
 ```
 
 Clean generated output:
 
 ```bash
-gradle clean
+./gradlew clean
 ```
 
 Install the debug APK:
 
 ```bash
-adb install app-meta/build/outputs/apk/debug/app-meta-debug.apk
+adb install -r app-meta/build/outputs/apk/debug/app-meta-debug.apk
 ```
 
-## Wrapper Note
+If a previous installation has the same package name but a different signing
+certificate, remove it before installing the debug APK:
 
-No Gradle wrapper is required for this foundation. If a wrapper is added later,
-use `./gradlew` or `gradlew.bat` instead of `gradle` while keeping the task names
-the same.
+```bash
+adb uninstall com.viriviri.app
+```
+
+## Media3 Surface Handoff PoC
+
+`PanelActivity` plays the bundled `app-meta/src/main/assets/poc/rick.mp4` file,
+so the proof of concept does not depend on device network access. Use the button
+to switch between compact and cinema-sized TextureViews in the same 2D panel.
+
+Successful Quest device validation requires:
+
+* Video and audio continue playing through repeated target changes.
+* `prepare` remains `1`.
+* `decoder init` does not increase after initial playback begins.
+* Playback position continues advancing; it does not restart from zero.
+
+The current device result is a smooth transfer with an occasional short white
+frame. Treat that as a visual transition issue for a future animation layer,
+not a Media3 reload or decoder recreation.
