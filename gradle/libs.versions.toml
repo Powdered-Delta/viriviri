@@ -6,6 +6,7 @@ composeBom = "2026.05.00"
 activityCompose = "1.13.0"
 androidxCore = "1.17.0"
 metaSpatialSdk = "0.13.0"
+media3 = "1.8.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -21,6 +22,7 @@ meta-spatial-sdk-toolkit = { module = "com.meta.spatial:meta-spatial-sdk-toolkit
 meta-spatial-sdk-vr = { module = "com.meta.spatial:meta-spatial-sdk-vr", version.ref = "metaSpatialSdk" }
 meta-spatial-sdk-physics = { module = "com.meta.spatial:meta-spatial-sdk-physics", version.ref = "metaSpatialSdk" }
 meta-spatial-plugin-processor = { module = "com.meta.spatial.plugin:com.meta.spatial.plugin.gradle.plugin", version.ref = "metaSpatialSdk" }
+media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

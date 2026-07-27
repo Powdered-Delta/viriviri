@@ -36,6 +36,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.media3.exoplayer)
 
     implementation(libs.meta.spatial.sdk)
     implementation(libs.meta.spatial.sdk.toolkit)
