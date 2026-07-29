@@ -1,0 +1,160 @@
+# Quest Spatial Panel Debugging
+
+## Scenario: Visible Media3 Video Panel in a Meta Spatial Activity
+
+### 1. Scope / Trigger
+
+Use this runbook when a Meta Horizon OS VR-category Activity enters an immersive
+session but a programmatically created Spatial SDK video panel is missing,
+back-facing, cropped, or loses the expected player Surface. It applies to the
+Quest 2 validation path in `:app-meta`.
+
+Do not use a normal Android `ComposeView`, `AndroidView`, or `TextureView` as
+the immersive output target. A VR-category Activity can enter the Horizon OS
+immersive session while ordinary Android View content remains behind the system
+loading compositor. `TextureView` remains valid for `PanelActivity` only.
+
+### 2. Signatures
+
+The immersive Activity uses the SDK-owned direct media-surface path:
+
+```kotlin
+class ImmersiveActivity : AppSystemActivity() {
+    override fun registerFeatures(): List<SpatialFeature> = listOf(VRFeature(this))
+
+    override fun registerPanels() = listOf(
+        VideoSurfacePanelRegistration(
+            VIDEO_PANEL_ID,
+            surfaceConsumer = { _, surface ->
+                playerManager.attachSurface(surface, HandoffTarget.IMMERSIVE, transitionId)
+            },
+            settingsCreator = {
+                MediaPanelSettings(
+                    shape = QuadShapeOptions(width = 2.4f, height = 1.35f),
+                    display = PixelDisplayOptions(width = 1920, height = 1080),
+                )
+            },
+        ),
+    )
+
+    override fun onVRReady() {
+        Entity.createPanelEntity(
+            VIDEO_PANEL_ID,
+            Transform(panelPose),
+            Visible(true),
+        )
+    }
+}
+```
+
+`VideoSurfacePanelRegistration` owns the supplied `android.view.Surface`.
+`PlayerManager` may detach it by identity, but must not release it.
+
+### 3. Contracts
+
+* Register `VRFeature(this)`. `AppSystemActivity` alone is not the complete
+  immersive feature bootstrap.
+* In `onSceneReady()`, configure the reference space and documented view origin
+  before placing scene content. The current test host uses
+  `ReferenceSpace.LOCAL_FLOOR` and `scene.setViewOrigin(0f, 0f, 2f, 180f)`.
+* Create the dynamic panel entity in `onVRReady()`, not merely in
+  `onSceneReady()`. `onVRReady()` is the lifecycle point used by Meta's
+  `SpatialVideoSample` for its video panel entity setup.
+* Create the entity with an explicit `Visible(true)` component. Surface creation
+  and Media3 first-frame events do not prove that the Spatial panel layer is
+  composited visibly.
+* For normal monoscopic video, preserve the default
+  `MediaPanelRenderOptions`/`StereoMode.None`. `StereoMode.MonoLeft` samples a
+  stereo-eye region and cropped the bundled monoscopic test video to its
+  upper-left quarter.
+* A flat quad is single-facing. The current local coordinate convention and
+  view-origin transform must be validated physically. When a visible panel is
+  reversed, rotate its pose 180 degrees about the vertical Y axis using
+  `Quaternion(w, x, y, z) = Quaternion(0f, 0f, 1f, 0f)` instead of changing
+  player or decoder ownership.
+* Lighting is not a prerequisite for `VideoSurfacePanelRegistration` or
+  `ViewPanelRegistration` compositor layers. Use unlit native meshes only for
+  placement diagnostics; do not add global lighting to fix an absent panel.
+* Keep a maximum of one direct video panel and one video output Surface for the
+  handoff experiment. Placement diagnostics must not register additional video
+  panels or construct another `ExoPlayer`.
+* Log the ordered milestones: scene ready, VR ready, visible panel entity
+  created, panel Surface callback, player Surface attach, decoder initialization,
+  and Media3 first rendered frame.
+
+### 4. Validation & Error Matrix
+
+| Symptom or condition | Required diagnosis and action |
+| --- | --- |
+| Three-dot system placeholder with audio | Verify that the Activity uses `AppSystemActivity` plus `VRFeature`; ordinary Compose/TextureView is not an immersive target. |
+| Black immersive session with tracked hands | Confirm `onSceneReady()` and `onVRReady()` logs separately; then verify the panel entity is created with `Visible(true)`. |
+| Panel Surface callback absent | The panel registration/entity lifecycle has not completed. Do not change ExoPlayer or call `prepare()` again. |
+| Surface and Media3 first-frame logs exist but no visible panel | Check explicit `Visible(true)`, panel entity creation in `onVRReady()`, and only then pose/quad orientation. |
+| Panel visible but reversed | Apply a 180-degree Y yaw to the panel pose. Keep player, Surface, and media unchanged. |
+| Only upper-left quarter of a normal video is shown | Remove `StereoMode.MonoLeft`; use `StereoMode.None`/default full-frame monoscopic sampling. |
+| Debug geometry only partially visible or off-center | Do not infer panel coordinates from it when reference space and view origin are both transformed. Remove multi-axis diagnostics and test one panel first. |
+| System menu exit freezes controller tracking or menu input | Capture lifecycle elapsed logs and Horizon OS service/task logs. Treat it as a separate platform lifecycle/performance issue until evidence ties it to app code. |
+
+### 5. Good / Base / Bad Cases
+
+* Good: `onVRReady()` creates one `Visible(true)` panel; the SDK returns one
+  valid Surface; the same player attaches once; `prepareCalls == 1`; a complete
+  monoscopic frame appears facing the user.
+* Base: an ADB launch creates the Activity but leaves the immersive session
+  paused. It may log scene setup or decoder initialization without providing a
+  physical visibility verdict. Launch from the headset library for visibility
+  acceptance.
+* Bad: repeatedly changing Z coordinates, adding lighting, or creating multiple
+  player/panel instances before validating entity lifecycle and visibility. This
+  adds load and hides the actual rendering contract failure.
+
+### 6. Tests Required
+
+* Unit test player and handoff state independently: one media load, stale
+  Surface detach safety, and first-frame completion only after verified Surface
+  attachment.
+* Build test: `./gradlew.bat :app-meta:testDebugUnitTest --no-build-cache`.
+* Package test: `./gradlew.bat :app-meta:assembleDebug --no-build-cache`.
+* Quest device test, launched from the headset library:
+  * verify a full-frame, correctly facing direct video panel;
+  * verify the ordered app logs above;
+  * verify `prepareCalls == 1` and no decoder reinitialization on route cycles;
+  * verify only one direct video Surface is attached;
+  * perform a system-menu exit while capturing lifecycle durations and Horizon
+    OS logs separately from video handoff metrics.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```kotlin
+override fun onSceneReady() {
+    Entity.createPanelEntity(VIDEO_PANEL_ID, Transform(pose))
+}
+
+MediaPanelRenderOptions(stereoMode = StereoMode.MonoLeft)
+```
+
+This relies on an early lifecycle callback, leaves panel visibility implicit,
+and crops a normal monoscopic stream as a stereo-eye texture.
+
+#### Correct
+
+```kotlin
+override fun onVRReady() {
+    Entity.createPanelEntity(
+        VIDEO_PANEL_ID,
+        Transform(pose),
+        Visible(true),
+    )
+}
+
+MediaPanelSettings(
+    shape = QuadShapeOptions(2.4f, 1.35f),
+    display = PixelDisplayOptions(1920, 1080),
+    // Default StereoMode.None renders a normal full-frame monoscopic file.
+)
+```
+
+This waits for the VR-ready panel lifecycle, makes compositing intent explicit,
+and preserves full-frame sampling without rebuilding the player.

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -25,11 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.key
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -131,60 +128,67 @@ private fun BrowseScreenPreview() {
 fun SurfaceHandoffPocScreen(
     metrics: SurfaceHandoffMetrics,
     videoTarget: @Composable (Modifier) -> Unit,
+    transitionMask: @Composable (Modifier) -> Unit,
+    onReturnToImmersive: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var isCinemaMode by remember { mutableStateOf(false) }
-
     Surface(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
-            key(isCinemaMode) {
-                if (isCinemaMode) {
-                    videoTarget(Modifier.fillMaxSize())
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 480.dp, height = 270.dp)
-                            .align(androidx.compose.ui.Alignment.Center)
-                            .background(
-                                color = androidx.compose.ui.graphics.Color.Black,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                            ),
-                    ) {
-                        videoTarget(Modifier.fillMaxSize())
-                    }
-                }
-            }
+            videoTarget(Modifier.fillMaxSize())
+            transitionMask(Modifier.fillMaxSize())
 
             Column(
                 modifier = Modifier
-                    .align(androidx.compose.ui.Alignment.TopStart)
+                    .align(Alignment.TopStart)
                     .padding(16.dp)
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f))
+                    .background(Color.Black.copy(alpha = 0.72f))
                     .padding(12.dp),
             ) {
-                Text("Media3 Surface Handoff PoC", color = androidx.compose.ui.graphics.Color.White)
+                Text("Horizon OS 2D panel", color = Color.White)
                 Text(
                     text = "prepare: ${metrics.prepareCalls}  decoder init: ${metrics.videoDecoderInitializations}",
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = Color.White,
                 )
                 Text(
                     text = "handoffs: ${metrics.surfaceHandoffs}  position: ${metrics.playbackPositionMs / 1000}s",
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = Color.White,
                 )
                 Text(
-                    text = "last handoff: ${metrics.lastHandoffDurationMs?.let { "${it}ms" } ?: "--"}",
-                    color = androidx.compose.ui.graphics.Color.White,
+                    text = "policy: ${metrics.activePolicy.label}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "route: ${metrics.sourceTarget?.label ?: "--"} -> ${metrics.destinationTarget?.label ?: "--"}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "surface: ${metrics.destinationSurfaceReady}  first frame: ${metrics.destinationFirstFrameReady}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "attach: ${metrics.destinationSurfaceAttachedAfterMs.msLabel()}  first frame: ${metrics.destinationFirstFrameAfterMs.msLabel()}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "handoff: ${metrics.lastHandoffDurationMs.msLabel()}  unseen playback: ${metrics.playingWithoutVisibleDestinationMs.msLabel()}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "source: ${metrics.sourceFinishDisposition.label}  timed out: ${metrics.transitionTimedOut}",
+                    color = Color.White,
                 )
             }
 
             Button(
-                onClick = { isCinemaMode = !isCinemaMode },
+                onClick = onReturnToImmersive,
                 modifier = Modifier
-                    .align(androidx.compose.ui.Alignment.BottomCenter)
+                    .align(Alignment.BottomCenter)
                     .padding(32.dp),
             ) {
-                Text(if (isCinemaMode) "Return to 2D panel" else "Enter cinema surface")
+                Text("Return to Immersive Mode")
             }
         }
     }
 }
+
+private fun Long?.msLabel(): String = this?.let { "${it}ms" } ?: "--"

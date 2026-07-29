@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Identifies the project frontend guidance and the Media3 handoff contract applicable to app-meta/core/ui-compose changes."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Defines the existing singleton player, Surface identity, metrics, lifecycle, and validation invariants that Stage B must preserve and extend across Activities."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Requires shared Compose UI to receive neutral state and callbacks while Meta Activity and routing behavior stays in app-meta."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"The feature crosses manifest, Activity lifecycle, player ownership, core metrics, and shared Compose UI boundaries."}
+{"file":".trellis/tasks/archive/2026-06/06-11-hybrid-foundation/research/meta-hybrid.md","reason":"Records the established Meta Hybrid intent categories and official panel-to-immersive and immersive-to-Home-panel routing patterns."}

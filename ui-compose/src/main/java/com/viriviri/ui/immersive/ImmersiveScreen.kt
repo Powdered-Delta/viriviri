@@ -24,12 +24,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viriviri.core.model.SampleVideoCatalog
 import com.viriviri.core.model.VideoSummary
+import com.viriviri.core.state.SurfaceHandoffMetrics
 
 @Composable
 fun ImmersiveScreen(
     modifier: Modifier = Modifier,
     featuredVideo: VideoSummary = SampleVideoCatalog.videos.first(),
-    onReturnToPanel: () -> Unit = {},
+    metrics: SurfaceHandoffMetrics = SurfaceHandoffMetrics(),
+    videoTarget: @Composable (Modifier) -> Unit = {},
+    transitionMask: @Composable (Modifier) -> Unit = {},
+    onEnterPanel: () -> Unit = {},
 ) {
     MaterialTheme {
         Surface(
@@ -44,11 +48,21 @@ fun ImmersiveScreen(
             ) {
                 ImmersiveControls(
                     video = featuredVideo,
-                    onReturnToPanel = onReturnToPanel,
+                    metrics = metrics,
+                    onEnterPanel = onEnterPanel,
                     modifier = Modifier.weight(0.36f),
                 )
                 Spacer(modifier = Modifier.width(32.dp))
-                PlaceholderCinemaSurface(modifier = Modifier.weight(0.64f))
+                Box(
+                    modifier = Modifier
+                        .weight(0.64f)
+                        .fillMaxWidth()
+                        .height(420.dp)
+                        .background(Color.Black),
+                ) {
+                    videoTarget(Modifier.fillMaxSize())
+                    transitionMask(Modifier.fillMaxSize())
+                }
             }
         }
     }
@@ -57,7 +71,8 @@ fun ImmersiveScreen(
 @Composable
 private fun ImmersiveControls(
     video: VideoSummary,
-    onReturnToPanel: () -> Unit,
+    metrics: SurfaceHandoffMetrics,
+    onEnterPanel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -76,32 +91,28 @@ private fun ImmersiveControls(
             style = MaterialTheme.typography.titleLarge,
         )
         Text(
-            text = "This high-immersion layout is intentionally distinct from the 2D panel and is ready for a future Spatial SDK scene host.",
+            text = "Shared process player: prepare ${metrics.prepareCalls}, decoder ${metrics.videoDecoderInitializations}, handoffs ${metrics.surfaceHandoffs}",
             color = Color.White.copy(alpha = 0.72f),
             style = MaterialTheme.typography.bodyLarge,
         )
-        Button(onClick = onReturnToPanel) {
-            Text("Return to 2D panel")
+        Text(
+            text = "Policy: ${metrics.activePolicy.label}\n" +
+                "Position: ${metrics.playbackPositionMs / 1000}s\n" +
+                "Route: ${metrics.sourceTarget?.label ?: "--"} -> ${metrics.destinationTarget?.label ?: "--"}\n" +
+                "Surface ready: ${metrics.destinationSurfaceReady}, first frame: ${metrics.destinationFirstFrameReady}\n" +
+                "Attach: ${metrics.destinationSurfaceAttachedAfterMs.msLabel()}, first frame: ${metrics.destinationFirstFrameAfterMs.msLabel()}\n" +
+                "Handoff: ${metrics.lastHandoffDurationMs.msLabel()}, unseen playback: ${metrics.playingWithoutVisibleDestinationMs.msLabel()}\n" +
+                "Source: ${metrics.sourceFinishDisposition.label}, timed out: ${metrics.transitionTimedOut}",
+            color = Color.White.copy(alpha = 0.72f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Button(onClick = onEnterPanel) {
+            Text("Enter 2D Panel")
         }
     }
 }
 
-@Composable
-private fun PlaceholderCinemaSurface(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(420.dp)
-            .background(Color(0xFF121A2A)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "Spatial video surface placeholder",
-            color = Color.White.copy(alpha = 0.82f),
-            style = MaterialTheme.typography.titleLarge,
-        )
-    }
-}
+private fun Long?.msLabel(): String = this?.let { "${it}ms" } ?: "--"
 
 @Preview(widthDp = 1200, heightDp = 700)
 @Composable

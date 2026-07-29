@@ -41,4 +41,6 @@ dependencies {
     implementation(libs.meta.spatial.sdk.toolkit)
     implementation(libs.meta.spatial.sdk.vr)
     implementation(libs.meta.spatial.sdk.physics)
+
+    testImplementation(libs.junit)
 }
