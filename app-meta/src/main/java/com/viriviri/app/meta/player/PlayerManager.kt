@@ -47,7 +47,7 @@ class PlayerManager private constructor(context: Context) {
         if (hasLoadedMedia) return
 
         hasLoadedMedia = true
-        player.setMediaItem(MediaItem.fromUri(TEST_VIDEO_URL))
+        player.setMediaItem(MediaItem.fromUri(TEST_VIDEO_URI))
         metrics = metrics.copy(prepareCalls = metrics.prepareCalls + 1)
         player.prepare()
     }
@@ -89,8 +89,7 @@ class PlayerManager private constructor(context: Context) {
 
     companion object {
         private const val TAG = "ViriviriPlayerPoC"
-        private const val TEST_VIDEO_URL =
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        private const val TEST_VIDEO_URI = "asset:///poc/rick.mp4"
 
         @Volatile
         private var instance: PlayerManager? = null

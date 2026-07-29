@@ -1,7 +1,6 @@
 [versions]
-agp = "8.1.0"
+agp = "8.9.1"
 kotlin = "2.0.20"
-ksp = "2.0.20-1.0.24"
 composeBom = "2026.05.00"
 activityCompose = "1.13.0"
 androidxCore = "1.17.0"
@@ -21,7 +20,6 @@ meta-spatial-sdk = { module = "com.meta.spatial:meta-spatial-sdk", version.ref =
 meta-spatial-sdk-toolkit = { module = "com.meta.spatial:meta-spatial-sdk-toolkit", version.ref = "metaSpatialSdk" }
 meta-spatial-sdk-vr = { module = "com.meta.spatial:meta-spatial-sdk-vr", version.ref = "metaSpatialSdk" }
 meta-spatial-sdk-physics = { module = "com.meta.spatial:meta-spatial-sdk-physics", version.ref = "metaSpatialSdk" }
-meta-spatial-plugin-processor = { module = "com.meta.spatial.plugin:com.meta.spatial.plugin.gradle.plugin", version.ref = "metaSpatialSdk" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 
 [plugins]
@@ -30,5 +28,4 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 meta-spatial = { id = "com.meta.spatial.plugin", version.ref = "metaSpatialSdk" }

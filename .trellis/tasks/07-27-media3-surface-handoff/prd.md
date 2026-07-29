@@ -9,7 +9,8 @@ loading media again or recreating the player.
 ## Requirements
 
 * Keep exactly one ExoPlayer instance in the Meta application layer.
-* Load and prepare one public test video once when the PanelActivity starts.
+* Load and prepare the bundled `poc/rick.mp4` test video once when the
+  PanelActivity starts.
 * Switch the output Surface when the user changes between compact and cinema
   layouts.
 * Avoid clearing a newer Surface when a disposed TextureView reports its late
@@ -24,7 +25,9 @@ loading media again or recreating the player.
 * [x] Repeated layout changes do not call `setMediaItem` or `prepare` again.
 * [x] The player position is sampled continuously through a Surface handoff.
 * [x] Metrics expose video decoder initialization count for device verification.
-* [x] The Kotlin sources compile when existing build-gate failures are skipped.
+* [x] The debug APK assembles through the committed Gradle Wrapper.
+* [x] Quest device validation confirms continuous audio/video output across
+  repeated handoffs without an observed reload or decoder restart.
 
 ## Out of Scope
 
@@ -47,7 +50,6 @@ renders metrics emitted from the player manager.
 * The Surface handoff validates Android Surface-to-Surface transfer only; it
   does not prove a future Spatial/OpenXR renderer can expose a MediaCodec
   compatible Surface.
-* Full APK assembly remains blocked by pre-existing build configuration:
-  AGP 8.5/compileSdk 35 are incompatible with the declared AndroidX versions,
-  and the Meta KSP processor reports no provider. This PoC does not alter that
-  separate dependency-upgrade scope.
+* An occasional short white frame is visible during device Surface transfer.
+  Future cinema/window transition animation should hide this compositor-level
+  artifact; it is not a player reload.
