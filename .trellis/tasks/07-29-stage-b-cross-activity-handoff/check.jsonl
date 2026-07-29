@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Provides the frontend quality context and points reviewers to the project-specific handoff contract."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review must verify prepare, decoder, Surface identity, release, and delayed-callback invariants across Activity transitions."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review must ensure platform routing and Activity types do not leak into shared Compose UI."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review must trace the complete route request to Surface attach to first frame to source teardown data flow."}
+{"file":".trellis/tasks/archive/2026-06/06-11-hybrid-foundation/research/meta-hybrid.md","reason":"Review must retain the official Horizon OS system-panel and VR Activity intent behavior while changing teardown timing."}

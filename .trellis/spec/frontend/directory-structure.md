@@ -6,70 +6,72 @@
 
 ## Overview
 
-viriviri's user interface is organized as a shared Jetpack Compose module that
-can be hosted by vendor-specific spatial app modules. UI code must not import
-Meta Spatial SDK or future PICO Spatial SDK APIs directly.
+ViriViri currently uses one Quest-focused Android application module. Compose UI
+is grouped by feature under the app package; Spatial SDK registration and Surface
+ownership remain in the immersive Activity and must not leak into reusable UI
+composables.
 
 ---
 
 ## Directory Layout
 
 ```
-ui-compose/
-└── src/main/java/com/viriviri/ui/
-    ├── browse/      # Low-immersion 2D panel UI
-    └── immersive/   # High-immersion panel/control UI
+app/src/main/java/com/m0e_n00b/viriviri/
+├── RecommendationUi.kt          # Shared Compose browse/viewer content
+├── ViriViriAppState.kt          # Application-scoped session state
+├── BilibiliPlaybackProvider.kt   # Platform protocol adapter
+├── PancakeActivity.kt            # Horizon OS 2D host
+└── SpatialVideoSampleActivity.kt # Immersive Spatial SDK host
 ```
 
 ---
 
 ## Module Organization
 
-### Convention: Shared Compose module
+### Convention: Shared composables with host callbacks
 
-**What**: Shared screens live in `:ui-compose`. Platform modules such as
-`:app-meta` host these composables but do not own reusable UI state or layout
-logic.
+**What**: Compose functions receive `ViriViriUiState` and callbacks/state
+actions. `PancakeActivity` and embedded panel Activities host the same content
+without giving UI direct ownership of Activity routing or output Surfaces.
 
-**Why**: This keeps Quest-first UI reusable when a future `:app-pico` platform
-module is added.
+**Why**: This preserves a future extraction path without adding Gradle modules
+before they are needed.
 
 **Good case**:
 
 ```kotlin
-// app-meta hosts shared UI.
 setContent {
-    BrowseScreen(onEnterImmersive = ::launchImmersive)
+    RecommendationContent(state, appState, showPlayer = true)
 }
 ```
 
 **Bad case**:
 
 ```kotlin
-// Do not import Meta/PICO SDK classes in ui-compose.
 @Composable
 fun BrowseScreen(metaSpatialObject: MetaSpatialObject) = Unit
 ```
 
 ### Boundary Contract
 
-| Module | May depend on | Must not depend on |
+| Area | May depend on | Must not depend on |
 | --- | --- | --- |
-| `:ui-compose` | `:core`, AndroidX Compose | Meta Spatial SDK, PICO Spatial SDK |
-| `:app-meta` | `:core`, `:ui-compose`, Meta Spatial SDK | PICO Spatial SDK |
+| `RecommendationUi.kt` | AndroidX Compose, app state | Meta Spatial SDK entities, `Surface`, Activity routing |
+| `PancakeActivity.kt` | Compose, Android Activity APIs | Immersive panel construction |
+| `SpatialVideoSampleActivity.kt` | Meta Spatial SDK, application state | A second ExoPlayer or protocol parsing |
 
 ---
 
 ## Naming Conventions
 
-* Low-immersion panel UI belongs under `com.viriviri.ui.browse`.
-* High-immersion UI belongs under `com.viriviri.ui.immersive`.
-* Entry composables should be named by surface, such as `BrowseScreen` and
-  `ImmersiveScreen`.
+* Shared UI names describe content, such as `RecommendationContent` and
+  `PlayerOutput`.
+* Android hosts retain Activity suffixes; protocol adapters retain platform
+  names, such as `BilibiliPlaybackProvider`.
 
 ---
 
 ## Examples
 
-* `ui-compose/src/main/java/com/viriviri/ui/browse/BrowseScreen.kt`
-* `ui-compose/src/main/java/com/viriviri/ui/immersive/ImmersiveScreen.kt`
+* `app/src/main/java/com/m0e_n00b/viriviri/RecommendationUi.kt`
+* `app/src/main/java/com/m0e_n00b/viriviri/PancakeActivity.kt`

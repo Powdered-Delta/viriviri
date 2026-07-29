@@ -23,6 +23,7 @@ These guides help you **ask the right questions before coding**.
 |-------|---------|-------------|
 | [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | Identify patterns and reduce duplication | When you notice repeated patterns |
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
+| [OpenCode Provider Management](./opencode-provider-management.md) | Manage LLM providers, credentials, and config | When configuring OpenCode providers or troubleshooting connectivity |
 
 ---
 
@@ -46,6 +47,16 @@ These guides help you **ask the right questions before coding**.
 - [ ] **You're creating a new utility/helper function** ← Search first!
 
 → Read [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md)
+
+### When to Configure OpenCode Providers
+
+- [ ] Adding a new LLM provider (Anthropic, OpenAI, custom, etc.)
+- [ ] Updating API keys or credentials
+- [ ] Troubleshooting "provider not found" or "API key invalid" errors
+- [ ] Configuring proxy or custom endpoints
+- [ ] Blacklisting/whitelisting specific models
+
+→ Read [OpenCode Provider Management](./opencode-provider-management.md)
 
 ---
 
