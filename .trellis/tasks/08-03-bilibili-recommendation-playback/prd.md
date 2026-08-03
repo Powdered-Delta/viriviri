@@ -9,7 +9,7 @@ mode transition.
 
 ## What I Already Know
 
-- The active application is `spatial-video/app` on branch `main/spatial-video`.
+- The active application is `app` on branch `main`.
 - `SpatialVideoSampleActivity` remains the VR Launcher and owns the existing
   Horizon OS Home plus `PendingIntent` route to `PancakeActivity`.
 - `PancakeActivity` is currently a static XML screen with its return-to-
@@ -82,9 +82,9 @@ state is the only progress persistence for this phase.
 ## Technical Notes
 
 - Existing immersive routing and return recentering:
-  `spatial-video/app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt`.
+  `app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt`.
 - Existing 2D host:
-  `spatial-video/app/src/main/java/com/m0e_n00b/viriviri/PancakeActivity.kt`.
+  `app/src/main/java/com/m0e_n00b/viriviri/PancakeActivity.kt`.
 - Bilibili recommendation handoff:
   `temp/handoff-bilibili-recommendations.md`.
 - Reference API organization only:
