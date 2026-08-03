@@ -23,3 +23,5 @@ Version: 0.1.0
 - This checkout uses `compileSdk = 36` because the local Android SDK installation lacks a usable Platform 34 package.
 - Meta Spatial Editor CLI is not installed locally. The optional `Composition.glxf` environment is therefore allowed to fail to load without preventing video playback.
 - Repeated 2D and immersive transitions can intermittently expose Horizon OS/OpenXR compositor behavior such as long black screens. Treat those as runtime investigations rather than application-level video handoff failures.
+
+详细的设备验证记录、已知运行时问题与重定位验收步骤见 [Quest 运行时记录](docs/quest-runtime-notes.md)。
