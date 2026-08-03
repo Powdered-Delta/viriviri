@@ -2,7 +2,7 @@
 
 ## 范围与基线
 
-- 当前主线分支：`main/spatial-video`
+- 当前主线分支：`main`
 - 应用名称：`ViriViri`
 - 包名：`com.m0e_n00b.viriviri`
 - 上游：Meta Spatial SDK Samples 的 `SpatialVideoSample`
@@ -11,7 +11,7 @@
 - 设备：Quest 2，序列号 `1WMHHB63832104`
 - 系统：Horizon OS / Android 14，build `UP1A.231005.007.A1`
 
-旧实现 `com.viriviri.app` 保留在 `master`，只作为技术储备和运行时问题的对照，不再是当前主线。
+旧实现 `com.viriviri.app` 保留在 `archive/legacy-android`，只作为技术储备和运行时问题的对照，不再是当前主线。
 
 ## 本机构建适配
 
@@ -33,7 +33,6 @@ Unable to load optional environment scene
 构建命令：
 
 ```powershell
-cd spatial-video
 .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export
 ```
 

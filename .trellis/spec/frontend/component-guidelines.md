@@ -6,9 +6,9 @@
 
 ## Overview
 
-Compose UI components are shared between low-immersion and high-immersion
-surfaces. They receive platform actions as callbacks and receive domain data
-from `:core` models.
+Compose UI components are shared between the Horizon OS 2D host and embedded
+immersive panel Activities. They receive state and actions from
+`ViriViriAppState` rather than owning routing, protocol calls, or media output.
 
 ---
 
@@ -47,7 +47,8 @@ has a different layout and later a custom spatial scene.
 
 ## Props Conventions
 
-* Prefer immutable Kotlin data classes from `:core`.
+* Prefer immutable Kotlin data classes such as `Recommendation` and
+  `ViriViriUiState`.
 * Prefer explicit callbacks over passing Activity, Context, or SDK objects.
 * Keep default preview/sample data in clearly named placeholders until real
   Bilibili data exists.
@@ -56,8 +57,9 @@ has a different layout and later a custom spatial scene.
 
 ## Styling Patterns
 
-Use Material 3 for initial scaffolding. Spatial-specific materials, panels, or
-scene integration belong in platform modules, not in `:ui-compose`.
+Use the project's existing Compose Material dependency consistently. Spatial
+panel registration, materials, and scene integration belong in
+`SpatialVideoSampleActivity`, not in shared composables.
 
 ---
 
@@ -72,10 +74,11 @@ typography and avoid fixed assumptions about physical panel size.
 
 ### Common Mistake: importing platform SDKs into shared UI
 
-**Symptom**: A future PICO app cannot reuse the UI module.
+**Symptom**: A Compose screen cannot be hosted outside the current Spatial
+Activity or creates a second video output.
 
 **Cause**: Shared composables directly depend on Meta Spatial SDK, Activity
-classes, or PICO SDK types.
+classes, protocol adapters, or `Surface` ownership.
 
-**Fix**: Move platform behavior to `:app-meta` or a future `:app-pico`, then
-pass neutral callbacks and state into shared composables.
+**Fix**: Keep platform behavior in the Activity or `PlayerSession`, then pass
+neutral state and callbacks into shared composables.

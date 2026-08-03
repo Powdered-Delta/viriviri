@@ -41,3 +41,6 @@ Desktop.ini
 
 # Keep wrapper jar if a Gradle wrapper is added later.
 !gradle/wrapper/gradle-wrapper.jar
+
+# Meta Spatial Editor local state
+app/scenes/Main.localsettings

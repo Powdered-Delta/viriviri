@@ -7,7 +7,7 @@
 Use this runbook when a Meta Horizon OS VR-category Activity enters an immersive
 session but a programmatically created Spatial SDK video panel is missing,
 back-facing, cropped, or loses the expected player Surface. It applies to the
-Quest 2 validation path in `:app-meta`.
+Quest 2 validation path in `:app`.
 
 Do not use a normal Android `ComposeView`, `AndroidView`, or `TextureView` as
 the immersive output target. A VR-category Activity can enter the Horizon OS
@@ -158,8 +158,8 @@ one.
 * Unit test player and handoff state independently: one media load, stale
   Surface detach safety, and first-frame completion only after verified Surface
   attachment.
-* Build test: `./gradlew.bat :app-meta:testDebugUnitTest --no-build-cache`.
-* Package test: `./gradlew.bat :app-meta:assembleDebug --no-build-cache`.
+* Build test: `./gradlew.bat :app:testDebugUnitTest --no-build-cache`.
+* Package test: `./gradlew.bat :app:assembleDebug --no-build-cache`.
 * Quest device test, launched from the headset library:
    * verify a full-frame, correctly facing direct video panel;
    * verify the opaque control panel is legible above the video and `Enter 2D

@@ -1,68 +1,69 @@
 # Directory Structure
 
-> How backend code is organized in this project.
+> How domain and provider code is organized in this project.
 
 ---
 
 ## Overview
 
-The `:core` module owns platform-neutral business, data, network, repository,
-and playback state contracts. It is the reusable foundation for Quest-first
-Meta Spatial SDK and future PICO Spatial SDK app modules.
+The current `:app` module contains the domain, provider, playback state, UI,
+and Meta Spatial SDK host while the project remains a single-module Quest MVP.
+Package/file boundaries preserve a future extraction path without maintaining a
+second unused Gradle architecture.
 
 ---
 
 ## Directory Layout
 
 ```
-core/
-└── src/main/java/com/viriviri/core/
-    ├── model/       # Domain models such as VideoSummary and ImmersionState
-    ├── network/     # Bilibili API contracts, no platform UI/runtime code
-    ├── repository/  # Data access interfaces and placeholder implementations
-    └── state/       # Playback and surface state models
+app/src/main/java/com/m0e_n00b/viriviri/
+├── BilibiliPlaybackProvider.kt  # Bilibili protocol, DTO parsing, DASH source
+├── ViriViriAppState.kt          # Recommendation and playback session state
+├── RecommendationUi.kt          # Shared Compose rendering
+└── *Activity.kt                 # 2D and immersive platform hosts
 ```
 
 ---
 
 ## Module Organization
 
-### Convention: Core has no spatial SDK dependencies
+### Convention: Protocol boundary stays out of UI
 
-**What**: `:core` must not import Meta Spatial SDK, PICO Spatial SDK, Android UI,
-Jetpack Compose, Activity, or View types.
+**What**: `BilibiliPlaybackProvider` owns API URLs, WBI signing, JSON parsing,
+and DASH source construction. UI and Activities consume `Recommendation`,
+`MediaSource`, and application state instead of Bilibili DTOs.
 
-**Why**: The same Bilibili data flow must be reusable across Meta and PICO
-platform app modules.
+**Why**: A future platform adapter can replace provider behavior without
+rewriting recommendation state or UI.
 
 ### Boundary Contract
 
-| Module | Responsibility | Forbidden imports |
+| Area | Responsibility | Forbidden dependencies |
 | --- | --- | --- |
-| `:core` | Domain models, repository contracts, network contracts, playback state | Meta Spatial SDK, PICO Spatial SDK, Compose UI, Activity |
-| `:ui-compose` | Shared UI rendering | Meta Spatial SDK, PICO Spatial SDK |
-| `:app-meta` | Meta Hybrid manifest, Activities, Spatial SDK, transitions | PICO Spatial SDK |
+| `BilibiliPlaybackProvider` | Bilibili protocol and source resolution | Activity, panel, Compose UI |
+| `ViriViriAppState` | Shared recommendation and player session | Bilibili JSON fields or endpoint strings |
+| UI and Activities | Render state and route between hosts | Bilibili protocol parsing |
 
 ### Good/Base/Bad Cases
 
-* Good: `VideoRepository` returns `VideoSummary` and knows nothing about the
-  panel or immersive host.
-* Base: placeholder repository data is acceptable before real Bilibili APIs are
-  implemented.
-* Bad: `VideoRepository` starts an Activity or reads Horizon OS panel state.
+* Good: the provider returns `Recommendation` or `MediaSource` and knows nothing
+  about the panel or immersive host.
+* Base: placeholder provider data is acceptable when a platform adapter is not
+  ready.
+* Bad: a provider starts an Activity or reads Horizon OS panel state.
 
 ---
 
 ## Naming Conventions
 
-* Domain data classes use neutral names: `VideoSummary`, `VideoDetail`,
-  `ImmersionState`, `PlaybackSurfaceState`.
-* Platform-specific classes must include the platform in their module or package
-  path, such as `com.viriviri.app.meta`.
+* Domain data classes use neutral names such as `Recommendation` and
+  `ViriViriUiState`.
+* Provider classes include their platform name, such as
+  `BilibiliPlaybackProvider`.
 
 ---
 
 ## Examples
 
-* `core/src/main/java/com/viriviri/core/model/VideoModels.kt`
-* `core/src/main/java/com/viriviri/core/repository/VideoRepository.kt`
+* `app/src/main/java/com/m0e_n00b/viriviri/BilibiliPlaybackProvider.kt`
+* `app/src/main/java/com/m0e_n00b/viriviri/ViriViriAppState.kt`
