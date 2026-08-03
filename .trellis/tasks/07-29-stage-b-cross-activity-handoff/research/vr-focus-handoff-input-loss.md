@@ -149,3 +149,133 @@ adb shell dumpsys input > temp\viriviri-controller-focus-input.txt
 ```
 
 问题记录和后续 GitHub message 默认使用中文；系统组件名、日志原文、类名、方法名和命令保持原样。
+
+## 已知缺陷：OpenXR compositor 首次启动卡帧
+
+### 状态
+
+- 问题类型：Horizon OS / OpenXR runtime / PhaseSync / compositor 帧提交失败
+- 首次确认：2026-08-03，使用 Meta Spatial SDK `0.13.2` 复现
+- 设备：Quest 2，设备序列号 `1WMHHB63832104`
+- 系统：Horizon OS / Android 14，build `UP1A.231005.007.A1`
+- 应用：`com.viriviri.app`
+- 构建基线：Gradle `8.13`、AGP `8.11.1`、Kotlin `2.2.0`
+- 当前结论：首次启动即可出现，与 2D/沉浸 Activity handoff 无关；播放器和 Android Surface 继续工作，但 OpenXR compositor 停止提交新的 XR frame
+
+### 用户可见现象
+
+首次从 Quest 应用库启动应用时，可能出现以下状态：
+
+- 视频仍然流畅播放
+- 沉浸式按钮和控制器输入仍可工作
+- 画面保留一张卡住的沉浸渲染帧
+- 该帧呈半透明状态，可以透过它看到视频和按钮
+- 卡住帧周围的空间变黑，不再显示正常的全景/环境内容
+
+这不是普通的全景环境加载动画，也不是应用主动绘制的半透明遮罩。它是 compositor 保留最后一张已提交的 XR 帧，而后续 XR layer 不再提交的结果。
+
+### 关键日志证据
+
+证据文件：
+
+```text
+temp/viriviri-sdk-0132-hung-all.log
+temp/viriviri-sdk-0132-hung-surfaceflinger.txt
+temp/viriviri-sdk-0132-hung-activity.txt
+temp/viriviri-sdk-0132-hung-window.txt
+```
+
+代表性 OpenXR 错误：
+
+```text
+RuntimeTelemetryThread: [OpenXR] xrBeginFrame timed out waiting for begin frame event
+HorizonStandalone: XR_ERROR_RUNTIME_FAILURE
+HorizonStandalone: beginFrame FAILED
+VrRuntimeClient: Client has lost focus.
+HorizonStandalone: Session end
+OpenXR_SessionImpl: xrEndSession
+```
+
+代表性 SurfaceFlinger 状态：
+
+```text
+XrLayerInfos (count = 0)
+vr_compositor_3664x1920 haveBuffer=true
+vr_compositor_protected_3664x1920 haveBuffer=false
+vr_compositor_with_depth_test_3664x1920 haveBuffer=false
+```
+
+这表示普通 `vr_compositor` 仍保留最后一个 buffer，但 runtime 已经没有新的 `XrLayerInfos` 提交。应用窗口本身仍然可见并 ready，播放器线程和 MediaCodec 线程也仍然运行。
+
+### 应用侧排除项
+
+当前证据不支持以下根因：
+
+- Media3/ExoPlayer 播放器故障
+- MediaCodec 解码器故障
+- TextureView 或视频 Surface handoff 失败
+- `ImmersiveActivity` 主线程崩溃
+- Android Activity 主题设置了半透明窗口
+- 2D/沉浸 Activity 路由专属竞态
+
+`ImmersiveActivity` 的 Android theme 只设置了 `windowNoTitle`，没有设置 `windowIsTranslucent`、`windowAlpha` 或半透明 `windowBackground`。
+
+### 生命周期对照
+
+在部分复现日志中，Spatial 应用生命周期已经完整推进到：
+
+```text
+nativeOnActivityReady
+XR_SESSION_STATE_IDLE -> XR_SESSION_STATE_READY
+XR_SESSION_STATE_READY -> XR_SESSION_STATE_SYNCHRONIZED
+XR_SESSION_STATE_SYNCHRONIZED -> XR_SESSION_STATE_VISIBLE
+XR_SESSION_STATE_VISIBLE -> XR_SESSION_STATE_FOCUSED
+Spatial panel first rendered frame
+```
+
+但即使完成上述生命周期，仍可能随后发生 `xrBeginFrame` PhaseSync timeout，并结束 XR session。因此 `onVRReady()`、视频 Surface callback 和 Media3 首帧不能证明系统 compositor 会持续提交帧。
+
+### 当前处理边界
+
+应用层没有公开 API 可以：
+
+- 重新启动 Horizon OS 的 PhaseSync
+- 强制恢复已经结束的 OpenXR session
+- 清除 `vr_compositor` 的 stale frame
+- 强制系统 compositor 重新提交 XR frame
+- 绕过系统对 XR focus 的管理
+
+应用层可做的只是故障检测和降级：
+
+1. 通过 session 状态、首帧超时和渲染 heartbeat 识别 XR session 失效。
+2. 保留播放器和播放位置。
+3. 销毁当前 `ImmersiveActivity` 和 Spatial session。
+4. 退回 2D Panel。
+5. 延迟后允许用户重试创建新的 `ImmersiveActivity`。
+6. 连续失败时保持 2D 模式，并记录诊断信息。
+
+这些措施只能改善用户体验，不能修复 Horizon OS runtime 本身的帧同步故障。
+
+### 归因验证计划
+
+保持 Horizon OS 版本不变，分别对比：
+
+1. Meta Spatial SDK `0.13.2` 的首次启动。
+2. Meta Spatial SDK `0.13.0` 的首次启动。
+3. Meta 官方 `SpatialVideoSample` 或最小空 Spatial 场景的首次启动。
+
+判断标准：
+
+- `0.13.0` 和 `0.13.2` 都失败：优先归因 Horizon OS / OpenXR runtime。
+- 只有 `0.13.2` 失败：检查 SDK `0.13.2` 兼容性或回归。
+- 官方样例也失败：基本确认是 Horizon OS / OpenXR runtime。
+- 只有 `viriviri` 失败：继续检查应用的 Spatial bootstrap、Manifest 或生命周期。
+
+建议向 Meta 报告时附带：
+
+```text
+xrBeginFrame timed out waiting for begin frame event
+XR_ERROR_RUNTIME_FAILURE
+Client has lost focus
+XrLayerInfos (count = 0)
+```
