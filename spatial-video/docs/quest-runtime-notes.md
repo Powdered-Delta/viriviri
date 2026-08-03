@@ -59,7 +59,15 @@ SpatialVideoSampleActivity
 -> PancakeActivity
 ```
 
-`PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。当前 2D Activity 只显示窗口内容，不接管视频播放器、解码器或播放位置。
+`PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。
+
+## Bilibili 推荐与播放
+
+- 默认沉浸式 selector panel 显示 Bilibili 推荐；2D 和沉浸式 UI 共用 application-scoped recommendation state，因此列表、所选条目和浏览/观看目的地在路由后保持一致。
+- 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
+- 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
+- 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。
+- 尚未完成 Quest 人工验证。本次代码验证应使用 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export`；需要从头显应用库验证推荐、选择、返回列表及 immersive/2D 循环时仅存在一个输出 Surface。
 
 新包已验证可与旧包同时安装：
 
@@ -115,35 +123,48 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
 .trellis/tasks/07-29-stage-b-cross-activity-handoff/research/vr-focus-handoff-input-loss.md
 ```
 
-## 已知问题：返回沉浸时的 reference-space 重定位
+## 返回沉浸时的 reference-space 行为
 
 ### 用户可见现象
 
 从 2D 窗口返回 immersive 时，用户可能先看到面板保留在离开时的位置，随后面板突然按当前注视方向重新对齐。该表现来自 Horizon OS 返回 immersive 后更新 `LOCAL_FLOOR` / viewer reference space，而非视频播放器或 2D 视频接管。
 
-### 当前原型
+### 当前策略
 
-当前代码已实现以下策略，尚待头显人工验收：
+不再根据离开与返回时的 `LOCAL_FLOOR` viewer yaw 自动移动 panel。Horizon OS 的
+2D 窗口布局与长按重置可能同时改变该 reference space；应用无法可靠区分这类系统
+偏移和用户实际转头。此前的自动补偿会把两者叠加，导致偶发性偏航和不稳定布局。
 
-1. 打开 2D 窗口前，保存 viewer pose 与视频、视频列表、`Video Mode` 三个顶层 panel 的 pose。
-2. 返回 immersive 且收到 `SessionState.FOCUSED` 后，等待 `120ms` 让 reference space 稳定。
-3. 计算离开与返回时 viewer 的水平 yaw 差。
-4. 小于 `15` 度时不做任何视觉操作。
-5. 大于等于 `15` 度时，三个顶层 panel 在 `160ms` 内用 ease-out 同步移动到新的 head-relative pose。
-6. 控制条与 MR 按钮是现有父 panel 的子节点，随父 panel 自动移动。
-
-该策略不使用淡入淡出。目标是让轻微转头时保持视觉连续，明显转身时以快速连续位移替代“旧位置帧 -> 新位置”的闪跳。
+返回 immersive 时保持现有 panel Transform。视频、推荐列表和 `Video Mode` panel
+继续作为固定的顶层布局；控制条和 MR 按钮仍是父 panel 子节点。若系统层重置后布局
+不适合当前视角，用户可通过现有抓取能力手动放置 panel。
 
 ### 验收步骤
 
 1. 启动沉浸式应用并进入 2D 窗口。
-2. 轻微转头，小于约 `15` 度，返回 immersive：panel 不应移动或闪烁。
-3. 在 2D 窗口中水平转身超过约 `15` 度，返回 immersive：视频、视频列表和 `Video Mode` panel 应同步、快速平滑移动。
+2. 在 2D 中转头或长按重置视野后返回 immersive：应用不得额外旋转、移动或缩放 panel。
+3. 检查视频、视频列表、`Video Mode` panel 的相对布局保持固定。
 4. 检查控制条与 MR 按钮仍跟随其父 panel，且不出现独立漂移。
 
 ## 当前边界
 
-- 2D Activity 尚未接管视频播放。
+- 无登录播放修复：`/x/web-interface/nav` 会以 `code=-101` 表示匿名状态，但仍在
+  `data.wbi_img` 返回播放请求所需的公开 WBI key；provider 必须读取该字段而不是将
+  该响应当作登录失败。未增加 Cookie、SESSDATA 或其它凭证。
+- 返回沉浸策略：不再做自动 yaw 重定位。`LOCAL_FLOOR` 的返回 pose 受到 Horizon OS
+  2D 窗口与系统长按重置共同影响，不能作为可靠的应用层布局校正基准。
+- 输出切换修复：同一个 Media3 player 切换 Surface 时不能再显式 `seekTo` 已记录的
+  position。DASH seek 会回退到此前关键帧或分段开头；保持播放器自然推进、只替换
+  输出 Surface，避免切换后重复播放当前片段。
+- MR 布局修复：`setMrMode()` 只切换 passthrough 环境、抓取能力和 locomotion，不能
+  重写视频或控制 panel 的 pose / scale。三块顶层 panel 及控制条使用同一套初始
+  相对布局，避免透视和非透视模式间的尺寸、位置和转向基准漂移。
+- MR reference-space 修复：`setMrMode()` 不得调用 `scene.setViewOrigin()`。该调用会
+  在透视模式切换时重置或叠加当前空间基准；view origin 只在 `onSceneReady()` 初始化。
+- 2026-08-03：debug APK 已通过 ADB 安装到 Quest 2。ADB 启动请求已路由至
+  `SpatialVideoSampleActivity`，但设备当时显示系统 reprojected OS dialog，
+  Horizon OS 缓存并阻止启动；因此本次不构成应用启动或交互验收。
+- Quest 设备尚未人工验收 2D 接管同一播放会话的实际 Surface 切换。
 - 2D/immersive handoff 黑屏尚无应用层根治方案。
 - 若系统结束 OpenXR session，应用不能强制重启 Horizon OS PhaseSync、恢复 runtime focus 或清理 stale compositor frame。
 - reference-space 重定位策略仅保持面板相对于返回时用户姿态的连续性；它不是跨 session 的持久世界锚定方案。

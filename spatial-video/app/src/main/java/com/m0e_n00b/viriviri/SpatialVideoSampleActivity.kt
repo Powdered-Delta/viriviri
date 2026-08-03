@@ -19,7 +19,6 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -114,7 +113,8 @@ fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - star
 // default activity
 class SpatialVideoSampleActivity : AppSystemActivity() {
 
-  lateinit var player: ExoPlayer
+  val player: ExoPlayer
+    get() = ViriViriApplication.appState.playerSession.player
   lateinit var controllerView: View
   lateinit var controlsFadeOutTimer: CountDownTimer
   lateinit var audio: SceneAudioAsset
@@ -139,11 +139,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private var gltfxEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
-  private val recenterHandler = Handler(Looper.getMainLooper())
-  private var savedHeadPose: Pose? = null
-  private var savedPanelPoses: Map<Int, Pose> = emptyMap()
-  private var pendingReturnRecenter = false
-  private var recenterRunnable: Runnable? = null
 
   override fun registerFeatures(): List<SpatialFeature> {
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -165,12 +160,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     appContext = spatialContext
 
     panner.putChannelMixingMatrix(ChannelMixingMatrix.create(2, 2))
-
-    val audioProcessors: Array<BaseAudioProcessor> = arrayOf(panner)
-
-    val audioSink = DefaultAudioSink.Builder().setAudioProcessors(audioProcessors).build()
-
-    player = ExoPlayer.Builder(this, CustomRenderersFactory(this, audioSink)).build()
 
     audio = SceneAudioAsset.loadLocalFile("data/common/audio/ui_press_direct.ogg")
 
@@ -323,6 +312,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           .setComponents(
               listOf(
                   Panel(R.id.controls_id),
+                  Transform(Pose(Vector3(0.0f, -0.6f, -0.15f), Quaternion(20f, 0f, 0f))),
                   TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
@@ -369,7 +359,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val settings = MediaPanelSettings(
         shape = QuadShapeOptions(width = MR_SCREEN_WIDTH, height = MR_SCREEN_HEIGHT),
         display = PixelDisplayOptions(width = 3840, height = 1080),
-        rendering = MediaPanelRenderOptions(stereoMode = StereoMode.LeftRight),
+        rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None),
     )
     val panelSceneObject = PanelSceneObject(
         scene,
@@ -602,9 +592,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               }
           )
 
-          // Default media
-          Movie.fromRawVideo("doggie", "Doggie")?.let { movie -> setVideo(movie.uri) }
-
           val handler = Handler(Looper.getMainLooper())
           handler.postDelayed(
               object : Runnable {
@@ -619,7 +606,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           )
         }
 
-    player.setVideoSurface(panelSceneObject.getSurface())
+    ViriViriApplication.appState.playerSession.attachImmersiveSurface(panelSceneObject.surface)
 
     systemManager
         .findSystem<SceneObjectSystem>()
@@ -698,10 +685,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           playPauseButtonLocal.setOnClickListener { togglePlay() }
           setupHoverAndTouchListeners(playPauseButtonLocal)
           val backButton = rootView.findViewById<Button>(R.id.back_button)!!
-          backButton.setOnClickListener { setUri?.let { MoviePanel.viewModel.previousVideo(it) } }
+          backButton.setOnClickListener { ViriViriApplication.appState.selectAdjacentRecommendation(-1) }
           setupHoverAndTouchListeners(backButton)
           val forwardButton = rootView.findViewById<Button>(R.id.forward_button)!!
-          forwardButton.setOnClickListener { setUri?.let { MoviePanel.viewModel.nextVideo(it) } }
+          forwardButton.setOnClickListener { ViriViriApplication.appState.selectAdjacentRecommendation(1) }
           setupHoverAndTouchListeners(forwardButton)
           controllerView = rootView
           setupHoverAndTouchListeners(controllerView)
@@ -723,9 +710,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         },
         panelSetupWithRootView = { rootView, _, _ ->
           rootView.findViewById<Button>(R.id.open_2d_button).setOnClickListener {
-            if (isPlaying) {
-              pauseVideo()
-            }
+            ViriViriApplication.appState.playerSession.beginOutputHandoff()
             launchPanelModeInHome()
           }
           setupHoverAndTouchListeners(rootView)
@@ -734,7 +719,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun launchPanelModeInHome() {
-    savePanelPosesBefore2dLaunch()
     val panelIntent =
         Intent(applicationContext, PancakeActivity::class.java).apply {
           action = Intent.ACTION_MAIN
@@ -755,98 +739,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     )
   }
 
-  override fun onSessionStateChanged(state: SessionState) {
-    super.onSessionStateChanged(state)
-    if (state == SessionState.FOCUSED && pendingReturnRecenter) {
-      recenterHandler.postDelayed({ animatePanelReturnIfNeeded() }, RETURN_RECENTER_STABILIZE_MS)
-    }
-  }
-
-  private fun savePanelPosesBefore2dLaunch() {
-    val headPose = scene.getViewerPose()
-    if (headPose == Pose()) return
-
-    val panelPoses = mutableMapOf<Int, Pose>()
-    PANEL_IDS.forEach { id ->
-      Entity(id).tryGetComponent<Transform>()?.transform?.let { panelPoses[id] = it }
-    }
-    if (panelPoses.isEmpty()) return
-
-    savedHeadPose = headPose
-    savedPanelPoses = panelPoses
-    pendingReturnRecenter = true
-  }
-
-  private fun animatePanelReturnIfNeeded() {
-    val departureHeadPose = savedHeadPose ?: return clearReturnRecenter()
-    val currentHeadPose = scene.getViewerPose()
-    if (currentHeadPose == Pose()) return
-
-    val yawDelta = normalizeYawDegrees(yawDegrees(currentHeadPose) - yawDegrees(departureHeadPose))
-    if (kotlin.math.abs(yawDelta) < RETURN_RECENTER_THRESHOLD_DEGREES) {
-      clearReturnRecenter()
-      return
-    }
-
-    val targets =
-        savedPanelPoses.mapNotNull { (id, departurePanelPose) ->
-          Entity(id).tryGetComponent<Transform>()?.transform?.let { currentPanelPose ->
-            id to PanelPoseTransition(currentPanelPose, rotatePanelPose(departurePanelPose, departureHeadPose, currentHeadPose, yawDelta))
-          }
-        }.toMap()
-    if (targets.isEmpty()) return clearReturnRecenter()
-
-    val startTime = SystemClock.uptimeMillis()
-    recenterRunnable?.let(recenterHandler::removeCallbacks)
-    recenterRunnable =
-        object : Runnable {
-          override fun run() {
-            val progress = ((SystemClock.uptimeMillis() - startTime).toFloat() / RETURN_RECENTER_DURATION_MS)
-                .coerceIn(0f, 1f)
-            val easedProgress = 1f - (1f - progress) * (1f - progress)
-            targets.forEach { (id, transition) ->
-              Entity(id).setComponent(Transform(interpolatePose(transition.start, transition.target, easedProgress)))
-            }
-            if (progress < 1f) {
-              recenterHandler.postDelayed(this, RETURN_RECENTER_FRAME_MS)
-            } else {
-              clearReturnRecenter()
-            }
-          }
-        }
-    recenterHandler.post(recenterRunnable!!)
-  }
-
-  private fun rotatePanelPose(
-      panelPose: Pose,
-      departureHeadPose: Pose,
-      currentHeadPose: Pose,
-      yawDelta: Float,
-  ): Pose {
-    val yawRotation = Quaternion(0f, yawDelta, 0f)
-    val rotatedOffset = yawRotation * (panelPose.t - departureHeadPose.t)
-    val targetPosition = currentHeadPose.t + rotatedOffset
-    targetPosition.y = panelPose.t.y
-    return Pose(targetPosition, yawRotation * panelPose.q)
-  }
-
-  private fun interpolatePose(start: Pose, target: Pose, fraction: Float): Pose {
-    return Pose(start.t.lerp(target.t, fraction), start.q.slerp(target.q, fraction))
-  }
-
-  private fun yawDegrees(pose: Pose): Float {
-    val forward = pose.q * Vector3(0f, 0f, 1f)
-    return Math.toDegrees(kotlin.math.atan2(forward.x.toDouble(), forward.z.toDouble())).toFloat()
-  }
-
-  private fun normalizeYawDegrees(yaw: Float): Float = ((yaw + 180f) % 360f + 360f) % 360f - 180f
-
-  private fun clearReturnRecenter() {
-    recenterRunnable?.let(recenterHandler::removeCallbacks)
-    recenterRunnable = null
-    savedHeadPose = null
-    savedPanelPoses = emptyMap()
-    pendingReturnRecenter = false
+  override fun onResume() {
+    super.onResume()
+    val panel =
+        systemManager.findSystem<SceneObjectSystem>()
+            .getSceneObject(Entity(R.id.spatialized_video_panel))
+            ?.getNow(null) as? PanelSceneObject
+    panel?.let { ViriViriApplication.appState.playerSession.attachImmersiveSurface(it.surface) }
   }
 
   private fun setupHoverAndTouchListeners(view: View) {
@@ -923,11 +822,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun setVideo(video: Uri) {
     setUri = video
-    val mediaItem = MediaItem.fromUri(video)
-    // Set the media item to be played.
-    player.setMediaItem(mediaItem)
-    // Prepare the player.
-    player.prepare()
+    ViriViriApplication.appState.playerSession.setMediaItem(MediaItem.fromUri(video))
   }
 
   public fun playVideo() {
@@ -998,35 +893,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun setMrMode(isMrMode: Boolean) {
     val videoPanelEntity = Entity(R.id.spatialized_video_panel)
-    if (!isMrMode) {
-      mrPanelPose = videoPanelEntity.tryGetComponent<Transform>()?.transform ?: Pose()
-      environmentGLXF?.setComponent(Visible(true))
-      skydome?.setComponent(Visible(true))
-    }
     val grabbable = videoPanelEntity.tryGetComponent<Grabbable>() ?: Grabbable()
     grabbable.enabled = isMrMode
     videoPanelEntity.setComponent(grabbable)
 
     if (isMrMode) {
-      scene.setViewOrigin(0f, 0f, 0f, 0f) // reset locomotion
       environmentGLXF?.setComponent(Visible(false))
       skydome?.setComponent(Visible(false))
-      videoPanelEntity.setComponents(
-          listOf(Scale(1.0f), Transform(mrPanelPose), TransformParent(Entity.nullEntity()))
-      )
-      Entity(R.id.controls_id)
-          .setComponent(Transform(Pose(Vector3(0.0f, -0.6f, -0.15f), Quaternion(20f, 0f, 0f))))
     } else {
-      videoPanelEntity.setComponents(
-          listOf(
-              Scale(VR_SCREEN_RATIO),
-              Transform(Pose(Vector3(0.2f, 1.7f, 4.5f), Quaternion(0f, 0f, 0f))),
-          )
-      )
-      Entity(R.id.controls_id)
-          .setComponents(
-              listOf(Transform(Pose(Vector3(0.0f, -1.3f, -2.0f), Quaternion(20f, 0f, 0f))))
-          )
+      environmentGLXF?.setComponent(Visible(true))
+      skydome?.setComponent(Visible(true))
     }
 
     val sceneObjectSystem = systemManager.findSystem<SceneObjectSystem>()
@@ -1042,17 +918,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   companion object {
-    private data class PanelPoseTransition(val start: Pose, val target: Pose)
-
-    private val PANEL_IDS = intArrayOf(
-        R.id.spatialized_video_panel,
-        R.id.video_selector_panel,
-        R.id.mode_panel,
-    )
-    private const val RETURN_RECENTER_THRESHOLD_DEGREES = 15f
-    private const val RETURN_RECENTER_STABILIZE_MS = 120L
-    private const val RETURN_RECENTER_DURATION_MS = 160L
-    private const val RETURN_RECENTER_FRAME_MS = 16L
     const val TAG = "SpatialVideoSampleActivity"
     lateinit var appContext: Context
     lateinit var appPackageName: String

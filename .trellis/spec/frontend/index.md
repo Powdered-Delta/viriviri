@@ -22,6 +22,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 | [Media3 Surface Handoff](./media3-surface-handoff.md) | Platform-owned ExoPlayer Surface lifecycle and shared UI contract | Filled |
 | [Quest Spatial Panel Debugging](./quest-spatial-panel-debugging.md) | Quest Spatial SDK panel lifecycle, visibility, orientation, and media diagnostics | Filled |
+| [Bilibili Recommendation Playback](./bilibili-recommendation-playback.md) | Shared Bilibili provider, selection state, and 2D/immersive playback contract | Filled |
 
 ---
 
