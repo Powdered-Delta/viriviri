@@ -58,6 +58,7 @@ android {
 
 //noinspection UseTomlInstead
 dependencies {
+  implementation(project(":spatial-workbench-compose"))
   implementation(libs.androidx.core.ktx)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)
@@ -76,6 +77,7 @@ dependencies {
   // Compose Dependencies
   implementation("androidx.appcompat:appcompat:1.7.0")
   implementation("androidx.compose.material:material")
+  implementation("androidx.compose.material:material-icons-extended")
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
   implementation(platform(libs.androidx.compose.bom))

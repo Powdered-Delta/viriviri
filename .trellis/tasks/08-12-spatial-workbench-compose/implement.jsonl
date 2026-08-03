@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Defines the separation between reusable Compose UI and Spatial SDK hosts."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Defines shared composable slot/callback boundaries and the input-method composition pattern."}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Defines PanelShell slots, layout primitives, and the low-code component boundary."}

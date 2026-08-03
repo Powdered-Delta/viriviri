@@ -35,6 +35,29 @@ fun BrowseScreen(
 }
 ```
 
+### Convention: Extensible Offline Input Methods
+
+**What**: Search input methods implement the pure Kotlin `SearchInputMethod`
+contract and are registered through `SearchInputMethodRegistry`. The shared
+`SearchInputPanel` only renders the method-provided session, candidates, and
+keyboard rows.
+
+**Why**: Chinese T9, Japanese kana, Korean, and future language layouts can use
+separate offline dictionaries without adding language conditionals to Compose
+browse UI, `ViriViriAppState`, or the Bilibili provider.
+
+**Example**:
+
+```kotlin
+val methods = SearchInputMethodRegistry(listOf(MyKanaInputMethod(), ChineseT9InputMethod()))
+val appState = ViriViriAppState(context, inputMethods = methods)
+```
+
+A method must keep text conversion and candidate generation offline unless its
+own documented contract explicitly says otherwise. System IME input is an
+optional fallback that updates the same committed query but must not silently
+start a search.
+
 ### Convention: Distinct low/high immersion layouts
 
 **What**: Low-immersion browse UI and high-immersion UI should be separate entry

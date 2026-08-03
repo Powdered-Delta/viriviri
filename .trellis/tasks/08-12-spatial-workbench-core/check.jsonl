@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Checks that the core module stays independent of UI hosts and Spatial SDK bindings."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Checks component and callback contracts."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Checks explicit data and action contracts."}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Checks that the core API matches the approved architecture."}

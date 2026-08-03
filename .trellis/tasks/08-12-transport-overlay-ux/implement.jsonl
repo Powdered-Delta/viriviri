@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "docs/Youtube-VR-UX.md", "reason": "Current UX proposal to revise with front-of-stage transport overlay and list-state top offsets."}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Current spatial slot and panel architecture that must distinguish Z placement from 2D overlay positioning."}
+{"file": ".trellis/tasks/08-12-transport-overlay-ux/research/pinyin-ime-composition-and-candidates.md", "reason": "Defines segmentation, partial candidate commit, remaining composition, and collapsed candidate-list behavior."}
+{"file": ".trellis/tasks/08-12-transport-overlay-ux/research/piliplus-search-selection.md", "reason": "Records verified PiliPlus hot, discovery, suggestion, and history selection behavior via onClickKeyword()."}

@@ -7,6 +7,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,21 @@ data class ViriViriUiState(
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
+    val isShowingSearchResults: Boolean = false,
+    val recommendationScrollPosition: ListScrollPosition = ListScrollPosition(),
+    val searchScrollPosition: ListScrollPosition = ListScrollPosition(),
 )
+
+data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
+
+internal class SearchRequestTracker {
+  private var latestRequestId = 0L
+
+  fun beginRequest(): Long = ++latestRequestId
+
+  fun isCurrent(requestId: Long): Boolean = requestId == latestRequestId
+}
 
 class PlayerSession(context: Context) {
   val player = ExoPlayer.Builder(context).build()
@@ -63,30 +78,126 @@ class PlayerSession(context: Context) {
   }
 }
 
-class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider()) {
+class ViriViriAppState(
+    context: Context,
+    private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider(),
+    internal val inputMethods: SearchInputMethodRegistry = DefaultSearchInputMethods.registry,
+) {
   val playerSession = PlayerSession(context)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-  private val mutableState = MutableStateFlow(ViriViriUiState(isLoading = true))
+  private val mutableState = MutableStateFlow(
+      ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
+  )
   private var playbackRequestId = 0L
+  private var searchJob: Job? = null
+  private val searchRequestTracker = SearchRequestTracker()
   val state: StateFlow<ViriViriUiState> = mutableState.asStateFlow()
 
   init { refreshRecommendations() }
 
   fun refreshRecommendations() {
+    searchJob?.cancel()
+    val requestId = searchRequestTracker.beginRequest()
     scope.launch {
-      mutableState.value = mutableState.value.copy(isLoading = true, error = null)
+      mutableState.value = mutableState.value.copy(isLoading = true, error = null, isShowingSearchResults = false)
       runCatching { withContext(Dispatchers.IO) { provider.loadRecommendations() } }
           .onSuccess { recommendations ->
-            mutableState.value = mutableState.value.copy(recommendations = recommendations, isLoading = false)
+            if (searchRequestTracker.isCurrent(requestId)) {
+              mutableState.value = mutableState.value.copy(recommendations = recommendations, isLoading = false)
+            }
           }
           .onFailure { error ->
-            mutableState.value = mutableState.value.copy(isLoading = false, error = error.message ?: "Unable to load recommendations")
+            if (searchRequestTracker.isCurrent(requestId)) {
+              mutableState.value = mutableState.value.copy(
+                  isLoading = false,
+                  error = error.message ?: "Unable to load recommendations",
+              )
+            }
           }
     }
   }
 
-  fun selectRecommendation(recommendation: Recommendation) {
-    mutableState.value = mutableState.value.copy(selected = recommendation, destination = ViriViriDestination.VIEWER, error = null)
+  fun updateSearchQuery(query: String) {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(searchInput = inputMethods.replaceCommittedText(current.searchInput, query))
+  }
+
+  fun applySearchInputAction(action: SearchInputAction) {
+    val current = mutableState.value
+    mutableState.value = current.copy(searchInput = inputMethods.reduce(current.searchInput, action))
+  }
+
+  fun clearSearchInput() {
+    val current = mutableState.value
+    mutableState.value = current.copy(searchInput = inputMethods.initialSession())
+  }
+
+  fun submitSearch() = submitSearch(mutableState.value.searchInput.committedText)
+
+  private fun submitSearch(query: String) {
+    val normalizedQuery = normalizeSearchQuery(query)
+    searchJob?.cancel()
+    val requestId = searchRequestTracker.beginRequest()
+    if (normalizedQuery.isBlank()) {
+      mutableState.value = mutableState.value.copy(
+          searchInput = inputMethods.initialSession(),
+          isShowingSearchResults = false,
+          isLoading = false,
+          error = null,
+      )
+      return
+    }
+    searchJob = scope.launch {
+      mutableState.value = mutableState.value.copy(
+          isLoading = true,
+          error = null,
+          searchInput =
+              inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
+          isShowingSearchResults = true,
+          searchScrollPosition = ListScrollPosition(),
+      )
+      runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery) } }
+          .onSuccess { recommendations ->
+            if (searchRequestTracker.isCurrent(requestId)) {
+              mutableState.value = mutableState.value.copy(recommendations = recommendations, isLoading = false)
+            }
+          }
+          .onFailure { error ->
+            if (searchRequestTracker.isCurrent(requestId)) {
+              mutableState.value = mutableState.value.copy(
+                  isLoading = false,
+                  error = error.message ?: "Unable to search Bilibili",
+              )
+            }
+          }
+    }
+  }
+
+  fun returnToRecommendationsFeed() {
+    mutableState.value =
+        mutableState.value.copy(searchInput = inputMethods.initialSession(), isShowingSearchResults = false)
+    refreshRecommendations()
+  }
+
+  fun selectRecommendation(recommendation: Recommendation, scrollPosition: ListScrollPosition) {
+    val current = mutableState.value
+    mutableState.value =
+        if (current.isShowingSearchResults) {
+          current.copy(
+              selected = recommendation,
+              destination = ViriViriDestination.VIEWER,
+              error = null,
+              searchScrollPosition = scrollPosition,
+          )
+        } else {
+          current.copy(
+              selected = recommendation,
+              destination = ViriViriDestination.VIEWER,
+              error = null,
+              recommendationScrollPosition = scrollPosition,
+          )
+        }
     val requestId = ++playbackRequestId
     scope.launch {
       runCatching { withContext(Dispatchers.IO) { provider.createMediaSource(recommendation.videoId) } }
@@ -107,7 +218,10 @@ class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackP
     val current = mutableState.value
     val index = current.recommendations.indexOfFirst { it.videoId == current.selected?.videoId }
     if (index >= 0 && current.recommendations.isNotEmpty()) {
-      selectRecommendation(current.recommendations[(index + direction + current.recommendations.size) % current.recommendations.size])
+      selectRecommendation(
+          current.recommendations[(index + direction + current.recommendations.size) % current.recommendations.size],
+          if (current.isShowingSearchResults) current.searchScrollPosition else current.recommendationScrollPosition,
+      )
     }
   }
 }
