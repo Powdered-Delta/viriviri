@@ -63,9 +63,11 @@ SpatialVideoSampleActivity
 ## Bilibili 推荐与播放
 
 - 默认沉浸式 selector panel 显示 Bilibili 推荐；2D 和沉浸式 UI 共用 application-scoped recommendation state，因此列表、所选条目和浏览/观看目的地在路由后保持一致。
+- selector panel 的搜索框是嵌入式 `MoviePanel` 内普通可聚焦 Compose 输入框。它通过 Android IME 正常请求 Horizon OS 系统虚拟键盘，不创建 Spatial entity、键盘 panel、播放器或 Surface。IME 的 Search action 提交 WBI 签名的视频搜索；共享状态取消前一搜索并以请求序号丢弃过期结果。`Recommendations` 会重新加载推荐 feed。
 - 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
 - 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
 - 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。
+- 2D 视频输出保留现有 `TextureView` Surface 生命周期，并从 Media3 `VideoSize` 更新 view transform。输出在黑色容器中按 contain 比例居中，产生 letterbox 或 pillarbox，不拉伸或裁切源帧。
 - 尚未完成 Quest 人工验证。本次代码验证应使用 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export`；需要从头显应用库验证推荐、选择、返回列表及 immersive/2D 循环时仅存在一个输出 Surface。
 
 新包已验证可与旧包同时安装：

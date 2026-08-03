@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Shared Compose input and host callback boundaries"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Immersive panel and Surface lifecycle constraints"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Provider and UI protocol boundary"}
+{"file": ".trellis/tasks/08-04-immersive-search-input/research/bilibili-video-search.md", "reason": "WBI video search contract and IME boundary"}

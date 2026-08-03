@@ -25,6 +25,16 @@ data class Recommendation(
     val videoUrl: String,
 )
 
+internal data class BilibiliSearchVideo(
+    val bvid: String,
+    val title: String,
+    val author: String,
+    val pic: String,
+    val duration: String,
+    val play: String,
+    val pubdate: String?,
+)
+
 class PlaybackProviderException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 class BilibiliPlaybackProvider(
@@ -33,11 +43,77 @@ class BilibiliPlaybackProvider(
 ) {
   companion object {
     internal const val RECOMMENDATION_ENDPOINT_PATH = "/x/web-interface/wbi/index/top/feed/rcmd"
+    internal const val VIDEO_SEARCH_ENDPOINT_PATH = "/x/web-interface/wbi/search/type"
     private const val NETWORK_TIMEOUT_MS = 15_000
     private const val USER_AGENT =
         "Mozilla/5.0 (Android 14; Quest 2) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36"
 
     internal fun recommendationEndpointPath(): String = RECOMMENDATION_ENDPOINT_PATH
+    internal fun videoSearchEndpointPath(): String = VIDEO_SEARCH_ENDPOINT_PATH
+
+    internal fun mapVideoSearchResults(response: JSONObject): List<Recommendation> {
+      val results = response.optJSONObject("data")?.optJSONArray("result") ?: JSONArray()
+      return mapVideoSearchResults(
+          buildList {
+        for (index in 0 until results.length()) {
+          val result = results.optJSONObject(index) ?: continue
+          add(
+              BilibiliSearchVideo(
+                  bvid = result.optString("bvid"),
+                  title = result.optString("title"),
+                  author = result.optString("author"),
+                  pic = result.optString("pic"),
+                  duration = result.optString("duration"),
+                  play = result.optString("play"),
+                  pubdate = result.opt("pubdate")?.toString(),
+              )
+          )
+        }
+      }
+      )
+    }
+
+    internal fun mapVideoSearchResults(results: List<BilibiliSearchVideo>): List<Recommendation> =
+        results.mapNotNull { result ->
+          val bvid = result.bvid.trim().takeIf { it.isNotBlank() } ?: return@mapNotNull null
+          Recommendation(
+              videoId = bvid,
+              title = sanitizeSearchTitle(result.title).ifBlank { "Untitled video" },
+              authorName = result.author.ifBlank { "Unknown author" },
+              coverUrl = result.pic.takeIf { it.isNotBlank() },
+              durationSeconds = parseSearchDuration(result.duration),
+              viewCount = parseSearchCount(result.play),
+              displayLabel = result.pubdate?.takeIf { it.isNotBlank() },
+              videoUrl = "https://www.bilibili.com/video/$bvid",
+          )
+        }
+
+    internal fun sanitizeSearchTitle(title: String): String =
+        title
+            .replace(Regex("<[^>]+>"), "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .trim()
+
+    private fun parseSearchDuration(value: String): Int? {
+      val parts = value.split(':').map { it.toIntOrNull() ?: return null }
+      if (parts.isEmpty() || parts.size > 3) return null
+      return parts.fold(0) { seconds, part -> seconds * 60 + part }.takeIf { it > 0 }
+    }
+
+    private fun parseSearchCount(value: String): Long? {
+      val normalized = value.replace(",", "").trim()
+      return when {
+        normalized.endsWith("万") -> normalized.removeSuffix("万").toDoubleOrNull()?.times(10_000)?.toLong()
+        normalized.endsWith("亿") -> normalized.removeSuffix("亿").toDoubleOrNull()?.times(100_000_000)?.toLong()
+        else -> normalized.toLongOrNull()
+      }
+    }
+
   }
 
   fun loadRecommendations(): List<Recommendation> {
@@ -70,6 +146,32 @@ class BilibiliPlaybackProvider(
     }.ifEmpty { throw PlaybackProviderException("Bilibili returned no recommendations") }
   }
 
+  fun searchVideos(query: String): List<Recommendation> {
+    val keyword = normalizeSearchQuery(query)
+    if (keyword.isBlank()) return emptyList()
+    val nav = getJson("$apiBaseUrl/x/web-interface/nav")
+    // Anonymous nav responses use code -101 but still expose the public WBI key material.
+    val wbi = nav.optJSONObject("data")?.optJSONObject("wbi_img")
+        ?: throw PlaybackProviderException("Bilibili did not provide WBI signing data")
+    val mixinKey = BilibiliWbi.mixinKey(wbi.optString("img_url"), wbi.optString("sub_url"))
+        ?: throw PlaybackProviderException("Bilibili returned invalid WBI signing data")
+    val signedQuery = BilibiliWbi.sign(
+        mapOf(
+            "search_type" to "video",
+            "keyword" to keyword,
+            "page" to "1",
+            "page_size" to "20",
+            "platform" to "pc",
+            "web_location" to "1430654",
+        ),
+        mixinKey,
+        clockSeconds(),
+    )
+    val response = getJson("$apiBaseUrl$VIDEO_SEARCH_ENDPOINT_PATH?$signedQuery")
+    requireSuccess(response)
+    return mapVideoSearchResults(response)
+  }
+
   fun createMediaSource(videoId: String): MediaSource {
     val detail = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
     requireSuccess(detail)
@@ -86,7 +188,14 @@ class BilibiliPlaybackProvider(
         mixinKey,
         clockSeconds(),
     )
-    val playUrl = getJson("$apiBaseUrl/x/player/wbi/playurl?$query")
+    val playUrl =
+        getJson(
+            "$apiBaseUrl/x/player/wbi/playurl?$query",
+            mapOf(
+                "Origin" to "https://www.bilibili.com",
+                "Referer" to "https://www.bilibili.com/video/$videoId",
+            ),
+        )
     requireSuccess(playUrl)
     val dash = playUrl.optJSONObject("data")?.optJSONObject("dash")
         ?: throw PlaybackProviderException("Bilibili did not provide DASH streams")
@@ -97,6 +206,7 @@ class BilibiliPlaybackProvider(
     val factory =
         DefaultHttpDataSource.Factory().setDefaultRequestProperties(
             mapOf(
+                "Origin" to "https://www.bilibili.com",
                 "Referer" to "https://www.bilibili.com/video/$videoId",
                 "User-Agent" to USER_AGENT,
             )
@@ -125,15 +235,22 @@ class BilibiliPlaybackProvider(
     }
   }
 
-  private fun getJson(url: String): JSONObject {
+  private fun getJson(url: String, headers: Map<String, String> = emptyMap()): JSONObject {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
       connection.connectTimeout = NETWORK_TIMEOUT_MS
       connection.readTimeout = NETWORK_TIMEOUT_MS
       connection.requestMethod = "GET"
       connection.setRequestProperty("User-Agent", USER_AGENT)
+      headers.forEach(connection::setRequestProperty)
+      val responseCode = connection.responseCode
+      if (responseCode !in 200..299) {
+        val responseBody = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        throw PlaybackProviderException("Bilibili request failed with HTTP $responseCode: ${responseBody.take(160)}")
+      }
       return connection.inputStream.bufferedReader().use { JSONObject(it.readText()) }
     } catch (error: Exception) {
+      if (error is PlaybackProviderException) throw error
       throw PlaybackProviderException("Unable to contact Bilibili", error)
     } finally {
       connection.disconnect()
@@ -167,6 +284,10 @@ object BilibiliWbi {
     return "$query&w_rid=${md5(query + mixinKey)}"
   }
 
-  private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name())
+  // WBI signs RFC 3986 query encoding. Java form encoding writes spaces as '+',
+  // which the signed search endpoint does not treat as a keyword separator.
+  private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
   private fun md5(value: String): String = MessageDigest.getInstance("MD5").digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 }
+
+internal fun normalizeSearchQuery(query: String): String = query.trim().replace(Regex("\\s+"), " ")

@@ -38,9 +38,14 @@ class BilibiliWbiTest {
   }
 
   @Test
-  fun sign_sortsParametersAndStripsWbiDisallowedCharacters() {
+  fun sign_sortsParametersStripsWbiDisallowedCharactersAndUsesRfc3986Spaces() {
     val signed = BilibiliWbi.sign(mapOf("z" to "x!y", "a" to "two words"), "key", 100L)
 
-    assertEquals("a=two+words&wts=100&z=xy&w_rid=a64e67fc3a3a8441b3d6d1118c933f37", signed)
+    assertEquals("a=two%20words&wts=100&z=xy&w_rid=3bb4e8b9f7a900cfbd2f732d34c00f2f", signed)
+  }
+
+  @Test
+  fun normalizeSearchQuery_preservesOneSpaceBetweenSearchTerms() {
+    assertEquals("virtual reality video", normalizeSearchQuery("  virtual   reality\tvideo  "))
   }
 }
