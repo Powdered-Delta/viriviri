@@ -187,7 +187,7 @@ Evidence:
 4. Validate video output using the bundled non-DRM `rick.mp4` first. Confirm that the panel Surface can replace the 2D TextureView Surface without another `prepare()` or decoder initialization.
 5. Establish panel-surface destruction timing. The registration gives a Surface-ready callback, but its public API does not expose a matching destroy callback. Identify the panel/entity lifecycle callback or keep the active-surface identity in the coordinator and detach when the immersive Activity / scene is actually stopping.
 6. Confirm Media3's `onRenderedFirstFrame` occurs after the Spatial panel Surface is attached and is reliable enough to release the cross-Activity mask/finish the source. Log both panel Surface arrival and player first-frame times.
-7. Exercise at least five Panel -> Immersive -> Panel cycles on Quest 2. Verify a visible Spatial panel, player identity stability, `prepareCalls == 1`, decoder continuity, audio continuity, and no SDK-owned surface release by app code.
+7. Exercise at least five Panel -> Immersive -> Panel cycles on Quest 2. First verify stable Activity/task routing, media identity, position restoration, and no SDK-owned surface release by app code. Then record player identity, `prepareCalls`, decoder continuity, and audio continuity as progressively stronger results.
 8. Test the existing Home-plus-pending-intent panel route after the Activity changes. `VrActivity` has its own pause/focus semantics, so do not assume the current ComponentActivity lifecycle ownership decision matrix remains complete.
 9. Quest 2 validation on this project rejected an Activity launch when the sample
    `uses-native-library android:name="libossdk.oculus.so" android:required="true"`

@@ -91,7 +91,8 @@ private fun ImmersiveControls(
             style = MaterialTheme.typography.titleLarge,
         )
         Text(
-            text = "Shared process player: prepare ${metrics.prepareCalls}, decoder ${metrics.videoDecoderInitializations}, handoffs ${metrics.surfaceHandoffs}",
+            text = "Shared process player: prepare ${metrics.prepareCalls}, decoder ${metrics.videoDecoderInitializations}, " +
+                "recoveries ${metrics.handoffDecoderRecoveries}, handoffs ${metrics.surfaceHandoffs}",
             color = Color.White.copy(alpha = 0.72f),
             style = MaterialTheme.typography.bodyLarge,
         )

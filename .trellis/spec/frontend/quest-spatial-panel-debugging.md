@@ -50,6 +50,49 @@ class ImmersiveActivity : AppSystemActivity() {
 `VideoSurfacePanelRegistration` owns the supplied `android.view.Surface`.
 `PlayerManager` may detach it by identity, but must not release it.
 
+### 2.1 Standalone Spatial Control Panel
+
+The Stage B return control is a second, non-media Spatial panel. Meta Spatial
+SDK `0.13.0` supports this compile-verified registration pattern:
+
+```kotlin
+override fun registerPanels() = listOf(
+    VideoSurfacePanelRegistration(VIDEO_PANEL_ID, surfaceConsumer, videoSettings),
+    ViewPanelRegistration(
+        CONTROL_PANEL_ID,
+        { _, context -> createImmersiveControlPanel(context, onEnterPanel) },
+        {
+            UIPanelSettings(
+                shape = QuadShapeOptions(1.3f, 0.45f),
+                display = DpDisplayOptions(1024f, 384f, 160),
+            )
+        },
+    ),
+)
+
+override fun onVRReady() {
+    Entity.createPanelEntity(VIDEO_PANEL_ID, Transform(videoPose), Visible(true))
+    Entity.createPanelEntity(CONTROL_PANEL_ID, Transform(controlPose), Visible(true))
+}
+```
+
+The `ViewPanelRegistration` dynamic creator returns an opaque native Android
+`LinearLayout` with a readable title and `Enter 2D Panel` button. Do not return
+a standalone `ComposeView`: its attachment requires a `ViewTreeLifecycleOwner`,
+which the registration does not provide in this app and causes an
+`IllegalStateException`. Use a native `View` hierarchy here, or the Spatial
+Compose feature's official registration path when Compose is required. Create
+its entity in `onVRReady()` at the same proven forward depth as the video and
+above the video panel. The click handler logs the action and calls
+`HybridTransitionController.returnToPanelInHome(this)`, retaining the official
+Home plus `extra_launch_in_home_pending_intent` route.
+
+This panel is control-only: it must not create a `Surface`, `TextureView`,
+`ExoPlayer`, media item, decoder, or call `PlayerManager`. The video panel alone
+owns the direct SDK media Surface. Remove native placement diagnostics once a
+working video pose is established unless a separate device investigation needs
+one.
+
 ### 3. Contracts
 
 * Register `VRFeature(this)`. `AppSystemActivity` alone is not the complete
@@ -78,6 +121,8 @@ class ImmersiveActivity : AppSystemActivity() {
 * Keep a maximum of one direct video panel and one video output Surface for the
   handoff experiment. Placement diagnostics must not register additional video
   panels or construct another `ExoPlayer`.
+* A UI control panel is permitted as a second Spatial panel only when it remains
+  independent of media ownership and is created visibly in `onVRReady()`.
 * Log the ordered milestones: scene ready, VR ready, visible panel entity
   created, panel Surface callback, player Surface attach, decoder initialization,
   and Media3 first rendered frame.
@@ -116,8 +161,12 @@ class ImmersiveActivity : AppSystemActivity() {
 * Build test: `./gradlew.bat :app-meta:testDebugUnitTest --no-build-cache`.
 * Package test: `./gradlew.bat :app-meta:assembleDebug --no-build-cache`.
 * Quest device test, launched from the headset library:
-  * verify a full-frame, correctly facing direct video panel;
-  * verify the ordered app logs above;
+   * verify a full-frame, correctly facing direct video panel;
+   * verify the opaque control panel is legible above the video and `Enter 2D
+     Panel` logs a click before opening the Horizon OS system 2D panel;
+   * verify the control click does not add a video Surface, prepare call, or
+     decoder initialization before the normal route handoff occurs;
+   * verify the ordered app logs above;
   * verify `prepareCalls == 1` and no decoder reinitialization on route cycles;
   * verify only one direct video Surface is attached;
   * perform a system-menu exit while capturing lifecycle durations and Horizon

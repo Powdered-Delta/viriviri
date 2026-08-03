@@ -20,6 +20,8 @@ class SurfaceHandoffTextureView(
     private var onSurfaceAttached = onSurfaceAttached
     private var onFirstFrame = onFirstFrame
     private val attachmentGate = SurfaceAttachmentGate()
+    private var surfaceWidth = 0
+    private var surfaceHeight = 0
 
     init {
         surfaceTextureListener = this
@@ -37,17 +39,43 @@ class SurfaceHandoffTextureView(
         this.onFirstFrame = onFirstFrame
         attachmentGate.reset()
         renderSurface?.takeIf(Surface::isValid)?.let { surface ->
-            if (attachmentGate.markAttachment(playerManager.attachSurface(surface, target, transitionKey))) {
+            val attached = playerManager.attachSurface(
+                surface,
+                target,
+                transitionKey,
+            )
+            Log.i(
+                TAG,
+                "TextureView bound surface attach transition=$transitionKey target=${target.name} " +
+                    "surface=${identity(surface)} size=${surfaceWidth}x$surfaceHeight success=$attached",
+            )
+            if (attachmentGate.markAttachment(attached)) {
                 onSurfaceAttached()
             }
         }
     }
 
     override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
+        surfaceWidth = width
+        surfaceHeight = height
+        Log.i(
+            TAG,
+            "TextureView surface available transition=$transitionKey target=${target.name} size=${width}x$height",
+        )
         Surface(surfaceTexture).also { surface ->
             renderSurface = surface
             attachmentGate.reset()
-            if (attachmentGate.markAttachment(playerManager.attachSurface(surface, target, transitionKey))) {
+            val attached = playerManager.attachSurface(
+                surface,
+                target,
+                transitionKey,
+            )
+            Log.i(
+                TAG,
+                "TextureView surface attach transition=$transitionKey target=${target.name} " +
+                    "surface=${identity(surface)} size=${width}x$height success=$attached",
+            )
+            if (attachmentGate.markAttachment(attached)) {
                 onSurfaceAttached()
             }
         }
@@ -61,18 +89,28 @@ class SurfaceHandoffTextureView(
             Log.i(
                 TAG,
                 "Surface destroyed transition=$transitionKey target=${target.name} " +
-                    "surface=${identity(surface)}",
+                    "surface=${identity(surface)} size=${surfaceWidth}x$surfaceHeight",
             )
             playerManager.detachSurface(surface, target, transitionKey)
             surface.release()
         }
         renderSurface = null
+        surfaceWidth = 0
+        surfaceHeight = 0
         attachmentGate.reset()
         return true
     }
 
     override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
-        if (renderSurface != null && attachmentGate.markFirstFrame()) onFirstFrame()
+        val surface = renderSurface
+        if (surface != null && attachmentGate.markFirstFrame()) {
+            Log.i(
+                TAG,
+                "TextureView first texture update transition=$transitionKey target=${target.name} " +
+                    "surface=${identity(surface)} size=${surfaceWidth}x$surfaceHeight",
+            )
+            onFirstFrame()
+        }
     }
 
     private companion object {

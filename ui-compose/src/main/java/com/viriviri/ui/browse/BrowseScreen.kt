@@ -130,6 +130,8 @@ fun SurfaceHandoffPocScreen(
     videoTarget: @Composable (Modifier) -> Unit,
     transitionMask: @Composable (Modifier) -> Unit,
     onReturnToImmersive: () -> Unit,
+    returnToImmersiveEnabled: Boolean,
+    returnActionLabel: String,
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
@@ -146,7 +148,8 @@ fun SurfaceHandoffPocScreen(
             ) {
                 Text("Horizon OS 2D panel", color = Color.White)
                 Text(
-                    text = "prepare: ${metrics.prepareCalls}  decoder init: ${metrics.videoDecoderInitializations}",
+                    text = "prepare: ${metrics.prepareCalls}  decoder init: ${metrics.videoDecoderInitializations}  " +
+                        "recoveries: ${metrics.handoffDecoderRecoveries}",
                     color = Color.White,
                 )
                 Text(
@@ -177,15 +180,24 @@ fun SurfaceHandoffPocScreen(
                     text = "source: ${metrics.sourceFinishDisposition.label}  timed out: ${metrics.transitionTimedOut}",
                     color = Color.White,
                 )
+                Text(
+                    text = "route state: ${metrics.routeState.label}",
+                    color = Color.White,
+                )
+                Text(
+                    text = "source destroyed: ${metrics.sourceDestroyedAfterMs.msLabel()}  failure: ${metrics.transitionFailureReason ?: "--"}",
+                    color = Color.White,
+                )
             }
 
             Button(
                 onClick = onReturnToImmersive,
+                enabled = returnToImmersiveEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(32.dp),
             ) {
-                Text("Return to Immersive Mode")
+                Text(returnActionLabel)
             }
         }
     }

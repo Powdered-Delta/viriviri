@@ -68,10 +68,13 @@ to switch between compact and cinema-sized TextureViews in the same 2D panel.
 Successful Quest device validation requires:
 
 * Video and audio continue playing through repeated target changes.
-* `prepare` remains `1`.
-* `decoder init` does not increase after initial playback begins.
-* Playback position continues advancing; it does not restart from zero.
+* On a normal route, `prepare` remains `1` and decoder init does not increase.
+* On a protected Spatial-to-panel recovery, prepare/decoder counts are platform-dependent;
+  the same player/media identity and monotonic playback position are required.
+* Playback position continues advancing; it does not restart from zero, and the destination
+  produces a first frame on repeatable routes.
 
 The current device result is a smooth transfer with an occasional short white
 frame. Treat that as a visual transition issue for a future animation layer,
-not a Media3 reload or decoder recreation.
+not a player reload. A protected Quest decoder reinitialization is an explicit fallback
+and is logged as `handoff_decoder_recovery`.
