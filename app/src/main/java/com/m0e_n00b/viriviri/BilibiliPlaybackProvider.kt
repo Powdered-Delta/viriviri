@@ -46,7 +46,7 @@ class BilibiliPlaybackProvider(
     internal const val VIDEO_SEARCH_ENDPOINT_PATH = "/x/web-interface/wbi/search/type"
     private const val NETWORK_TIMEOUT_MS = 15_000
     private const val USER_AGENT =
-        "Mozilla/5.0 (Android 14; Quest 2) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36"
+        "Mozilla/5.0 AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
 
     internal fun recommendationEndpointPath(): String = RECOMMENDATION_ENDPOINT_PATH
     internal fun videoSearchEndpointPath(): String = VIDEO_SEARCH_ENDPOINT_PATH
