@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Provider/app-state ownership and shared single-player list selection contract."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Single-player/single-Surface invariant while setting display scaling."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Compose/app-state/Spatial host responsibility boundary."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing panel and Quest validation constraints."}
+{"file":".trellis/tasks/08-13-fix-media-list-pagination-thumbnails-aspect-ratio/research/list-pagination-thumbnail-aspect-findings.md","reason":"Validated pagination parameters, thumbnail ownership, and buffer mismatch diagnosis."}
