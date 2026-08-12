@@ -2,19 +2,23 @@ package com.m0e_n00b.viriviri
 
 import android.graphics.Matrix
 import android.view.TextureView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -23,13 +27,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal data class TextureViewScale(val x: Float, val y: Float)
 
@@ -84,6 +92,17 @@ private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppStat
           initialFirstVisibleItemIndex = savedScrollPosition.firstVisibleItemIndex,
           initialFirstVisibleItemScrollOffset = savedScrollPosition.firstVisibleItemScrollOffset,
       )
+  LaunchedEffect(listState, state.recommendations.size, state.canLoadMore, state.isLoadingNextPage) {
+    snapshotFlow {
+          val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+          lastVisible >= state.recommendations.lastIndex - PAGINATION_PREFETCH_DISTANCE
+        }
+        .distinctUntilChanged()
+        .collect { nearEnd ->
+          if (nearEnd) appState.loadNextPage()
+        }
+  }
+  val thumbnailStates by appState.thumbnailStates.collectAsState()
   Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       Text(if (state.isShowingSearchResults) "Search results" else "Bilibili recommendations", color = Color.White)
@@ -101,26 +120,69 @@ private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppStat
     )
     when {
       state.isLoading -> Text(if (state.isShowingSearchResults) "Searching Bilibili..." else "Loading recommendations...", color = Color.White)
-      state.error != null -> Text(state.error, color = Color(0xFFFFB4AB))
+      state.recommendations.isEmpty() && state.error != null -> Text(state.error, color = Color(0xFFFFB4AB))
       state.recommendations.isEmpty() -> Text(if (state.isShowingSearchResults) "No matching videos found." else "No recommendations are available.", color = Color.White)
       else -> LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(state.recommendations, key = { it.videoId }) { recommendation ->
-          Column(
-              modifier =
-                  Modifier.fillMaxWidth()
-                      .clickable {
-                        appState.selectRecommendation(
-                            recommendation,
-                            ListScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset),
-                        )
-                      }
-                      .padding(8.dp)
-          ) {
-            Text(recommendation.title, color = Color.White)
-            Text(recommendation.authorName, color = Color.LightGray)
+          RecommendationRow(
+              recommendation = recommendation,
+              thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],
+              onClick = {
+                appState.selectRecommendation(
+                    recommendation,
+                    ListScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset),
+                )
+              },
+          )
+        }
+        item(key = "pagination-status") {
+          when {
+            state.isLoadingNextPage -> Text("Loading more...", color = Color.LightGray, modifier = Modifier.padding(8.dp))
+            state.error != null -> Text(state.error, color = Color(0xFFFFB4AB), modifier = Modifier.padding(8.dp))
+            !state.canLoadMore -> Text("No more videos", color = Color.LightGray, modifier = Modifier.padding(8.dp))
           }
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun RecommendationRow(
+    recommendation: Recommendation,
+    thumbnailState: ThumbnailState?,
+    onClick: () -> Unit,
+) {
+  Row(
+      modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Thumbnail(thumbnailState)
+    Spacer(Modifier.width(10.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(recommendation.title, color = Color.White)
+      Text(recommendation.authorName, color = Color.LightGray)
+      recommendation.durationSeconds?.let { Text(formatTransportTimecode(it * 1_000L), color = Color.LightGray) }
+    }
+  }
+}
+
+@Composable
+private fun Thumbnail(state: ThumbnailState?) {
+  Box(
+      modifier = Modifier.width(128.dp).height(72.dp).background(Color(0xFF24333A)),
+      contentAlignment = Alignment.Center,
+  ) {
+    when (state) {
+      is ThumbnailState.Ready -> Image(
+          bitmap = state.bitmap.asImageBitmap(),
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.fillMaxSize(),
+      )
+      ThumbnailState.Loading -> Text("Loading", color = Color.LightGray)
+      ThumbnailState.Failed -> Text("No image", color = Color.LightGray)
+      null -> Text("No image", color = Color.LightGray)
     }
   }
 }
@@ -187,6 +249,8 @@ private fun PlayerOutput(session: PlayerSession) {
     )
   }
 }
+
+private const val PAGINATION_PREFETCH_DISTANCE = 4
 
 private class AspectRatioTextureView(context: android.content.Context) : TextureView(context) {
   private var videoWidth = 0

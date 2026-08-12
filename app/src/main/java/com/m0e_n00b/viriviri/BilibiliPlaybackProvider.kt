@@ -51,6 +51,11 @@ class BilibiliPlaybackProvider(
     internal fun recommendationEndpointPath(): String = RECOMMENDATION_ENDPOINT_PATH
     internal fun videoSearchEndpointPath(): String = VIDEO_SEARCH_ENDPOINT_PATH
 
+    internal fun recommendationPageUrl(apiBaseUrl: String, freshIndex: Int, pageSize: Int): String =
+        "$apiBaseUrl$RECOMMENDATION_ENDPOINT_PATH" +
+            "?version=1&feed_version=V8&homepage_ver=1&ps=$pageSize" +
+            "&fresh_idx=$freshIndex&brush=$freshIndex&fresh_type=4"
+
     internal fun mapVideoSearchResults(response: JSONObject): List<Recommendation> {
       val results = response.optJSONObject("data")?.optJSONArray("result") ?: JSONArray()
       return mapVideoSearchResults(
@@ -116,12 +121,10 @@ class BilibiliPlaybackProvider(
 
   }
 
-  fun loadRecommendations(): List<Recommendation> {
-    val response =
-        getJson(
-            "$apiBaseUrl$RECOMMENDATION_ENDPOINT_PATH" +
-                "?version=1&feed_version=V8&homepage_ver=1&ps=20&fresh_idx=0&brush=0&fresh_type=4"
-        )
+  fun loadRecommendations(freshIndex: Int = 0, pageSize: Int = RECOMMENDATION_PAGE_SIZE): List<Recommendation> {
+    require(freshIndex >= 0) { "freshIndex must not be negative" }
+    require(pageSize > 0) { "pageSize must be positive" }
+    val response = getJson(recommendationPageUrl(apiBaseUrl, freshIndex, pageSize))
     requireSuccess(response)
     val items = response.optJSONObject("data")?.optJSONArray("item") ?: JSONArray()
     return buildList {
@@ -146,7 +149,13 @@ class BilibiliPlaybackProvider(
     }.ifEmpty { throw PlaybackProviderException("Bilibili returned no recommendations") }
   }
 
-  fun searchVideos(query: String): List<Recommendation> {
+  fun searchVideos(
+      query: String,
+      page: Int = 1,
+      pageSize: Int = RECOMMENDATION_PAGE_SIZE,
+  ): List<Recommendation> {
+    require(page > 0) { "page must be positive" }
+    require(pageSize > 0) { "pageSize must be positive" }
     val keyword = normalizeSearchQuery(query)
     if (keyword.isBlank()) return emptyList()
     val nav = getJson("$apiBaseUrl/x/web-interface/nav")
@@ -159,8 +168,8 @@ class BilibiliPlaybackProvider(
         mapOf(
             "search_type" to "video",
             "keyword" to keyword,
-            "page" to "1",
-            "page_size" to "20",
+            "page" to page.toString(),
+            "page_size" to pageSize.toString(),
             "platform" to "pc",
             "web_location" to "1430654",
         ),

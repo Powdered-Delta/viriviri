@@ -467,7 +467,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val videoPanelEntity = Entity(R.id.spatialized_video_panel)
     val settings = MediaPanelSettings(
         shape = QuadShapeOptions(width = MR_SCREEN_WIDTH, height = MR_SCREEN_HEIGHT),
-        display = PixelDisplayOptions(width = 3840, height = 1080),
+        display =
+            PixelDisplayOptions(
+                width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
+                height = IMMERSIVE_VIDEO_OUTPUT_HEIGHT,
+            ),
         rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None),
     )
     val panelSceneObject = PanelSceneObject(
