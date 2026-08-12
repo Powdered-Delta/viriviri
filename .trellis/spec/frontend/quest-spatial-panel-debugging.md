@@ -166,7 +166,51 @@ fixed pose, size, parent, or add an alternative static panel.
 - These changes affect only the existing controls panel root; they do not add a
   video output, Spatial panel, Entity, or Surface.
 
-### 3.3 MediaStage Adapter Boundary
+### 3.3 Playback Canvas Spatial Visibility Adapter
+
+`PlaybackCanvasReducer` is applied to the existing Spatial panels through
+`ImmersivePlaybackCanvasHost`, `PanelLayerAlpha`, and
+`SpatialPanelVisibilityController`:
+
+```text
+core PlaybackCanvas event
+  -> resolved PanelSlot set
+  -> existing entity PanelLayerAlpha component
+  -> PanelLayerAlphaSystem / compositor layer alpha
+  -> Visible(false) after fade-out completes
+```
+
+The mapping is fixed to current existing entities:
+
+```text
+TRANSPORT      controls_id
+SYSTEM_TOOLBAR mode_panel
+BROWSE         video_selector_panel
+```
+
+`spatialized_video_panel` is the persistent `MEDIA_STAGE` and is deliberately
+not included in the hide map. The adapter does not create an entity, register a
+new panel, change a fixed Transform, attach a Surface, or own a player.
+
+`mr_panel` is intentionally absent from this first adapter. It is currently a
+child of `video_selector_panel`, so it cannot be the independent `CONTEXT` rail
+specified by the canvas contract while Browse is hidden. Do not reparent it in
+Kotlin. Independent Context visibility is blocked until Meta Spatial Editor can
+author the correct scene anchor/parent relationship.
+
+- Show sets `Visible(true)` before layer alpha rises.
+- Hide lowers the Spatial compositor layer alpha, then sets `Visible(false)`;
+  that final component state removes the hidden Spatial panel hit target.
+- New slot requests cancel any prior slot fade before applying the current
+  target visibility.
+- Actual player pause from Quiet Watch opens Playback; transport idle timeout
+  returns actual-playing Playback to Quiet Watch. Browse is the first applied
+  on-demand rail; core Context state remains independent but its Spatial mapping
+  waits for the scene-authored parent/anchor correction.
+- The existing controls Android root fade is only its local content treatment.
+  It must not substitute for the Spatial layer/visibility lifecycle.
+
+### 3.4 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`

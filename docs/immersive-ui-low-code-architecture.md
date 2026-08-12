@@ -55,6 +55,12 @@ mr_panel                 -> CONTEXT
 
 `mr_panel` 不再只放置 Passthrough 小开关。Passthrough 应作为 `CONTEXT` 或 `SYSTEM_TOOLBAR` 内的受控模块，从而释放该实体用于右侧当前视频导航。
 
+当前 scene/runtime 中 `mr_panel` 仍是 `video_selector_panel` 的 child，因此它不能在
+隐藏 Browse 时独立充当右侧 `CONTEXT` rail。`PlaybackCanvasReducer` 可以独立选择
+`CONTEXT`，但第一版 Spatial visibility adapter 只绑定 `TRANSPORT`、
+`SYSTEM_TOOLBAR` 和 `BROWSE`。必须等 Meta Spatial Editor 可用后，在 scene 中将
+Context 绑定到独立的 context anchor/parent；不得通过 Kotlin 重设这个固定空间层级。
+
 ## 工作台位置控制
 
 用户只通过 `TRANSPORT` 覆盖层内的显式 `GrabHandle` 调整整个工作台的位置和朝向。左、右、顶部和底部 panel 不允许各自被抓取。
