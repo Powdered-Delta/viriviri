@@ -558,6 +558,153 @@ states. A palette may
 change the appearance of danmaku controls, but not danmaku content styling;
 that remains a separate user preference and renderer contract.
 
+### Extensible Media Overlay Pipeline
+
+Danmaku and captions share the rendering substrate, not the content pipeline:
+
+```text
+MediaOverlayEngine
+├── PlayerClock
+├── OverlaySurfaceRegistry
+├── FlatOverlayRenderer
+├── SpatialOverlayRenderer
+├── DanmakuPipeline
+│   ├── DanmakuSource
+│   ├── DanmakuTransformPlugin[]
+│   ├── DanmakuScheduler
+│   └── DanmakuGroupAllocator
+└── CaptionPipeline
+    ├── CaptionSource
+    ├── CaptionTransformPlugin[]
+    ├── CaptionScheduler
+    └── BilingualCaptionComposer
+```
+
+`OverlaySurface` is a renderer target, never a video output Surface. It declares
+an ID, enabled state, supported overlay kinds, capacity, anchor mode, depth, and
+`basicStyle`. The registry, player clock, Flat/Spatial renderer lifecycle,
+object-pool budget, pause/seek cleanup, and stage geometry are shared. Sources,
+transforms, schedulers, allocation policy, and content semantics remain
+independent.
+
+```kotlin
+enum class OverlayKind { DANMAKU, CAPTION }
+enum class OverlayAnchorMode { STAGE_LOCKED, GAZE_LOCKED }
+```
+
+`STAGE_LOCKED` follows MediaStage transform, size, and cylinder geometry.
+`GAZE_LOCKED` follows a stable viewer-facing anchor and is primarily for CC
+captions when the stage moves or shrinks. A caption selects one target; it does
+not enter the danmaku allocator.
+
+### Multi-Surface Spatial Danmaku
+
+A Spatial danmaku surface is not an independent scheduler. Multiple parallel
+surfaces are grouped into a `DanmakuSurfaceGroup` that shares normalized
+projected coordinates and desktop-style lane occupancy. It does not share
+physical meter coordinates; each Meta adapter maps a layer's local pose to world
+space.
+
+```text
+DanmakuOcclusionDomain
+├── cockpit-left-group  -> layers L1..L4
+└── cockpit-right-group -> layers R1..R4
+```
+
+Cockpit groups first balance events by enabled capacity, active load, lane ratio,
+allocation weight, and stable event hash. Within the selected group, the
+scheduler chooses a standard scrolling lane, then a depth layer, then a physical
+surface. Same-group layers share lane state; different directions use separate
+`DanmakuLaneSet`s.
+
+Group-level balancing does not by itself solve side-surface overlap. A shared
+`DanmakuOcclusionDomain` projects candidate and active items through a reference
+viewer/head pose at entry, closest approach, and exit times. This catches L1/L4
+end-to-end overlap that is invisible in either surface's local normal view. A
+small head-motion tolerance margin is applied; visible items are not reassigned
+on every head frame. Large viewer relocation, seek, stage switch, or theme
+switch may clear and reschedule active items.
+
+The default policy is `AVOID_PROJECTED_OVERLAP`. Try another lane or layer when a
+projection conflicts; drop the event when all lanes are unavailable rather than
+queueing unreadable text. Left/right groups may skip cross-group checks only when
+the theme declares their viewer-projected regions disjoint. Otherwise both groups
+belong to the same occlusion domain.
+
+### Direction And Surface Style
+
+Emission direction and internal text layout are separate:
+
+```kotlin
+enum class DanmakuEmissionDirection {
+    LEFT_TO_RIGHT, RIGHT_TO_LEFT, TOP_TO_BOTTOM, BOTTOM_TO_TOP,
+}
+
+enum class TextWritingMode { HORIZONTAL_TB, VERTICAL_RL, VERTICAL_LR }
+
+enum class TextDirection { AUTO, LTR, RTL }
+```
+
+Direction is relative to the surface local tangent/axis and is mapped by the
+renderer; sources never write world coordinates. Panel/surface style may define
+`fontScale`, opacity, speed scale, outline, `writingMode`, bidi direction, max
+lines, line spacing, and overflow. Far depth layers may use larger glyphs and
+near layers smaller glyphs to preserve apparent size.
+
+The resolved style participates in glyph measurement before lane and occlusion
+prediction. Each scheduled item stores its target, direction, measured bounds,
+and style snapshot. A live user/theme style change affects future items only;
+existing items do not reverse, jump layers, or switch writing mode.
+
+### Captions, Bilingual CC, And Translation
+
+CC is a separate timed cue pipeline sharing the overlay renderer:
+
+```kotlin
+data class CaptionCue(
+    val id: String,
+    val startMs: Long,
+    val endMs: Long,
+    val originalText: String,
+    val translatedText: String? = null,
+)
+
+enum class CaptionDisplayMode { ORIGINAL_ONLY, TRANSLATED_ONLY, BILINGUAL }
+```
+
+Bilingual output is one cue with original and translated lines under one
+schedule. Missing or failed translation always falls back to the original.
+Caption display exposes `STAGE_LOCKED` and `GAZE_LOCKED` target selection, plus
+language, font, line count, background, and safe-area preferences. It never uses
+random depth allocation intended for danmaku.
+
+Optional LLM translation is a cancellable `CaptionTransformPlugin`, not a theme
+action or renderer feature. Only cue text and required language metadata may be
+sent. Provider/model/target-language settings, bounded concurrency, timeout,
+seek cancellation, and cache key `cueId + sourceTextHash + targetLanguage +
+provider + model` are required. Keys remain in secure platform storage and never
+enter theme JSON, logs, Bilibili headers, or player metadata. Translation failure,
+offline mode, rate limits, or missing credentials never block the original cue.
+
+### Overlay Implementation Stages
+
+1. **Contracts**: define shared overlay kinds, surface registry, clock lifecycle,
+   danmaku groups/layers/occlusion domain, emission/text layout, caption cues,
+   plugins, and privacy-safe translation settings.
+2. **Flat renderer**: implement mock danmaku and CC sources, stable geometry,
+   pause/seek/disable cleanup, bilingual layout, and one caption target.
+3. **Real sources**: add Bilibili XML/deflate and optional segmented Proto
+   adapters, CC/VTT sources, `DuplicateMergePlugin`, bounded caches, and a mock
+   translator. Protocol details stay outside scheduler/renderer.
+4. **2D integration**: overlay Flat rendering over the existing TextureView
+   without a second video Surface; connect current video identity/cid and player
+   clock while retaining mock-source regression mode.
+5. **Spatial adapter**: bind surface IDs to Meta entities, implement parallel
+   depth layers, group balancing, viewer projection occlusion, local emission
+   direction, and surface style compensation for cockpit and cinema themes.
+6. **Gaze/LLM**: add gaze/stage caption anchors, secure optional LLM provider,
+   translation cache/prefetch/cancellation, and Quest regression.
+
 ## Spatial Behavior Rules
 
 1. Only `GrabHandle` moves the workbench. No panel exposes its own grab region.

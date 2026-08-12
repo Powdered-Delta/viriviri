@@ -1,0 +1,9 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend layer routing"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Reusable overlay component and ownership boundaries"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Core/Compose/Meta adapter separation"}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "Single player and video Surface lifecycle"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Source-transform-scheduler-renderer boundary"}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Existing MediaStage and danmaku architecture"}
+{"file": "docs/Youtube-VR-UX.md", "reason": "MediaStage and overlay UX"}
+{"file": ".trellis/tasks/08-12-media-overlay-pipelines/research/media-overlay-design.md", "reason": "PiliPlus merge and source research"}

@@ -626,6 +626,142 @@ MoreActionsModule
 
 淡出应使用空间 panel layer alpha 并在完全隐藏后禁用可见性和命中，参考 PremiumMediaSample 的 `PanelLayerAlpha` / `FadingPanel`，而不是仅改变 Android View 的 alpha。
 
+## 可扩展 Media Overlay 管线
+
+弹幕和 CC 字幕共享渲染基础设施，但不共享内容管线：
+
+```text
+MediaOverlayEngine
+├── PlayerClock
+├── OverlaySurfaceRegistry
+├── FlatOverlayRenderer
+├── SpatialOverlayRenderer
+├── DanmakuPipeline
+│   ├── DanmakuSource
+│   ├── DanmakuTransformPlugin[]
+│   ├── DanmakuScheduler
+│   └── DanmakuGroupAllocator
+└── CaptionPipeline
+    ├── CaptionSource
+    ├── CaptionTransformPlugin[]
+    ├── CaptionScheduler
+    └── BilingualCaptionComposer
+```
+
+`OverlaySurface` 是渲染目标，不是视频输出 Surface。它只声明 ID、启用状态、
+支持的 overlay 类型、容量、anchor、深度和 `basicStyle`。Surface registry、
+播放器时钟、Flat/Spatial renderer 生命周期、对象池预算、暂停/seek 清理和
+`StageGeometry` 由两类内容共享；source、transform、scheduler、分配策略和
+内容语义保持独立。
+
+```kotlin
+enum class OverlayKind { DANMAKU, CAPTION }
+enum class OverlayAnchorMode { STAGE_LOCKED, GAZE_LOCKED }
+```
+
+`STAGE_LOCKED` 跟随 `MEDIA_STAGE` 的 transform、尺寸和曲面几何；
+`GAZE_LOCKED` 跟随稳定的用户视线前方 anchor，主要用于舞台移动或缩小时的
+CC 字幕。字幕选择一个目标，不进入弹幕分配器。
+
+### 多 Surface 立体弹幕
+
+Spatial 弹幕不能让每个 surface 独立维护 scheduler。多个平行 surface 组成
+一个 `DanmakuSurfaceGroup`，共享归一化投影坐标和桌面端轨道占用状态；它们
+不共享物理米制坐标，每层由 Meta adapter 将本地姿态映射到世界空间。
+
+```text
+DanmakuOcclusionDomain
+├── cockpit-left-group  -> L1..L4 depth layers
+└── cockpit-right-group -> R1..R4 depth layers
+```
+
+驾驶舱先在 group 之间按启用容量、活跃负载、可用轨道比例、主题权重和稳定
+event hash 做宏观负载均衡；进入 group 后，先按标准桌面轨道规则选 lane，
+再选 depth layer，最后选具体物理 surface。同一 group 的 layer 共享轨道状态；
+不同发射方向使用不同 `DanmakuLaneSet`。
+
+group 级负载均衡不能解决侧面斜向 surface 的遮挡。共享的
+`DanmakuOcclusionDomain` 必须使用参考用户头部姿态，在进入、最近接触和离开
+时刻把候选项和已调度项投影到用户视点，检查 L1/L4 等前后层文字的首尾重叠。
+预测加入小幅头动容差；不能每帧因头部变化重排已显示弹幕。明显重定位、seek、
+舞台切换或主题切换可以清空并重新调度。
+
+默认策略是 `AVOID_PROJECTED_OVERLAP`。发生投影冲突时依次尝试其它 lane 或
+layer；全部不可用时丢弃事件，不积压不可读文本。左右 group 只有在主题明确
+声明用户视点投影区域不重叠时，才可以跳过跨 group 检查；否则应放入同一
+occlusion domain。
+
+### 发射方向与 Surface 样式
+
+发射方向和文字内部排版独立配置：
+
+```kotlin
+enum class DanmakuEmissionDirection {
+    LEFT_TO_RIGHT, RIGHT_TO_LEFT, TOP_TO_BOTTOM, BOTTOM_TO_TOP,
+}
+
+enum class TextWritingMode { HORIZONTAL_TB, VERTICAL_RL, VERTICAL_LR }
+
+enum class TextDirection { AUTO, LTR, RTL }
+```
+
+方向是相对 surface 局部切线/轴的配置，由 renderer 映射到世界和用户视点；
+source 不写世界坐标。panel/surface 的 `basicStyle` 可以配置 `fontScale`、
+透明度、速度比例、描边、`writingMode`、bidi 方向、最大行数、行间距和溢出
+策略。远层可以使用更大的字，近层使用更小的字，以保持相近的视角字号。
+
+解析后的样式必须先参与 glyph measurement，再参与轨道和遮挡预测。调度结果
+要固化 target、方向、测量 bounds 和 style snapshot。用户或主题修改样式只
+影响后续事件，已经显示的弹幕不能反向、跳层或突然切换竖排。
+
+### CC、双语与翻译
+
+CC 是独立的 timed cue pipeline，共用 overlay renderer：
+
+```kotlin
+data class CaptionCue(
+    val id: String,
+    val startMs: Long,
+    val endMs: Long,
+    val originalText: String,
+    val translatedText: String? = null,
+)
+
+enum class CaptionDisplayMode { ORIGINAL_ONLY, TRANSLATED_ONLY, BILINGUAL }
+```
+
+双语输出是一个同时包含原文和译文行的 cue，共享一个调度时间；译文缺失或
+翻译失败时始终保留原文。字幕设置提供 `STAGE_LOCKED` / `GAZE_LOCKED`、语言、
+字体、行数、背景和安全区偏好，不能使用弹幕的随机 depth 分配。
+
+LLM 翻译是可取消的 `CaptionTransformPlugin`，不是主题 action 或 renderer
+能力。只发送 cue 文本和必要语言元数据；provider/model/目标语言、并发上限、
+超时、seek 取消和以下缓存键是必需的：
+
+```text
+cueId + sourceTextHash + targetLanguage + provider + model
+```
+
+密钥只能存储在平台安全存储，不进入 theme JSON、日志、Bilibili headers 或
+player metadata。翻译失败、离线、限流或缺少凭据时不阻塞原文字幕。
+
+### Overlay 分阶段实现
+
+1. **合同阶段**：定义 overlay 类型、surface registry、时钟生命周期、弹幕
+   group/layer/occlusion domain、发射方向/文字排版、caption cue、plugin 和
+   翻译隐私设置。
+2. **平面 renderer**：实现 mock 弹幕和 CC source、固定几何、暂停/seek/禁用
+   清理、双语排版和单一字幕 target。
+3. **真实 source**：加入 Bilibili XML/deflate、可选分段 Proto、CC/VTT、
+   `DuplicateMergePlugin`、有界缓存和 mock translator；协议细节不得泄漏到
+   scheduler/renderer。
+4. **2D 接入**：在现有 TextureView 上方叠加 Flat renderer，不创建第二视频
+   Surface；接入当前 video identity/cid 和播放器时钟，同时保留 mock source。
+5. **Spatial adapter**：将 surface ID 绑定 Meta entity，实现平行 depth layer、
+   group 负载均衡、用户视点遮挡、局部发射方向和 surface 样式补偿。
+6. **视线字幕/LLM**：实现 gaze/stage 字幕 anchor、安全的可选 LLM provider、
+   翻译缓存/预取/取消和 Quest 回归。
+
 ## MediaStage、弹幕与曲面
 
 ### 舞台层级
@@ -915,19 +1051,40 @@ Demo 必须使用本地测试视频和 Mock 数据，不能请求 Bilibili 接�
 3. 重构播放控制、顶部工具组和整体抓手。
 4. 实现 UP Drawer、ActionSheet 和 Focus/PiP 状态机。
 
-### Phase 3: 媒体舞台
+### Phase 3: Media Overlay 合同与平面 renderer
 
-1. 抽取 `MediaStage` 与 `StageGeometry`。
-2. 验证 Quad/Cylinder 视频舞台，确保唯一 Surface 和 2D handoff 不回归。
-3. 实现平面弹幕，再实现空间弹幕。
-4. 将弹幕模式、样式和曲率接入主题配置。
+1. 定义共享 `MediaOverlayEngine`、`PlayerClock`、`OverlaySurfaceRegistry`、
+   Flat/Spatial renderer 边界。
+2. 定义独立 `DanmakuPipeline` / `CaptionPipeline`、插件生命周期、
+   `DanmakuSurfaceGroup`、多 depth layer、`DanmakuOcclusionDomain`、
+   发射方向、writing mode 和 surface style。
+3. 定义 CC cue、双语显示、STAGE/GAZE anchor、翻译隐私/缓存/失败合同。
+4. 实现 mock source、平面弹幕与 CC renderer，验证暂停、seek、surface 禁用、
+   样式快照、双语 fallback 和单视频 Surface 不变量。
 
-### Phase 4: 主题创作
+### Phase 4: 真实 source 与 2D 接入
 
-1. 安装 Meta Spatial Editor，并在场景中创建命名 slot anchor。
-2. 制作默认影院主题场景。
-3. 制作驾驶舱主题原型。
-4. 增加 EDIT 布局模式、主题覆盖持久化和主题导入导出。
+1. 接入 Bilibili XML/deflate 弹幕 source 和可选分段 Proto source。
+2. 接入 CC/VTT source、`DuplicateMergePlugin`、有界缓存和 mock translator。
+3. 在现有 TextureView 上方渲染 Flat overlay，不创建第二视频 Surface。
+4. 将真实 source 失败、限流、离线和解析失败隔离到对应 pipeline；视频和另
+   一类 overlay 继续运行。
+
+### Phase 5: Spatial 多层与驾驶舱主题
+
+1. 安装 Meta Spatial Editor 并创建命名 overlay anchor；固定对象仍由场景负责。
+2. 将 overlay surface ID 绑定 Meta entity，实现左右 group、组内多层、用户
+   视点投影遮挡、局部发射方向和远近层样式补偿。
+3. 验证斜向侧面 surface 的 L1/L4 首尾遮挡、头动容差和 group 跨域策略。
+4. 制作驾驶舱主题原型，并保持影院主题的单 group/StageLocked 组合。
+
+### Phase 6: 视线字幕与可选 LLM
+
+1. 实现 `GAZE_LOCKED` / `STAGE_LOCKED` caption anchor 和双语字幕设置。
+2. 接入安全存储中的可选 LLM provider、并发/超时/seek 取消、翻译缓存和预取。
+3. 验证 LLM 失败时原文持续显示，且不影响播放器、弹幕或 Surface handoff。
+4. 所有空间遮挡、曲面、字幕 anchor、淡出和输入行为通过 Quest 回归后才能
+   标记完成。
 
 ## 验收原则
 
@@ -935,5 +1092,12 @@ Demo 必须使用本地测试视频和 Mock 数据，不能请求 Bilibili 接�
 - 2D / 沉浸式 handoff、MR 切换和主题切换不能主动 seek 或创建第二个播放器。
 - Focus/PiP 仅变化同一个媒体舞台的几何、Transform、Scale 和可见性。
 - 主题模块没有 Bilibili endpoint、WBI、Cookie、Surface 或 Activity 路由依赖。
-- 所有临时内容页、Drawer、ActionSheet 和弹幕实体都有明确关闭、取消和资源清理路径。
-- 曲面视频、曲面贴合弹幕、空间弹幕、淡出和输入必须在 Quest 真机验证后才能标记完成。
+- Danmaku source、merge/filter plugin、caption source、translation plugin 和
+  renderer 之间通过受控合同连接，不通过隐式全局状态耦合。
+- `DanmakuSurfaceGroup` 共享归一化投影轨道，`OcclusionDomain` 负责用户视点
+  下跨 layer/group 遮挡；不能只用 surface local 坐标判断冲突。
+- CC 双语是单 cue 双行调度；翻译缺失、失败、离线或限流时原文必须持续显示。
+- 所有临时内容页、Drawer、ActionSheet、overlay item 和弹幕实体都有明确关闭、
+  取消、surface 禁用和资源清理路径。
+- 真实 source、LLM、曲面视频、曲面贴合弹幕、空间弹幕、视线字幕、淡出和输入
+  必须在 Quest 真机验证后才能标记完成。
