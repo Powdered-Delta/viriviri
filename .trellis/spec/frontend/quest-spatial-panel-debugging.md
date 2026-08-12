@@ -216,7 +216,23 @@ author the correct scene anchor/parent relationship.
   stage action from Browse also returns to Playback without toggling player
   intent; only a primary stage action already in Playback toggles play intent.
 
-### 3.4 MediaStage Adapter Boundary
+### 3.4 Playback Speed Control
+
+The existing transport panel exposes a fixed, controlled speed menu:
+`0.75x`, `1x`, `1.25x`, `1.5x`, and `2x`. It is an Android menu anchored to
+an existing transport button, not a new Spatial panel/entity.
+
+- The label and selected menu item reflect `player.playbackParameters.speed`.
+- Menu selection updates only the existing process-wide player parameters using
+  `withSpeed`; it must not prepare/reload media, seek, create a player, or
+  attach/detach a video Surface.
+- Invalid or externally supplied unsupported speed displays as safe `1x` without
+  silently overwriting player parameters.
+- Popup rendering and input in the embedded Quest panel require manual device
+  validation. If it is not viable, replace only the menu shell in a later task;
+  preserve the same controlled speed action and player ownership boundary.
+
+### 3.5 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
