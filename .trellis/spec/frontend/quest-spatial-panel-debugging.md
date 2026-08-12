@@ -282,7 +282,24 @@ single media output buffer must match that geometry:
   compare another source. Do not compensate by changing the scene transform or
   adding a second video output.
 
-### 3.7 MediaStage Adapter Boundary
+### 3.8 Current Media Status
+
+The existing `mode_panel` is the first immersive current-media status surface.
+It displays the selected title and author from `ViriViriAppState`, with viewer
+playback errors replacing only the author/detail line while retaining the title.
+It is an existing Android panel and must not own a player, Surface, Bilibili
+request, Entity, or new Spatial registration.
+
+- The Activity projects app state through the pure `immersiveMediaStatus` helper
+  before setting its existing TextViews. It uses bounded strings and XML
+  single-line ellipsis so title/error growth cannot alter fixed panel geometry.
+- Browse/feed/search pagination errors remain in their list UI. They must not
+  masquerade as a current-media playback failure in the status panel.
+- The initial panel setup renders the latest state, and the existing
+  Activity-owned app-state collector refreshes it after selection or viewer
+  error. Its existing `onDestroy` cancellation remains the cleanup path.
+
+### 3.9 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
