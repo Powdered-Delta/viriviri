@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review core/adapter boundary preservation."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review single player and SDK-owned Surface lifecycle."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review Quest panel lifecycle and device validation."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review PlayerSession integration boundary."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Review focused Kotlin quality expectations."}
+{"file":".trellis/tasks/archive/2026-08/08-12-unified-media-stage/prd.md","reason":"Review reducer lifecycle assumptions."}
+{"file":".trellis/tasks/08-12-immersive-media-stage/research/immersive-stage-host.md","reason":"Review existing host behavior and lifecycle decisions."}
