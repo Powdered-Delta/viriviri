@@ -200,6 +200,40 @@ enum class WorkbenchCanvas {
 `SHORTS_COMMENTS` 只是焦点，不参与关闭栈。隐藏必须同时关闭命中，不能只做
 视觉 alpha 动画。
 
+### Regular WATCH Canvas Runtime
+
+Regular WATCH now has a pure Kotlin `PlaybackCanvasReducer` with four runtime
+states:
+
+```text
+QUIET_WATCH --primary stage action--> PLAYBACK
+PLAYBACK --idle timeout while actually playing--> QUIET_WATCH
+PLAYBACK / BROWSE / CONTEXT --dismiss--> QUIET_WATCH
+BROWSE <--> CONTEXT by explicit request only
+```
+
+The reducer receives semantic canvas actions plus actual-playback state, not
+Meta entities, Android Views, ExoPlayer, Surfaces, timers, or coroutines. It
+resolves requested slots and additionally retains only slots whose active theme
+policy is `PERSISTENT`:
+
+```text
+QUIET_WATCH: MEDIA_STAGE + persistent slots
+PLAYBACK:    MEDIA_STAGE + TRANSPORT + SYSTEM_TOOLBAR + persistent slots
+BROWSE:      MEDIA_STAGE + BROWSE + persistent slots
+CONTEXT:     MEDIA_STAGE + CONTEXT + persistent slots
+```
+
+In particular, a theme layout having Browse/Context anchors does not make those
+rails visible in Quiet Watch or Playback. The current cinema fixture therefore
+declares no Browse/Context visible slots for those two canvas recipes.
+
+The reducer is intentionally not yet a Spatial panel visibility implementation.
+A future adapter must map its resolved slots to existing panel layer alpha,
+`Visible`, and hit-test changes together. It must not use Android View alpha as
+a substitute for hiding a Spatial panel or add another MediaStage/Surface.
+
+
 ## 内容导航
 
 ### 左侧 BROWSE

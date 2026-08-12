@@ -49,13 +49,13 @@ object CinemaTheme {
                 WorkbenchCanvas(
                     id = "cinema-watch-quiet",
                     mode = ImmersiveLayoutMode.WATCH,
-                    visibleSlots = setOf(PanelSlot.MEDIA_STAGE, PanelSlot.BROWSE, PanelSlot.CONTEXT),
+                    visibleSlots = setOf(PanelSlot.MEDIA_STAGE),
                     visibleComponentIds = setOf("system-status-strip", "content-navigation-slot", "media-stage"),
                 ),
                 WorkbenchCanvas(
                     id = "cinema-watch-controls",
                     mode = ImmersiveLayoutMode.WATCH,
-                    visibleSlots = setOf(PanelSlot.MEDIA_STAGE, PanelSlot.BROWSE, PanelSlot.CONTEXT, PanelSlot.TRANSPORT),
+                    visibleSlots = setOf(PanelSlot.MEDIA_STAGE, PanelSlot.SYSTEM_TOOLBAR, PanelSlot.TRANSPORT),
                     visibleComponentIds =
                         setOf(
                             "system-status-strip",
