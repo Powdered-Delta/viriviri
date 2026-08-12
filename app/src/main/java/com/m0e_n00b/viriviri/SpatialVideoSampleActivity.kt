@@ -21,6 +21,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
+import android.view.Surface
 import android.view.View
 import android.widget.Button
 import android.widget.SeekBar
@@ -139,6 +140,24 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private var gltfxEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
+  private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
+  private val immersiveStagePlayerListener =
+      object : Player.Listener {
+        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+          reportImmersiveStageClock()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+          reportImmersiveStageClock()
+        }
+
+        override fun onPositionDiscontinuity(reason: Int) {
+          reportImmersiveStageClock()
+          if (::immersiveMediaStageHost.isInitialized) {
+            immersiveMediaStageHost.reportSeek(player.currentPosition)
+          }
+        }
+      }
 
   override fun registerFeatures(): List<SpatialFeature> {
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -160,6 +179,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     appContext = spatialContext
 
     panner.putChannelMixingMatrix(ChannelMixingMatrix.create(2, 2))
+
+    immersiveMediaStageHost =
+        ImmersiveMediaStageHost(
+            attachVideoOutput = ViriViriApplication.appState.playerSession::attachImmersiveSurface,
+            onEffect = { effect -> Log.d(TAG, "MediaStage effect=$effect") },
+        )
+    player.addListener(immersiveStagePlayerListener)
 
     audio = SceneAudioAsset.loadLocalFile("data/common/audio/ui_press_direct.ogg")
 
@@ -610,7 +636,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           )
         }
 
-    ViriViriApplication.appState.playerSession.attachImmersiveSurface(panelSceneObject.surface)
+    immersiveMediaStageHost.attachOutput(panelSceneObject.surface)
+    reportImmersiveStageClock()
 
     systemManager
         .findSystem<SceneObjectSystem>()
@@ -749,7 +776,26 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         systemManager.findSystem<SceneObjectSystem>()
             .getSceneObject(Entity(R.id.spatialized_video_panel))
             ?.getNow(null) as? PanelSceneObject
-    panel?.let { ViriViriApplication.appState.playerSession.attachImmersiveSurface(it.surface) }
+    panel?.let {
+      immersiveMediaStageHost.attachOutput(it.surface)
+      reportImmersiveStageClock()
+    }
+  }
+
+  override fun onDestroy() {
+    player.removeListener(immersiveStagePlayerListener)
+    if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
+    super.onDestroy()
+  }
+
+  private fun reportImmersiveStageClock() {
+    if (::immersiveMediaStageHost.isInitialized) {
+      immersiveMediaStageHost.updateClock(
+          positionMs = player.currentPosition,
+          durationMs = player.duration.takeIf { it >= 0L },
+          isPlaying = player.isPlaying,
+      )
+    }
   }
 
   private fun setupHoverAndTouchListeners(view: View) {
