@@ -14,6 +14,15 @@ class BilibiliWbiTest {
   }
 
   @Test
+  fun recommendationPaginationAdvancesFreshIndexAndBrushTogether() {
+    assertEquals(
+        "https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd" +
+            "?version=1&feed_version=V8&homepage_ver=1&ps=20&fresh_idx=40&brush=40&fresh_type=4",
+        BilibiliPlaybackProvider.recommendationPageUrl("https://api.bilibili.com", freshIndex = 40, pageSize = 20),
+    )
+  }
+
+  @Test
   fun anonymousNavResponseCanStillSupplyWbiKeys() {
     // The anonymous nav response carries these fields even when its code is -101.
     val imageUrl = "https://i0.hdslb.com/bfs/wbi/abcdefghijklmnopqrstuvwxyz012345.jpg"

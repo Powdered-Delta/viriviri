@@ -22,6 +22,9 @@ data class ViriViriUiState(
     val selected: Recommendation? = null,
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val isLoading: Boolean = false,
+    val isLoadingNextPage: Boolean = false,
+    val canLoadMore: Boolean = true,
+    val nextPage: Int = 1,
     val error: String? = null,
     val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
     val isShowingSearchResults: Boolean = false,
@@ -42,6 +45,10 @@ internal class SearchRequestTracker {
 class PlayerSession(context: Context) {
   val player = ExoPlayer.Builder(context).build()
   private var surface: Surface? = null
+
+  init {
+    player.setVideoScalingMode(IMMERSIVE_VIDEO_SCALING_MODE)
+  }
 
   fun setMediaSource(source: MediaSource) {
     player.setMediaSource(source)
@@ -89,32 +96,58 @@ class ViriViriAppState(
       ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
   )
   private var playbackRequestId = 0L
-  private var searchJob: Job? = null
+  private var listJob: Job? = null
+  private var nextPageJob: Job? = null
   private val searchRequestTracker = SearchRequestTracker()
+  private val thumbnails = ThumbnailRepository()
+  private val mutableThumbnailStates = MutableStateFlow<Map<String, ThumbnailState>>(emptyMap())
   val state: StateFlow<ViriViriUiState> = mutableState.asStateFlow()
+  internal val thumbnailStates: StateFlow<Map<String, ThumbnailState>> = mutableThumbnailStates.asStateFlow()
 
   init { refreshRecommendations() }
 
   fun refreshRecommendations() {
-    searchJob?.cancel()
+    listJob?.cancel()
+    nextPageJob?.cancel()
     val requestId = searchRequestTracker.beginRequest()
-    scope.launch {
-      mutableState.value = mutableState.value.copy(isLoading = true, error = null, isShowingSearchResults = false)
-      runCatching { withContext(Dispatchers.IO) { provider.loadRecommendations() } }
-          .onSuccess { recommendations ->
-            if (searchRequestTracker.isCurrent(requestId)) {
-              mutableState.value = mutableState.value.copy(recommendations = recommendations, isLoading = false)
-            }
-          }
-          .onFailure { error ->
-            if (searchRequestTracker.isCurrent(requestId)) {
-              mutableState.value = mutableState.value.copy(
-                  isLoading = false,
-                  error = error.message ?: "Unable to load recommendations",
+    listJob =
+        scope.launch {
+          mutableState.value =
+              mutableState.value.copy(
+                  recommendations = emptyList(),
+                  isLoading = true,
+                  isLoadingNextPage = false,
+                  canLoadMore = true,
+                  nextPage = 1,
+                  error = null,
+                  isShowingSearchResults = false,
+                  recommendationScrollPosition = ListScrollPosition(),
               )
-            }
-          }
-    }
+          runCatching { withContext(Dispatchers.IO) { provider.loadRecommendations() } }
+              .onSuccess { recommendations ->
+                if (searchRequestTracker.isCurrent(requestId)) {
+                  val page = mergeRecommendationPage(emptyList(), recommendations)
+                  mutableState.value =
+                      mutableState.value.copy(
+                          recommendations = page.recommendations,
+                          isLoading = false,
+                          canLoadMore = page.canLoadMore,
+                          nextPage = 2,
+                      )
+                  requestThumbnails(page.recommendations)
+                }
+              }
+              .onFailure { error ->
+                if (searchRequestTracker.isCurrent(requestId)) {
+                  mutableState.value =
+                      mutableState.value.copy(
+                          isLoading = false,
+                          canLoadMore = false,
+                          error = error.message ?: "Unable to load recommendations",
+                      )
+                }
+              }
+        }
   }
 
   fun updateSearchQuery(query: String) {
@@ -137,41 +170,132 @@ class ViriViriAppState(
 
   private fun submitSearch(query: String) {
     val normalizedQuery = normalizeSearchQuery(query)
-    searchJob?.cancel()
+    listJob?.cancel()
+    nextPageJob?.cancel()
     val requestId = searchRequestTracker.beginRequest()
     if (normalizedQuery.isBlank()) {
-      mutableState.value = mutableState.value.copy(
-          searchInput = inputMethods.initialSession(),
-          isShowingSearchResults = false,
-          isLoading = false,
-          error = null,
-      )
+      mutableState.value =
+          mutableState.value.copy(
+              searchInput = inputMethods.initialSession(),
+              isShowingSearchResults = false,
+              isLoading = false,
+              isLoadingNextPage = false,
+              error = null,
+          )
       return
     }
-    searchJob = scope.launch {
-      mutableState.value = mutableState.value.copy(
-          isLoading = true,
-          error = null,
-          searchInput =
-              inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
-          isShowingSearchResults = true,
-          searchScrollPosition = ListScrollPosition(),
-      )
-      runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery) } }
-          .onSuccess { recommendations ->
-            if (searchRequestTracker.isCurrent(requestId)) {
-              mutableState.value = mutableState.value.copy(recommendations = recommendations, isLoading = false)
-            }
-          }
-          .onFailure { error ->
-            if (searchRequestTracker.isCurrent(requestId)) {
-              mutableState.value = mutableState.value.copy(
-                  isLoading = false,
-                  error = error.message ?: "Unable to search Bilibili",
+    listJob =
+        scope.launch {
+          mutableState.value =
+              mutableState.value.copy(
+                  recommendations = emptyList(),
+                  isLoading = true,
+                  isLoadingNextPage = false,
+                  canLoadMore = true,
+                  nextPage = 1,
+                  error = null,
+                  searchInput = inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
+                  isShowingSearchResults = true,
+                  searchScrollPosition = ListScrollPosition(),
               )
-            }
-          }
+          runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery) } }
+              .onSuccess { recommendations ->
+                if (searchRequestTracker.isCurrent(requestId)) {
+                  val page = mergeRecommendationPage(emptyList(), recommendations)
+                  mutableState.value =
+                      mutableState.value.copy(
+                          recommendations = page.recommendations,
+                          isLoading = false,
+                          canLoadMore = page.canLoadMore,
+                          nextPage = 2,
+                      )
+                  requestThumbnails(page.recommendations)
+                }
+              }
+              .onFailure { error ->
+                if (searchRequestTracker.isCurrent(requestId)) {
+                  mutableState.value =
+                      mutableState.value.copy(
+                          isLoading = false,
+                          canLoadMore = false,
+                          error = error.message ?: "Unable to search Bilibili",
+                      )
+                }
+              }
+        }
+  }
+
+  fun loadNextPage() {
+    val current = mutableState.value
+    if (current.isLoading || current.isLoadingNextPage || !current.canLoadMore) return
+    val requestId = searchRequestTracker.beginRequest()
+    val pageToLoad = current.nextPage
+    val searchQuery = current.searchInput.committedText.takeIf { current.isShowingSearchResults }
+    mutableState.value = current.copy(isLoadingNextPage = true, error = null)
+    nextPageJob =
+        scope.launch {
+          val result =
+              runCatching {
+                withContext(Dispatchers.IO) {
+                  if (searchQuery == null) {
+                    provider.loadRecommendations(
+                        freshIndex = current.recommendations.size,
+                    )
+                  } else {
+                    provider.searchVideos(searchQuery, page = pageToLoad)
+                  }
+                }
+              }
+          if (!searchRequestTracker.isCurrent(requestId)) return@launch
+          result
+              .onSuccess { recommendations ->
+                val latest = mutableState.value
+                val page = mergeRecommendationPage(latest.recommendations, recommendations)
+                mutableState.value =
+                    latest.copy(
+                        recommendations = page.recommendations,
+                        isLoadingNextPage = false,
+                        canLoadMore = page.canLoadMore,
+                        nextPage = pageToLoad + 1,
+                    )
+                requestThumbnails(
+                    page.recommendations.filter { recommendation ->
+                      latest.recommendations.none { it.videoId == recommendation.videoId }
+                    }
+                )
+              }
+              .onFailure { error ->
+                mutableState.value =
+                    mutableState.value.copy(
+                        isLoadingNextPage = false,
+                        error = error.message ?: "Unable to load more videos",
+                    )
+              }
+        }
+  }
+
+  private fun requestThumbnails(recommendations: List<Recommendation>) {
+    recommendations.mapNotNull { normalizedThumbnailUrl(it.coverUrl) }.distinct().forEach { url ->
+      if (!thumbnails.markLoading(url)) return@forEach
+      publishThumbnailState(url, ThumbnailState.Loading)
+      scope.launch {
+        val bitmap = withContext(Dispatchers.IO) { thumbnails.download(url) }
+        thumbnails.store(url, bitmap)
+        if (mutableState.value.recommendations.any { normalizedThumbnailUrl(it.coverUrl) == url }) {
+          publishThumbnailState(url)
+        }
+      }
     }
+  }
+
+  private fun publishThumbnailState(url: String, state: ThumbnailState? = null) {
+    val next = (mutableThumbnailStates.value + (url to (state ?: thumbnails.state(url) ?: ThumbnailState.Failed)))
+    mutableThumbnailStates.value =
+        if (next.size <= THUMBNAIL_CACHE_SIZE) {
+          next
+        } else {
+          next.entries.toList().takeLast(THUMBNAIL_CACHE_SIZE).associate { it.toPair() }
+        }
   }
 
   fun returnToRecommendationsFeed() {

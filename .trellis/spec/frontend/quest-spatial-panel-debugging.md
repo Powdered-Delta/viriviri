@@ -252,7 +252,26 @@ player. Its compact elapsed/duration labels and seek bar remain Android views in
   `onDestroy()` before clearing handler callbacks. It updates view state only;
   it must not create/prepare/seek a player or alter video Surface ownership.
 
-### 3.6 MediaStage Adapter Boundary
+### 3.6 Immersive Video Aspect Ratio
+
+The persistent `spatialized_video_panel` has a fixed 16:9 physical mesh. Its
+single media output buffer must match that geometry:
+
+- Use `1920x1080` output pixels with `StereoMode.None`. Do not carry the
+  upstream SpatialVideo sample's `3840x1080` LeftRight stereo buffer into this
+  monoscopic Bilibili path.
+- The shared `PlayerSession` explicitly uses Media3
+  `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
+  and non-square-pixel sources must retain their display aspect within the one
+  existing Surface through pillarbox/letterbox rather than stretch or crop.
+- Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes.
+  The decoder/output scaling mode owns image containment inside the fixed stage.
+- A right-edge stretched strip on a landscape source is a diagnostic signal:
+  first confirm this monoscopic 16:9 buffer contract and `StereoMode.None`, then
+  compare another source. Do not compensate by changing the scene transform or
+  adding a second video output.
+
+### 3.7 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`

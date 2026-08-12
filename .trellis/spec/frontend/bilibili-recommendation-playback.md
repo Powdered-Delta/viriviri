@@ -35,7 +35,18 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 * No Cookie, SESSDATA, access key, CSRF value, device identifier, or server-side
   playback heartbeat is sent or logged.
 * `ViriViriAppState` is the single process-level source for the list, selected
-  item, browse/viewer destination, and sole `PlayerSession`.
+  item, browse/viewer destination, pagination cursor, thumbnail states, and sole
+  `PlayerSession`.
+* Recommendation pagination advances web-feed `fresh_idx` and `brush` together
+  from the loaded-result count. Search pagination advances the WBI-signed
+  `page` parameter. Refresh or a new search cancels/invalidates earlier list
+  requests; one current source may have at most one append request in flight.
+  Append results are de-duplicated by `videoId`. A short page or page with no
+  new IDs terminates pagination.
+* `Recommendation.coverUrl` is consumed only through the app-state-owned,
+  bounded `ThumbnailRepository`. It normalizes protocol-relative/HTTP URLs to
+  HTTPS and exposes loading, ready, and failed view states. Compose renders
+  these states but must not make thumbnail HTTP requests or assemble API URLs.
 * The immersive Browse command records the current selected video ID, calls
   `returnToRecommendations()` so the existing `video_selector_panel` shows its
   shared list instead of the Viewer screen, then opens the core Browse canvas.
@@ -49,6 +60,9 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 | --- | --- |
 | Recommendation HTTP/API/JSON failure | Keep the browse UI alive and display a recoverable error. |
 | Missing `bvid` or incomplete recommendation item | Skip the item without failing the full list. |
+| Duplicate item in a later feed/search page | Retain first occurrence and do not reinsert the video. |
+| Later page HTTP/API/JSON failure | Preserve already loaded items, end append loading, and show a recoverable inline error. |
+| Missing/invalid/unavailable cover | Preserve fixed thumbnail geometry and display a loading or failure placeholder. |
 | Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. |
 | A slower prior selection completes after a newer selection | Ignore the stale completion. |
 | 2D or immersive output changes | Capture position and play intent, then attach the target to the same player. |
@@ -71,9 +85,10 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   replace the verified web feed with another endpoint.
 * Unit test stale selection completion and current-surface-only detachment when
   those state helpers are extracted or changed.
-* Device test the initial recommendations, item selection, return to browse,
-  both directions of 2D/immersive playback handoff, and retained playback
-  position.
+* Device test initial recommendation/search pages, automatic next-page append,
+  duplicate suppression, cover success/failure placeholders, item selection,
+  return to browse, both directions of 2D/immersive playback handoff, and
+  retained playback position.
 
 ### 7. Wrong vs Correct
 
