@@ -63,7 +63,7 @@ SpatialVideoSampleActivity
 ## Bilibili 推荐与播放
 
 - 默认沉浸式 selector panel 显示 Bilibili 推荐；2D 和沉浸式 UI 共用 application-scoped recommendation state，因此列表、所选条目和浏览/观看目的地在路由后保持一致。
-- selector panel 的搜索框是嵌入式 `MoviePanel` 内普通可聚焦 Compose 输入框。它通过 Android IME 正常请求 Horizon OS 系统虚拟键盘，不创建 Spatial entity、键盘 panel、播放器或 Surface。IME 的 Search action 提交 WBI 签名的视频搜索；共享状态取消前一搜索并以请求序号丢弃过期结果。`Recommendations` 会重新加载推荐 feed。
+- selector panel 使用独立的 `SearchInputPanel`，不再只依赖 Horizon OS 系统 IME。默认 `ChineseT9InputMethod` 在应用内提供多击九宫格拼音、离线热门短语排序和 Android ICU `Han-Latin` 单字候选回退；选中候选后才会写入共享查询。`SearchInputMethod`、`OfflinePinyinLexicon` 和 `SearchInputMethodRegistry` 是纯 Kotlin 扩展边界，其他开发者可注册自己的语言键盘和离线词典，不改 Compose 搜索面板、状态层或 Bilibili provider。输入面板包含 `清空输入` 与 `确定搜索`，只有后者才会请求 WBI 签名的视频搜索；系统虚拟键盘保留为图标触发的备用输入。该面板不创建 Spatial entity、播放器或 Surface。共享状态取消前一搜索并以请求序号丢弃过期结果，`Recommendations` 会重新加载推荐 feed。
 - 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
 - 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
 - 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。

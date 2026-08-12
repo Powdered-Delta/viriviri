@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.Button
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,11 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.media3.common.Player
 
 internal data class TextureViewScale(val x: Float, val y: Float)
@@ -95,14 +91,13 @@ private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppStat
         Text(if (state.isShowingSearchResults) "Recommendations" else "Refresh")
       }
     }
-    OutlinedTextField(
-        value = state.searchQuery,
-        onValueChange = appState::updateSearchQuery,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Search Bilibili") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { appState.submitSearch(state.searchQuery) }),
+    SearchInputPanel(
+        session = state.searchInput,
+        method = appState.inputMethods.methodFor(state.searchInput),
+        onSystemTextChanged = appState::updateSearchQuery,
+        onInputAction = appState::applySearchInputAction,
+        onClear = appState::clearSearchInput,
+        onSearch = appState::submitSearch,
     )
     when {
       state.isLoading -> Text(if (state.isShowingSearchResults) "Searching Bilibili..." else "Loading recommendations...", color = Color.White)
