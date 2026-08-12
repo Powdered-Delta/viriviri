@@ -1,23 +1,13 @@
 package com.m0e_n00b.viriviri
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.m0e_n00b.spatialworkbench.compose.SearchActions
+import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsole
+import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsoleActions
+import com.m0e_n00b.spatialworkbench.compose.DefaultInputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateItem
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateModeItem
-import com.m0e_n00b.spatialworkbench.compose.SearchCandidateModeSwitcher
-import com.m0e_n00b.spatialworkbench.compose.SearchCandidateStrip
-import com.m0e_n00b.spatialworkbench.compose.SearchInputMethodBoard
 import com.m0e_n00b.spatialworkbench.compose.SearchKeyItem
-import com.m0e_n00b.spatialworkbench.compose.SearchQueryField
-import com.m0e_n00b.spatialworkbench.compose.SpatialPanelShell
-import com.m0e_n00b.spatialworkbench.compose.SpatialPanelShellStyle
 
 @Composable
 internal fun SearchInputPanel(
@@ -43,73 +33,49 @@ internal fun SearchInputPanel(
         row.mapIndexed { keyIndex, key -> "$rowIndex-$keyIndex" to key.action }
       }.toMap()
 
-  SpatialPanelShell(
-      style = SpatialPanelShellStyle(contentPadding = 0.dp, sectionSpacing = 6.dp),
-      header = {
-        SearchQueryField(
-            value = session.committedText,
-            onValueChange = onSystemTextChanged,
-            modifier = Modifier.fillMaxWidth(),
+  CinemaInputConsole(
+      query = session.committedText,
+      composition = session.composition,
+      candidateModes =
+          listOf(
+              SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, "词组"),
+              SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, "单字"),
+          ),
+      selectedCandidateModeId = session.candidateMode.name,
+      candidates =
+          session.candidates.map { candidate ->
+            SearchCandidateItem(candidate.value, candidate.label)
+          },
+      keyboardRows = keyboardRows,
+      candidateExpanded = false,
+      onQueryChanged = onSystemTextChanged,
+      onSelectCandidateMode = { mode ->
+        onInputAction(
+            SearchInputAction.SetCandidateMode(
+                SearchCandidateMode.valueOf(mode.id),
+            )
         )
       },
-      mainArea = {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          androidx.compose.material.Text(
-              text =
-                  if (session.composition.isBlank()) {
-                    " "
-                  } else {
-                    "${method.displayName}：${session.composition}"
-                  },
-              modifier = Modifier.height(20.dp),
-              color = Color(0xFFCFD8DC),
-          )
-          SearchCandidateModeSwitcher(
-              modes =
-                  listOf(
-                      SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, "词组"),
-                      SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, "单字"),
-                  ),
-              selectedId = session.candidateMode.name,
-              onSelect = { mode ->
-                onInputAction(
-                    SearchInputAction.SetCandidateMode(
-                        SearchCandidateMode.valueOf(mode.id),
-                    )
-                )
-              },
-          )
-          SearchCandidateStrip(
-              candidates =
-                  session.candidates.map { candidate ->
-                    SearchCandidateItem(candidate.value, candidate.label)
-                  },
-              onSelect = { candidate ->
-                onInputAction(SearchInputAction.SelectCandidate(candidate.id))
-              },
-          )
-          SearchInputMethodBoard(
-              rows = keyboardRows,
-              onKeyPress = { key ->
-                val action = keyActions.getValue(key.id)
-                onInputAction(
-                    if (action is SearchInputAction.PressKey) {
-                      action.copy(eventTimeMs = System.currentTimeMillis())
-                    } else {
-                      action
-                    }
-                )
-              },
-          )
-        }
+      onSelectCandidate = { candidate ->
+        onInputAction(SearchInputAction.SelectCandidate(candidate.id))
       },
-      footer = {
-        SearchActions(
-            onBackspace = { onInputAction(SearchInputAction.Backspace) },
-            onClear = onClear,
-            onSearch = onSearch,
-            modifier = Modifier.fillMaxWidth(),
+      onToggleCandidates = {},
+      onKeyPress = { key ->
+        val action = keyActions.getValue(key.id)
+        onInputAction(
+            if (action is SearchInputAction.PressKey) {
+              action.copy(eventTimeMs = System.currentTimeMillis())
+            } else {
+              action
+            }
         )
       },
+      actions =
+          CinemaInputConsoleActions(
+              onBackspace = { onInputAction(SearchInputAction.Backspace) },
+              onClear = onClear,
+              onSearch = onSearch,
+          ),
+      style = DefaultInputConsoleStyle,
   )
 }

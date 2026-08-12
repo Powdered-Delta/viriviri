@@ -67,6 +67,31 @@ fun BrowseScreen(metaSpatialObject: MetaSpatialObject) = Unit
 | `PancakeActivity.kt` | Compose, Android Activity APIs | Immersive panel construction |
 | `SpatialVideoSampleActivity.kt` | Meta Spatial SDK, application state | A second ExoPlayer or protocol parsing |
 | `:spatial-workbench-core` | Kotlin standard library | Android, Compose, Meta SDK, Media3, Bilibili, Activity, Surface, network |
+### Convention: Theme Tokens Stay Visual
+
+**What**: Reusable Compose controls accept immutable visual tokens such as
+`InputConsoleStyle` and `CinemaInputConsoleActions`. `CinemaPalette` semantic
+roles are mapped to Compose colors at the visual boundary; reducers and host
+state remain callbacks/data supplied by the app.
+
+**Required behavior**:
+
+- Keep composition and collapsed candidate rows at stable heights even when
+  their contents are empty or change.
+- Render expanded candidates in a topmost popup positioned above the candidate
+  strip; the popup must not push the keyboard geometry.
+- Route query-header Voice and keyboard Voice through the same host callback.
+  System IME is a separate explicit callback.
+- Keep style tokens free of player, Surface, Activity, Meta SDK, network, or
+  input reducer ownership.
+
+**Forbidden**:
+
+- Theme JSON or Compose styling may not dispatch arbitrary Kotlin, network
+  requests, player operations, or SearchSession transitions.
+- Do not place renderer coordinates or CSS-like top offsets in Compose/core
+  theme tokens.
+
 | `:spatial-workbench-compose` | AndroidX Compose, `:spatial-workbench-core` | Meta SDK, Media3, Bilibili, Activity, player or video Surface ownership |
 
 ### Convention: Core Contracts Validate, Adapters Execute
