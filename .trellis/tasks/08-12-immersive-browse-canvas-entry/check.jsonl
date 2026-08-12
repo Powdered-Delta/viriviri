@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review core/app/Spatial ownership boundaries."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review shared selection/player behavior preservation."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review Spatial panel visibility and lifecycle."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Review Browse Canvas interaction outcome."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Review Browse slot and Context blocker preservation."}
+{"file":".trellis/tasks/08-12-immersive-browse-canvas-entry/research/browse-entry-boundary.md","reason":"Review observer-only adapter behavior."}
