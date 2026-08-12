@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review core/app ownership separation."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review player/surface invariants."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review embedded panel behavior and manual test boundary."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Review playback config speed UX."}
+{"file":".trellis/tasks/08-12-immersive-playback-speed-control/research/speed-control-boundary.md","reason":"Review allowed values and invalid-speed behavior."}
