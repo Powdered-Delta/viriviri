@@ -11,9 +11,11 @@ class PlaybackCanvasContractsTest {
     val quiet = PlaybackCanvasState()
     val playback = PlaybackCanvasReducer.reduce(quiet, PlaybackCanvasEvent.PrimaryStageAction)
     val browse = PlaybackCanvasReducer.reduce(PlaybackCanvasState(PlaybackCanvas.BROWSE), PlaybackCanvasEvent.PrimaryStageAction)
+    val context = PlaybackCanvasReducer.reduce(PlaybackCanvasState(PlaybackCanvas.CONTEXT), PlaybackCanvasEvent.PrimaryStageAction)
 
     assertEquals(PlaybackCanvas.PLAYBACK, playback.canvas)
-    assertEquals(PlaybackCanvas.BROWSE, browse.canvas)
+    assertEquals(PlaybackCanvas.PLAYBACK, browse.canvas)
+    assertEquals(PlaybackCanvas.PLAYBACK, context.canvas)
   }
 
   @Test
@@ -25,6 +27,15 @@ class PlaybackCanvasContractsTest {
     assertEquals(PlaybackCanvas.BROWSE, browse.canvas)
     assertEquals(PlaybackCanvas.CONTEXT, context.canvas)
     assertEquals(PlaybackCanvas.QUIET_WATCH, quiet.canvas)
+  }
+
+  @Test
+  fun explicitPlaybackOutcomeClosesBrowseWithoutUsingPrimaryStageAction() {
+    val browse = PlaybackCanvasReducer.reduce(PlaybackCanvasState(), PlaybackCanvasEvent.OpenBrowse)
+    val playback = PlaybackCanvasReducer.reduce(browse, PlaybackCanvasEvent.OpenPlayback)
+
+    assertEquals(PlaybackCanvas.BROWSE, browse.canvas)
+    assertEquals(PlaybackCanvas.PLAYBACK, playback.canvas)
   }
 
   @Test

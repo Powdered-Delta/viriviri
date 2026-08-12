@@ -112,6 +112,7 @@ import java.util.concurrent.CompletableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
@@ -150,6 +151,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private var gltfxEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
+  private var browseSelectionBaselineId: String? = null
+  private var awaitingBrowseSelection = false
+  private var browseSelectionObserver: Job? = null
   private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
   private val immersiveStagePlayerListener =
       object : Player.Listener {
@@ -225,6 +229,22 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         ImmersivePlaybackCanvasHost(applyVisibleSlots = ::applyPlaybackCanvasSlots)
     player.addListener(immersiveStagePlayerListener)
     player.addListener(immersiveControlsPlayerListener)
+    browseSelectionObserver =
+        activityScope.launch {
+          ViriViriApplication.appState.state.collect { appState ->
+            if (::immersivePlaybackCanvasHost.isInitialized &&
+                shouldReturnToPlaybackAfterBrowseSelection(
+                    awaitingSelection = awaitingBrowseSelection,
+                    canvas = immersivePlaybackCanvasHost.state.canvas,
+                    baselineVideoId = browseSelectionBaselineId,
+                    selectedVideoId = appState.selected?.videoId,
+                )) {
+              awaitingBrowseSelection = false
+              browseSelectionBaselineId = null
+              dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
+            }
+          }
+        }
 
     audio = SceneAudioAsset.loadLocalFile("data/common/audio/ui_press_direct.ogg")
 
@@ -616,11 +636,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  val canvasWasQuiet =
-                      ::immersivePlaybackCanvasHost.isInitialized &&
-                          immersivePlaybackCanvasHost.state.canvas == PlaybackCanvas.QUIET_WATCH
+                  val canvasBeforeAction =
+                      if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.state.canvas else null
                   dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
-                  if (canvasWasQuiet) showTransportOverlay() else togglePlay()
+                  if (canvasBeforeAction == PlaybackCanvas.PLAYBACK) {
+                    togglePlay()
+                  } else {
+                    showTransportOverlay()
+                  }
                 }
 
                 override fun onInput(
@@ -726,6 +749,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           var localSeekBar = rootView.findViewById<SeekBar>(R.id.seek_bar)!!
           seekBar.complete(localSeekBar)
 
+          val browseButton = rootView.findViewById<Button>(R.id.browse_button)!!
+          browseButton.setOnClickListener { openBrowseCanvas() }
+          setupHoverAndTouchListeners(browseButton)
           val playPauseButtonLocal = rootView.findViewById<Button>(R.id.play_pause_button)!!
           playPauseButton.complete(playPauseButtonLocal)
           syncPlaybackControls()
@@ -802,6 +828,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   override fun onDestroy() {
     player.removeListener(immersiveStagePlayerListener)
     player.removeListener(immersiveControlsPlayerListener)
+    browseSelectionObserver?.cancel()
+    browseSelectionObserver = null
     canvasHandler.removeCallbacksAndMessages(null)
     if (::spatialPanelVisibilityController.isInitialized) spatialPanelVisibilityController.clear()
     if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
@@ -910,6 +938,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun dispatchPlaybackCanvas(event: PlaybackCanvasEvent) {
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.dispatch(event)
+  }
+
+  private fun openBrowseCanvas() {
+    val appState = ViriViriApplication.appState
+    browseSelectionBaselineId = appState.state.value.selected?.videoId
+    awaitingBrowseSelection = true
+    appState.returnToRecommendations()
+    dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
 
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {

@@ -20,6 +20,8 @@ sealed interface PlaybackCanvasEvent {
 
   data object OpenContext : PlaybackCanvasEvent
 
+  data object OpenPlayback : PlaybackCanvasEvent
+
   data object Dismiss : PlaybackCanvasEvent
 
   data object IdleTimeout : PlaybackCanvasEvent
@@ -35,9 +37,18 @@ object PlaybackCanvasReducer {
   fun reduce(state: PlaybackCanvasState, event: PlaybackCanvasEvent): PlaybackCanvasState =
       when (event) {
         PlaybackCanvasEvent.PrimaryStageAction ->
-            state.copy(canvas = if (state.canvas == PlaybackCanvas.QUIET_WATCH) PlaybackCanvas.PLAYBACK else state.canvas)
+            state.copy(
+                canvas =
+                    when (state.canvas) {
+                      PlaybackCanvas.QUIET_WATCH,
+                      PlaybackCanvas.BROWSE,
+                      PlaybackCanvas.CONTEXT -> PlaybackCanvas.PLAYBACK
+                      PlaybackCanvas.PLAYBACK -> PlaybackCanvas.PLAYBACK
+                    }
+            )
         PlaybackCanvasEvent.OpenBrowse -> state.copy(canvas = PlaybackCanvas.BROWSE)
         PlaybackCanvasEvent.OpenContext -> state.copy(canvas = PlaybackCanvas.CONTEXT)
+        PlaybackCanvasEvent.OpenPlayback -> state.copy(canvas = PlaybackCanvas.PLAYBACK)
         PlaybackCanvasEvent.Dismiss -> state.copy(canvas = PlaybackCanvas.QUIET_WATCH)
         PlaybackCanvasEvent.IdleTimeout ->
             if (state.isActuallyPlaying && state.canvas == PlaybackCanvas.PLAYBACK) {

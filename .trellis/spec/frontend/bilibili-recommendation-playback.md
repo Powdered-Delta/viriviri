@@ -36,6 +36,12 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   playback heartbeat is sent or logged.
 * `ViriViriAppState` is the single process-level source for the list, selected
   item, browse/viewer destination, and sole `PlayerSession`.
+* The immersive Browse command records the current selected video ID, calls
+  `returnToRecommendations()` so the existing `video_selector_panel` shows its
+  shared list instead of the Viewer screen, then opens the core Browse canvas.
+  A different selected ID from that panel returns the immersive canvas to
+  Playback; the app state remains the only owner of the subsequent media-source
+  request and player update.
 
 ### 4. Validation & Error Matrix
 
