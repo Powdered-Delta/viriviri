@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review protocol ownership, stale selection, and list-state rules."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review output scaling without creating a player or Surface."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review fixed panel and device validation constraints."}
+{"file":".trellis/tasks/08-13-fix-media-list-pagination-thumbnails-aspect-ratio/research/list-pagination-thumbnail-aspect-findings.md","reason":"Review pagination, thumbnail, and aspect-ratio acceptance evidence."}
