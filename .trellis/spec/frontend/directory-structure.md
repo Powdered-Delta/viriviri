@@ -117,6 +117,27 @@ single-player host.
 - `PERSISTENT` slots are ineligible for default canvas hiding.
 - Semantic palette presets meet role contrast/range validation.
 
+### Convention: Overlay Allocation Stops Before Rendering
+
+**What**: The core overlay allocator validates topology and produces immutable
+`group + lane + layer + surface + styleSnapshot` assignments. It may use
+injected metrics and projection interfaces, but it must not shape glyphs, read
+head pose, create entities, attach a video Surface, or issue source/translation
+requests.
+
+**Why**: Local track collision and viewer-projection occlusion depend on real
+renderer measurements and platform pose data. Keeping them as adapter-provided
+contracts avoids fake geometry in JVM core while preserving deterministic,
+testable allocation inputs.
+
+**Required behavior**:
+
+- Surface `basicStyle`, layer override, and event override resolve into one
+  immutable style snapshot at assignment time.
+- A danmaku layer may reference only a surface that declares `DANMAKU` support.
+- Disabled, incompatible, full, or topology-invalid targets are never assigned.
+- Caption target selection remains independent from danmaku group allocation.
+
 
 ---
 
