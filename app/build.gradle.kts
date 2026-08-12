@@ -21,6 +21,7 @@ plugins {
 val gitSha =
     runCatching {
       providers.exec {
+        workingDir = rootProject.projectDir
         commandLine("git", "rev-parse", "--short=8", "HEAD")
       }.standardOutput.asText.get().trim()
     }.getOrDefault("").ifBlank { "nogit" }
