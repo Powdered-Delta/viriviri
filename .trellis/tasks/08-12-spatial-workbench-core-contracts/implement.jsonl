@@ -1,0 +1,10 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend layer boundaries and package routing"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Immutable reusable component contracts and host ownership boundaries"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Pure Kotlin core module dependency boundary"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Quality and testing expectations"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Keep core contracts independent from app/runtime layers"}
+{"file": "docs/Youtube-VR-UX.md", "reason": "Archived UX contract for cinema, Shorts, search, and composition fallback"}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Archived architecture contract for themes and semantic palette"}
+{"file": ".trellis/tasks/08-12-transport-overlay-ux/research/piliplus-account-interactions.md", "reason": "Deferred account capability boundary"}
+{"file": ".trellis/tasks/08-12-transport-overlay-ux/research/pinyin-ime-composition-and-candidates.md", "reason": "Input composition and candidate behavior"}
