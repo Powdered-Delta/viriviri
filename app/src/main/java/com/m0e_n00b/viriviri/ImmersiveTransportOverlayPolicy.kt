@@ -1,0 +1,22 @@
+package com.m0e_n00b.viriviri
+
+internal enum class ImmersiveTransportPrimaryAction {
+  REVEAL_TRANSPORT,
+  TOGGLE_PLAY_INTENT,
+}
+
+internal data class ImmersiveTransportOverlayState(
+    val visible: Boolean = true,
+)
+
+/** Pure visibility and stage-primary-click policy for the existing transport panel. */
+internal object ImmersiveTransportOverlayPolicy {
+  fun shouldScheduleIdleFade(isActuallyPlaying: Boolean): Boolean = isActuallyPlaying
+
+  fun primaryAction(state: ImmersiveTransportOverlayState): ImmersiveTransportPrimaryAction =
+      if (state.visible) {
+        ImmersiveTransportPrimaryAction.TOGGLE_PLAY_INTENT
+      } else {
+        ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT
+      }
+}
