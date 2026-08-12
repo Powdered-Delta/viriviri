@@ -775,6 +775,33 @@ MediaStage
 └── StageOverlayLayer      加载、快进和播放状态反馈
 ```
 
+### 统一 Runtime 边界
+
+`MediaStage` 的纯 Kotlin runtime 只保存 presentation、geometry、播放器时钟
+snapshot、renderer target ID 和生命周期 effect；它不保存 `Surface`、Meta
+`Entity`、`PanelSceneObject`、Compose node 或 `ExoPlayer`。现有
+`PlayerSession` 仍是唯一 ExoPlayer 与活动视频 Surface 的进程级 owner。
+
+```text
+PlayerSession / host callback
+  -> MediaClockSnapshot + MediaStageEvent
+  -> MediaStageReducer (pure Kotlin)
+  -> MediaStageEffect
+  -> 2D host adapter | Spatial host adapter | overlay renderer adapter
+```
+
+- `VIDEO_OUTPUT` target 在任意时刻最多一个；从旧 target 切换时先产生
+  `detach(old)` 再产生 `attach(new)`。陈旧 target 的 detach 不能清除新 target。
+- `FLAT_OVERLAY` 和 `SPATIAL_OVERLAY` target 只引用 semantic overlay surface ID，
+  永远不是视频 Surface，可以与唯一视频 target 同时 active。
+- seek、overlay target disable/removal、stage geometry/presentation change 都通过
+  显式 cleanup effect 通知 renderer；它们不得修改视频 output ownership。
+- `STAGE_LOCKED` target 在 Watch/Shorts/PiP geometry 改变时清理并重新调度；
+  `GAZE_LOCKED` target 保持到自身被禁用、删除或主动失活。
+
+本阶段不把弹幕接入旧 `PancakeActivity` 或当前 Spatial panel。新的 2D UX 与未来
+Spatial renderer 各自注册 target 并执行同一 reducer effect，之后才接入真实 source。
+
 弹幕不是播放控制的附属文本。控制条只切换模式和样式；数据、轨道调度、样式解析和渲染由独立组件负责：
 
 ```text

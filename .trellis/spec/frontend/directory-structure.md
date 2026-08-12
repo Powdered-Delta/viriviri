@@ -117,6 +117,40 @@ single-player host.
 - `PERSISTENT` slots are ineligible for default canvas hiding.
 - Semantic palette presets meet role contrast/range validation.
 
+### Convention: MediaStage Runtime Is Host-Neutral
+
+**What**: `:spatial-workbench-core` owns `MediaStageState`, renderer target
+identity, presentation/geometry, Media3-adapter clock snapshots, and declarative
+lifecycle effects. It never owns a platform handle. A host adapter maps a target
+ID to its `TextureView` Surface, SDK `PanelSceneObject` Surface, or overlay
+renderer instance and executes the returned effect.
+
+**Why**: The redesigned 2D host and the Quest Spatial host must consume the
+same stage lifecycle without turning current legacy UI into the canonical
+renderer. `PlayerSession` remains the sole process-wide owner of ExoPlayer and
+its one active video Surface.
+
+**Required behavior**:
+
+- `VIDEO_OUTPUT` targets are exclusive: zero or one may be active, and target
+  replacement detaches the old identity before attaching the new identity.
+- `FLAT_OVERLAY` and `SPATIAL_OVERLAY` targets are never video output Surfaces;
+  they can coexist with the one video target.
+- A seek, target disable/removal, or Stage geometry/presentation change emits
+  explicit overlay cleanup effects. A stale detach must not clear a newer video
+  target.
+- `STAGE_LOCKED` overlay targets clear on a stage geometry/presentation change;
+  `GAZE_LOCKED` targets are preserved unless their own lifecycle changes.
+
+**Forbidden**:
+
+- Do not store `Surface`, `TextureView`, `PanelSceneObject`, Meta `Entity`,
+  `ExoPlayer`, coroutine job, or renderer object in a core MediaStage contract.
+- Do not add an overlay as a second video output or create a second player to
+  support a new MediaStage presentation.
+- Do not connect overlay rendering to the existing Pancake or Spatial host as a
+  shortcut before the corresponding renderer adapter and redesigned UX exist.
+
 ### Convention: Overlay Allocation Stops Before Rendering
 
 **What**: The core overlay allocator validates topology and produces immutable
