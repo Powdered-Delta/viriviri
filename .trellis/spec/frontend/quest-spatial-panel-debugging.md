@@ -264,8 +264,15 @@ single media output buffer must match that geometry:
   `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
   and non-square-pixel sources must retain their display aspect within the one
   existing Surface through pillarbox/letterbox rather than stretch or crop.
-- Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes.
-  The decoder/output scaling mode owns image containment inside the fixed stage.
+- The custom mesh maps the media texture to a front content quad. On the existing
+  shared player's `onVideoSizeChanged`, update only that quad's four vertices
+  with contain geometry centered inside the fixed stage. A portrait source
+  narrows the content quad; an ultrawide source shortens it. The shadow and
+  full-stage panel/input footprint remain unchanged.
+- Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes;
+  `TriangleMesh.updateGeometry()` updates the existing mesh only. Invalid or
+  unavailable video dimensions retain the full-stage content quad until a valid
+  size arrives.
 - A right-edge stretched strip on a landscape source is a diagnostic signal:
   first confirm this monoscopic 16:9 buffer contract and `StereoMode.None`, then
   compare another source. Do not compensate by changing the scene transform or

@@ -137,6 +137,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       }
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
+  private var spatialVideoTriangleMesh: TriangleMesh? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -205,6 +206,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
           syncPlaybackSpeedLabel()
+        }
+
+        override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+          updateSpatialVideoContentQuad(
+              videoWidth = videoSize.width,
+              videoHeight = videoSize.height,
+              pixelWidthHeightRatio = videoSize.pixelWidthHeightRatio,
+          )
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -603,6 +612,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             triMesh.updatePrimitives(
                 0,
                 intArrayOf(0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6),
+            )
+            spatialVideoTriangleMesh = triMesh
+            updateSpatialVideoContentQuad(
+                videoWidth = player.videoSize.width,
+                videoHeight = player.videoSize.height,
+                pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
             )
             SceneMesh.fromTriangleMesh(triMesh, false)
           }
@@ -1004,6 +1019,70 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun syncPlaybackSpeedLabel() {
     speedButton.thenAccept { it.text = PlaybackSpeedControl.label(player.playbackParameters.speed) }
+  }
+
+  private fun updateSpatialVideoContentQuad(
+      videoWidth: Int,
+      videoHeight: Int,
+      pixelWidthHeightRatio: Float,
+  ) {
+    val mesh = spatialVideoTriangleMesh ?: return
+    val content =
+        spatialVideoContentQuad(
+            stageWidth = MR_SCREEN_WIDTH,
+            stageHeight = MR_SCREEN_HEIGHT,
+            videoWidth = videoWidth,
+            videoHeight = videoHeight,
+            pixelWidthHeightRatio = pixelWidthHeightRatio,
+        )
+    val stageHalfWidth = MR_SCREEN_WIDTH / 2f
+    val stageHalfHeight = MR_SCREEN_HEIGHT / 2f
+    val shadowDepth = 0.1f
+    mesh.updateGeometry(
+        0,
+        floatArrayOf(
+            // Content remains centered and contained in the fixed stage.
+            -content.halfWidth, -content.halfHeight, 0f,
+            content.halfWidth, -content.halfHeight, 0f,
+            content.halfWidth, content.halfHeight, 0f,
+            -content.halfWidth, content.halfHeight, 0f,
+            // The shadow keeps the full stage footprint and existing panel input geometry.
+            -stageHalfWidth, -stageHalfHeight, shadowDepth,
+            stageHalfWidth, -stageHalfHeight, shadowDepth,
+            stageHalfWidth, -stageHalfHeight, -shadowDepth,
+            -stageHalfWidth, -stageHalfHeight, -shadowDepth,
+        ),
+        floatArrayOf(
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+            0f, 0f, 1f,
+        ),
+        floatArrayOf(
+            0f, 1f,
+            1f, 1f,
+            1f, 0f,
+            0f, 0f,
+            stageHalfWidth - 0.075f, shadowDepth - 0.075f,
+            stageHalfWidth - 0.075f, shadowDepth - 0.075f,
+            stageHalfWidth - 0.075f, shadowDepth - 0.075f,
+            stageHalfWidth - 0.075f, shadowDepth - 0.075f,
+        ),
+        intArrayOf(
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+            Color.WHITE,
+        ),
+    )
   }
 
   private fun startTransportTimelineUpdates() {
