@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend package routing."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Core, MediaStage, and adapter boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Single player and Surface ownership invariant."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing Quest panel lifecycle and input constraints."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Transport front-overlay and Playback Canvas behavior."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Existing entity-to-slot mapping and transport depth relation."}
+{"file":".trellis/tasks/08-12-immersive-transport-overlay/research/current-transport-state.md","reason":"Observed controls panel parent/depth and lifecycle defects."}

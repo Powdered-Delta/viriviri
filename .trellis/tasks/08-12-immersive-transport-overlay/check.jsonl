@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review MediaStage and adapter ownership boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review one player and one Surface preservation."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review Quest panel visibility and input behavior."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Review Playback Canvas/transport interaction behavior."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Review transport front-of-stage and existing entity mapping."}
+{"file":".trellis/tasks/08-12-immersive-transport-overlay/research/current-transport-state.md","reason":"Review against current constraints and observed defects."}
