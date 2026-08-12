@@ -304,7 +304,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                   Grabbable(),
                   Panel(R.id.video_selector_panel),
                   Transform(
-                      initialPose * Pose(Vector3(-1f, 1.25f, 1.2f), Quaternion(0f, -45f, 0f))
+                      initialPose *
+                          Pose(
+                              Vector3(-1.212f, 1.25f, 0.988f),
+                              Quaternion(0f, -45f, 0f),
+                          )
                   ),
               )
           )
@@ -861,8 +865,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         classIdCreator = { MoviePanel::class.java },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.6f, height = 1.1f),
-              display = DpDisplayOptions(width = 309.6f, height = 567.6f, dpi = 800),
+              shape = QuadShapeOptions(width = 1.2f, height = 2.0f),
+              display = DpDisplayOptions(width = 619.2f, height = 1032f, dpi = 800),
               input =
                   // want to disable left hand pinch so we can drag the panel around with hands
                   PanelInputOptions(
