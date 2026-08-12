@@ -9,6 +9,8 @@ package com.m0e_n00b.viriviri
 
 import android.Manifest
 import android.app.PendingIntent
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.Intent
@@ -118,6 +120,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     get() = ViriViriApplication.appState.playerSession.player
   lateinit var controllerView: View
   lateinit var controlsFadeOutTimer: CountDownTimer
+  private var transportOverlayState = ImmersiveTransportOverlayState()
   lateinit var audio: SceneAudioAsset
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -227,7 +230,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     locomotionSystem.enableLocomotion(false)
 
     controlsFadeOutTimer =
-        object : CountDownTimer(100, 100) {
+        object : CountDownTimer(TRANSPORT_IDLE_TIMEOUT_MS, TRANSPORT_IDLE_TIMEOUT_MS) {
           override fun onTick(millisUntilFinished: Long) {}
 
           override fun onFinish() {
@@ -590,7 +593,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     receiver: SceneObject,
                     sourceOfInput: Entity,
                 ) {
-                  animateControllerVisibility(true)
+                  showTransportOverlay()
                 }
 
                 override fun onClick(
@@ -598,7 +601,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  togglePlay()
+                  when (ImmersiveTransportOverlayPolicy.primaryAction(transportOverlayState)) {
+                    ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
+                    ImmersiveTransportPrimaryAction.TOGGLE_PLAY_INTENT -> togglePlay()
+                  }
                 }
 
                 override fun onInput(
@@ -717,7 +723,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           setupHoverAndTouchListeners(forwardButton)
           controllerView = rootView
           setupHoverAndTouchListeners(controllerView)
-          controllerView.alpha = 1.0f
+          applyTransportOverlayVisibility(transportOverlayState.visible)
         },
     )
   }
@@ -801,7 +807,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         MotionEvent.ACTION_MOVE -> {
           resetControllerFadeOutTimer()
         }
-        MotionEvent.ACTION_UP -> {}
+        MotionEvent.ACTION_UP -> resetControllerFadeOutTimer()
         MotionEvent.ACTION_CANCEL -> {}
       }
       false
@@ -823,23 +829,40 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun animateControllerVisibility(visible: Boolean) {
-    if (!this::controllerView.isInitialized) {
-      return
-    }
+    if (!this::controllerView.isInitialized) return
+    alphaAnimator?.cancel()
+    transportOverlayState = transportOverlayState.copy(visible = visible)
+    if (visible) controllerView.visibility = View.VISIBLE
+    controllerView.isClickable = visible
+    controllerView.isFocusable = visible
+    alphaAnimator =
+        ObjectAnimator.ofFloat(controllerView, "alpha", controllerView.alpha, if (visible) 1.0f else 0.0f)
+            .apply {
+              duration = TRANSPORT_FADE_DURATION_MS
+              if (!visible) {
+                addListener(
+                    object : AnimatorListenerAdapter() {
+                      override fun onAnimationEnd(animation: Animator) {
+                        if (!transportOverlayState.visible) controllerView.visibility = View.INVISIBLE
+                      }
+                    }
+                )
+              }
+              start()
+            }
+  }
 
-    if (visible) {
-      alphaAnimator =
-          ObjectAnimator.ofFloat(controllerView, "alpha", controllerView.alpha, 1.0f).apply {
-            duration = 200
-            start()
-          }
-    } else {
-      alphaAnimator =
-          ObjectAnimator.ofFloat(controllerView, "alpha", controllerView.alpha, 0.0f).apply {
-            duration = 200
-            start()
-          }
-    }
+  private fun applyTransportOverlayVisibility(visible: Boolean) {
+    transportOverlayState = transportOverlayState.copy(visible = visible)
+    controllerView.visibility = if (visible) View.VISIBLE else View.INVISIBLE
+    controllerView.alpha = if (visible) 1.0f else 0.0f
+    controllerView.isClickable = visible
+    controllerView.isFocusable = visible
+  }
+
+  private fun showTransportOverlay() {
+    animateControllerVisibility(true)
+    resetControllerFadeOutTimer()
   }
 
   fun resetControllerFadeOutTimer() {
@@ -847,10 +870,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       return
     }
 
-    if (isPlaying) {
+    if (ImmersiveTransportOverlayPolicy.shouldScheduleIdleFade(isPlaying)) {
       controlsFadeOutTimer.cancel()
       controlsFadeOutTimer.start()
-      if (controllerView.alpha == 0.0f && alphaAnimator?.isRunning != true) {
+      if (!transportOverlayState.visible && alphaAnimator?.isRunning != true) {
         animateControllerVisibility(true)
       }
     }
@@ -973,6 +996,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
     const val LIGHTS_UP_SCALE: Float = 1.0f
     const val LIGHTS_DOWN_SCALE: Float = 0.25f
+    const val TRANSPORT_IDLE_TIMEOUT_MS: Long = 4_000L
+    const val TRANSPORT_FADE_DURATION_MS: Long = 200L
 
     const val MR_SCREEN_WIDTH: Float = 16.0f / 10.0f
     const val MR_SCREEN_HEIGHT: Float = 9.0f / 10.0f

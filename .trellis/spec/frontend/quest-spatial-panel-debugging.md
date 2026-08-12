@@ -147,7 +147,26 @@ player callers can change state without a panel-button click.
 - While seek dragging, position-discontinuity and periodic progress updates
   must not overwrite the thumb position.
 
-### 3.2 MediaStage Adapter Boundary
+### 3.2 Transport Overlay Runtime Behavior
+
+The existing `controls_id` panel is the current `TRANSPORT` implementation. It
+is already parented to `spatialized_video_panel` with the existing local
+front-depth offset; until Meta Spatial Editor is available, do not change its
+fixed pose, size, parent, or add an alternative static panel.
+
+- While `player.isPlaying`, transport uses a bounded idle timeout of about four
+  seconds. Hover, stage input, and control interaction reveal/reset it.
+- When the transport is hidden, its Android root becomes `INVISIBLE` after the
+  fade and is non-clickable/non-focusable. Alpha alone is not sufficient because
+  transparent child controls can still receive input.
+- When the stage is clicked with hidden transport, reveal transport only. A
+  click while transport is already visible toggles player play intent.
+- Paused or non-playing media keeps transport visible. The existing playback
+  synchronization remains responsible for deciding actual-playback status.
+- These changes affect only the existing controls panel root; they do not add a
+  video output, Spatial panel, Entity, or Surface.
+
+### 3.3 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
