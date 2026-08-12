@@ -1,0 +1,8 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend package and layer routing"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Callback and ownership review"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Dependency boundary review"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Quality and test review"}
+{"file": "docs/Youtube-VR-UX.md", "reason": "Input console acceptance behavior"}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Theme and palette acceptance behavior"}
+{"file": ".trellis/tasks/08-12-transport-overlay-ux/research/pinyin-ime-composition-and-candidates.md", "reason": "Candidate layout edge cases"}
