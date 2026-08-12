@@ -124,6 +124,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
   var isPlaying: Boolean = false
   var isSeeking: Boolean = false
+  private val seekDragPlaybackPolicy = SeekDragPlaybackPolicy()
   var isFirstReadyDone: Boolean = false
   lateinit var locomotionSystem: LocomotionSystem
   lateinit var avatarSystem: AvatarSystem
@@ -158,6 +159,30 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           }
         }
       }
+  private val immersiveControlsPlayerListener =
+      object : Player.Listener {
+        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
+          if (playbackState == Player.STATE_READY) {
+            seekBar.thenAccept { it.max = player.duration.toInt() }
+          }
+          syncPlaybackControls()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+          syncPlaybackControls()
+        }
+
+        override fun onPositionDiscontinuity(reason: Int) {
+          if (!isSeeking) seekBar.thenAccept { it.progress = player.currentPosition.toInt() }
+          syncPlaybackControls()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+          // Recover the existing player/media path only; do not create another player or target.
+          setUri?.let(::setVideo)
+          Log.e("ExoPlayer", "Player encountered an error: $error")
+        }
+      }
 
   override fun registerFeatures(): List<SpatialFeature> {
     val features = mutableListOf<SpatialFeature>(VRFeature(this))
@@ -186,6 +211,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             onEffect = { effect -> Log.d(TAG, "MediaStage effect=$effect") },
         )
     player.addListener(immersiveStagePlayerListener)
+    player.addListener(immersiveControlsPlayerListener)
 
     audio = SceneAudioAsset.loadLocalFile("data/common/audio/ui_press_direct.ogg")
 
@@ -529,37 +555,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           player.repeatMode = Player.REPEAT_MODE_ONE
           player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
           seekBar.thenAccept { it ->
-            player.addListener(
-                object : Player.Listener {
-                  override fun onPlayerStateChanged(
-                      playWhenReady: Boolean,
-                      playbackState: Int,
-                  ) {
-                    if (playbackState == Player.STATE_READY) {
-                      seekBar.thenAccept { it.max = player.duration.toInt() }
-                    }
-                  }
-
-                  override fun onPositionDiscontinuity(reason: Int) {
-                    it.progress = player.currentPosition.toInt()
-                  }
-
-                  override fun onPlayerError(error: PlaybackException) {
-                    // The ExoPlayer can throw a decoder error under heavy load such as app
-                    // startup,
-                    // in the case of a decoding error reloading the video into exoplayer fixes
-                    // the
-                    // issue.
-                    // The theory here is that the file itself is not an issue, but the hardware
-                    // decoder
-                    // becomes backed up during app startup which causes a decoding error to be
-                    // thrown.
-                    setUri?.let { uri -> setVideo(uri) }
-                    Log.e("ExoPlayer", "Player encountered an error: $error")
-                  }
-                }
-            )
-
             it.setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
                   override fun onProgressChanged(
@@ -574,18 +569,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                   }
 
                   override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                    if (isPlaying) {
-                      // Pause the player while the user is dragging the SeekBar
+                    isSeeking = true
+                    if (seekDragPlaybackPolicy.start(player.playWhenReady)) {
                       player.playWhenReady = false
                     }
                     resetControllerFadeOutTimer()
                   }
 
                   override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    if (isPlaying) {
-                      // Resume the player when the user stops dragging the SeekBar
-                      player.playWhenReady = true
-                    }
+                    isSeeking = false
+                    seekDragPlaybackPolicy.finish()?.let { player.playWhenReady = it }
                   }
                 }
             )
@@ -626,7 +619,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           handler.postDelayed(
               object : Runnable {
                 override fun run() {
-                  if (isPlaying && !isSeeking) {
+                  if (!isSeeking) {
                     seekBar.thenAccept { it.progress = player.currentPosition.toInt() }
                   }
                   handler.postDelayed(this, 500)
@@ -713,6 +706,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
           val playPauseButtonLocal = rootView.findViewById<Button>(R.id.play_pause_button)!!
           playPauseButton.complete(playPauseButtonLocal)
+          syncPlaybackControls()
           playPauseButtonLocal.setOnClickListener { togglePlay() }
           setupHoverAndTouchListeners(playPauseButtonLocal)
           val backButton = rootView.findViewById<Button>(R.id.back_button)!!
@@ -784,6 +778,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   override fun onDestroy() {
     player.removeListener(immersiveStagePlayerListener)
+    player.removeListener(immersiveControlsPlayerListener)
     if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
     super.onDestroy()
   }
@@ -863,11 +858,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   fun togglePlay() {
     scene.playSound(audio, 1f)
-    if (isPlaying) {
-      pauseVideo()
-    } else {
-      playVideo()
-    }
+    player.playWhenReady = !player.playWhenReady
   }
 
   public fun setVideo(video: Uri) {
@@ -877,23 +868,31 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun playVideo() {
     player.play()
-    isPlaying = true
-    playPauseButton.thenAccept {
-      it.setCompoundDrawablesWithIntrinsicBounds(R.drawable.pause, 0, 0, 0)
-    }
-    dimLights()
-    resetControllerFadeOutTimer()
   }
 
   public fun pauseVideo() {
     player.pause()
-    isPlaying = false
-    playPauseButton.thenAccept {
-      it.setCompoundDrawablesWithIntrinsicBounds(R.drawable.play, 0, 0, 0)
+  }
+
+  private fun syncPlaybackControls() {
+    val state = immersivePlaybackControlState(player.playWhenReady, player.isPlaying)
+    isPlaying = state.isActuallyPlaying
+    playPauseButton.thenAccept { button ->
+      button.setCompoundDrawablesWithIntrinsicBounds(
+          if (state.showPauseIcon) R.drawable.pause else R.drawable.play,
+          0,
+          0,
+          0,
+      )
     }
-    brightenLights()
-    animateControllerVisibility(true)
-    controlsFadeOutTimer.cancel()
+    if (state.isActuallyPlaying) {
+      dimLights()
+      resetControllerFadeOutTimer()
+    } else {
+      brightenLights()
+      animateControllerVisibility(true)
+      controlsFadeOutTimer.cancel()
+    }
   }
 
   public fun dimLights() {

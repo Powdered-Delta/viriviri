@@ -127,7 +127,27 @@ one.
   created, panel Surface callback, player Surface attach, decoder initialization,
   and Media3 first rendered frame.
 
-### 3.1 MediaStage Adapter Boundary
+### 3.1 Playback Control Synchronization
+
+The process-wide Media3 player is the sole source of truth for immersive
+transport state. The Spatial Activity must not treat an Activity-local boolean
+as authoritative because video selection, buffering, panel handoff, and other
+player callers can change state without a panel-button click.
+
+- The play/pause icon follows `player.playWhenReady`: a buffering player that
+  still has play intent shows Pause.
+- Controller fade and environment lights follow `player.isPlaying`, the actual
+  playback state.
+- Synchronize the existing controls panel from Media3 player-state,
+  playing-state, and position-discontinuity callbacks, and immediately after
+  the panel button is created.
+- A seek drag records the pre-drag `playWhenReady`; it pauses temporarily only
+  when that intent was true, then restores the same intent at drag end. A video
+  already paused before seeking must remain paused.
+- While seek dragging, position-discontinuity and periodic progress updates
+  must not overwrite the thumb position.
+
+### 3.2 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
