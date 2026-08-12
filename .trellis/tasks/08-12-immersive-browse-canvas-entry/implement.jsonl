@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Canvas core/app adapter and shared UI ownership boundaries."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Application state observer lifecycle context."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Existing selection and shared PlayerSession ownership contract."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing panel visibility and input lifecycle constraints."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Browse Canvas entry and selection outcome behavior."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Browse slot/canvas semantics and Context limitation."}
+{"file":".trellis/tasks/08-12-immersive-browse-canvas-entry/research/browse-entry-boundary.md","reason":"Existing panel selection flow and adapter-only event bridge."}
