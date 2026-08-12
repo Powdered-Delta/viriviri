@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review core versus Spatial adapter separation."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review existing panel visibility and input lifecycle safety."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review one player and active video Surface preservation."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Review canvas visibility behavior."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Review entity/slot mapping and fade contract."}
+{"file":".trellis/tasks/08-12-immersive-playback-canvas-visibility/research/panel-layer-alpha-adapter.md","reason":"Review reference implementation and mapping assumptions."}

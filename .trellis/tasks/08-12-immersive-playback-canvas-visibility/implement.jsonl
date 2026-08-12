@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Core canvas state and Spatial adapter boundary."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Quest panel lifecycle, visibility, input, and single video output rules."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Ensure adapter does not change one-player/one-Surface ownership."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Quiet Watch/Playback/Browse/Context product behavior."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Existing entity-to-slot mapping and panel alpha direction."}
+{"file":".trellis/tasks/08-12-immersive-playback-canvas-visibility/research/panel-layer-alpha-adapter.md","reason":"Verified PremiumMedia alpha component/system pattern and mapped entities."}
