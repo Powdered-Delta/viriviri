@@ -264,15 +264,19 @@ single media output buffer must match that geometry:
   `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
   and non-square-pixel sources must retain their display aspect within the one
   existing Surface through pillarbox/letterbox rather than stretch or crop.
-- The custom mesh maps the media texture to a front content quad. On the existing
-  shared player's `onVideoSizeChanged`, update only that quad's four vertices
-  with contain geometry centered inside the fixed stage. A portrait source
-  narrows the content quad; an ultrawide source shortens it. The shadow and
-  full-stage panel/input footprint remain unchanged.
+- The custom mesh contains two independent visual layers on the existing media
+  panel: a fixed full-stage translucent black backdrop behind an adaptive video
+  foreground quad. Both live in the same `SceneMesh`; the backdrop is not a
+  panel/entity/video target and uses no additional Surface.
+- On `VideoSize`, update foreground vertices and call
+  `SceneMesh.updateWithTriangleMesh(...)` after `TriangleMesh.updateGeometry()`
+  so the new geometry is committed to the mesh that is currently rendered.
+  The fixed backdrop and shadow/input footprint remain unchanged.
 - Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes;
-  `TriangleMesh.updateGeometry()` updates the existing mesh only. Invalid or
-  unavailable video dimensions retain the full-stage content quad until a valid
-  size arrives.
+  invalid or unavailable video dimensions retain full-stage foreground geometry.
+- Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
+  Use this value, rather than APK filename or install time, to identify the
+  running build during Quest testing.
 - A right-edge stretched strip on a landscape source is a diagnostic signal:
   first confirm this monoscopic 16:9 buffer contract and `StereoMode.None`, then
   compare another source. Do not compensate by changing the scene transform or

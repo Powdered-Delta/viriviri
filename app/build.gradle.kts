@@ -5,12 +5,25 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import org.gradle.api.tasks.Exec
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.jetbrains.kotlin.android)
   alias(libs.plugins.meta.spatial.plugin)
   alias(libs.plugins.jetbrains.kotlin.plugin.compose)
 }
+
+/*
+ * Keep the installed debug APK identifiable from inside the headset. Git is
+ * optional in packaged/source archives, so fall back without failing Gradle.
+ */
+val gitSha =
+    runCatching {
+      providers.exec {
+        commandLine("git", "rev-parse", "--short=8", "HEAD")
+      }.standardOutput.asText.get().trim()
+    }.getOrDefault("").ifBlank { "nogit" }
 
 android {
   namespace = "com.m0e_n00b.viriviri"
@@ -25,6 +38,8 @@ android {
     targetSdk = 34
     versionCode = 1
     versionName = "0.1.0"
+
+    buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
