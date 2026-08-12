@@ -26,9 +26,11 @@ import com.m0e_n00b.spatialworkbench.core.PlaybackCanvas
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvasEvent
 import android.util.Log
 import android.view.MotionEvent
+import android.view.MenuItem
 import android.view.Surface
 import android.view.View
 import android.widget.Button
+import android.widget.PopupMenu
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
@@ -130,6 +132,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
+  var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
   var isPlaying: Boolean = false
@@ -189,6 +192,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         override fun onPositionDiscontinuity(reason: Int) {
           if (!isSeeking) seekBar.thenAccept { it.progress = player.currentPosition.toInt() }
           syncPlaybackControls()
+        }
+
+        override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+          syncPlaybackSpeedLabel()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -752,6 +759,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           val browseButton = rootView.findViewById<Button>(R.id.browse_button)!!
           browseButton.setOnClickListener { openBrowseCanvas() }
           setupHoverAndTouchListeners(browseButton)
+          val speedButtonLocal = rootView.findViewById<Button>(R.id.speed_button)!!
+          speedButton.complete(speedButtonLocal)
+          syncPlaybackSpeedLabel()
+          speedButtonLocal.setOnClickListener { showPlaybackSpeedMenu(speedButtonLocal) }
+          setupHoverAndTouchListeners(speedButtonLocal)
           val playPauseButtonLocal = rootView.findViewById<Button>(R.id.play_pause_button)!!
           playPauseButton.complete(playPauseButtonLocal)
           syncPlaybackControls()
@@ -977,6 +989,26 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun pauseVideo() {
     player.pause()
+  }
+
+  private fun syncPlaybackSpeedLabel() {
+    speedButton.thenAccept { it.text = PlaybackSpeedControl.label(player.playbackParameters.speed) }
+  }
+
+  private fun showPlaybackSpeedMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      menu.setGroupCheckable(0, true, true)
+      PlaybackSpeedControl.supportedSpeeds.forEachIndexed { index, speed ->
+        menu.add(0, index, index, PlaybackSpeedControl.label(speed)).isChecked =
+            speed == PlaybackSpeedControl.normalizedForDisplay(player.playbackParameters.speed)
+      }
+      setOnMenuItemClickListener { item: MenuItem ->
+        val speed = PlaybackSpeedControl.supportedSpeeds.getOrNull(item.itemId) ?: return@setOnMenuItemClickListener false
+        player.playbackParameters = player.playbackParameters.withSpeed(speed)
+        true
+      }
+      show()
+    }
   }
 
   private fun syncPlaybackControls() {
