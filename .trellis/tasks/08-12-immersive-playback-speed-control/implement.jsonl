@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Core/theme versus app Media3 adapter boundary."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Single-player/single-Surface invariant while changing playback parameters."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Embedded Spatial panel lifecycle and manual popup validation."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Playback config popup and controlled speed UX."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Controlled SetPlaybackSpeed action architecture."}
+{"file":".trellis/tasks/08-12-immersive-playback-speed-control/research/speed-control-boundary.md","reason":"Fixed menu values and app-side ownership decision."}
