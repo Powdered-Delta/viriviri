@@ -232,7 +232,27 @@ an existing transport button, not a new Spatial panel/entity.
   validation. If it is not viable, replace only the menu shell in a later task;
   preserve the same controlled speed action and player ownership boundary.
 
-### 3.5 MediaStage Adapter Boundary
+### 3.5 Transport Timeline Ownership
+
+The existing transport `SeekTimeline` is rendered from the process-wide Media3
+player. Its compact elapsed/duration labels and seek bar remain Android views in
+`controls_id`; no spatial geometry or video target is added.
+
+- Project a player snapshot through `ImmersiveTransportTimeline` so finite
+  duration, clamping, timecode formatting, and unknown-duration handling are
+  deterministic and JVM-testable.
+- A finite duration enables seeking and clamps the displayed position. An
+  unavailable, negative, or over-`Int` duration renders `--:-- / --:--` and
+  disables the seek bar; it must not emit a seek from an invalid timeline.
+- During a user drag, retain the dragged position for the thumb and elapsed
+  label. Media3 discontinuity callbacks and periodic rendering must not
+  overwrite it until drag completion.
+- The Activity owns exactly one timeline runnable on its existing main-thread
+  handler. Start it only after the controls panel resolves and remove it in
+  `onDestroy()` before clearing handler callbacks. It updates view state only;
+  it must not create/prepare/seek a player or alter video Surface ownership.
+
+### 3.6 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`

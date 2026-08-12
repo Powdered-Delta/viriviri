@@ -51,11 +51,36 @@
       android:background="@android:color/transparent"
     />
   </LinearLayout>
-  <SeekBar
-    style="@style/Widget.AppCompat.SeekBar"
-    android:id="@+id/seek_bar"
+  <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="8dp"
-  />
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+  >
+    <TextView
+      android:id="@+id/elapsed_time"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="--:--"
+      android:textColor="@android:color/white"
+      android:textSize="10sp"
+    />
+    <SeekBar
+      style="@style/Widget.AppCompat.SeekBar"
+      android:id="@+id/seek_bar"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:layout_marginHorizontal="6dp"
+    />
+    <TextView
+      android:id="@+id/duration_time"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="--:--"
+      android:textColor="@android:color/white"
+      android:textSize="10sp"
+    />
+  </LinearLayout>
 </LinearLayout>
