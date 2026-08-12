@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend package routing."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Player and host ownership boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Single-player lifecycle and listener expectations."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Immersive player and panel lifecycle constraints."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Process-wide PlayerSession and selection behavior."}
+{"file":".trellis/tasks/08-12-immersive-playback-control-sync/research/control-sync-findings.md","reason":"Confirmed stale-state and seek behavior root cause."}

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review player ownership boundary preservation."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review Media3 lifecycle safety."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review immersive panel behavior."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review shared player selection flow."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Review focused Kotlin quality."}
+{"file":".trellis/tasks/08-12-immersive-playback-control-sync/research/control-sync-findings.md","reason":"Review against confirmed root cause."}
