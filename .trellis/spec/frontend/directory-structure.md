@@ -117,6 +117,29 @@ single-player host.
 - `PERSISTENT` slots are ineligible for default canvas hiding.
 - Semantic palette presets meet role contrast/range validation.
 
+### Convention: Playback Canvas Runtime Selects Slots
+
+**What**: `PlaybackCanvasReducer` owns the regular WATCH interaction focus:
+`QUIET_WATCH`, `PLAYBACK`, `BROWSE`, and `CONTEXT`. It resolves requested
+semantic slots, then retains only theme-declared `PERSISTENT` slots in addition
+to the current canvas request.
+
+**Why**: A scene layout declaring a Browse or Context anchor does not mean that
+rail should appear while the user is watching. Quiet Watch is stage-led;
+Playback adds transport/system tooling; Browse and Context are explicit,
+mutually exclusive on-demand routes.
+
+**Required behavior**:
+
+- Primary stage input opens Playback from Quiet Watch; an idle timeout returns
+  only an actually-playing Playback canvas to Quiet Watch.
+- Pausing from Quiet Watch shows Playback rather than hiding controls.
+- `BROWSE` and `CONTEXT` cannot enter Quiet Watch or Playback merely because a
+  theme layout contains their placements.
+- The pure reducer does not execute panel fades or input changes. A future
+  Spatial adapter maps resolved slots to proper panel-layer alpha, `Visible`,
+  and hit-test changes.
+
 ### Convention: MediaStage Runtime Is Host-Neutral
 
 **What**: `:spatial-workbench-core` owns `MediaStageState`, renderer target
