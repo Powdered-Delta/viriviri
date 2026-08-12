@@ -21,6 +21,9 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
+import com.m0e_n00b.spatialworkbench.core.PanelSlot
+import com.m0e_n00b.spatialworkbench.core.PlaybackCanvas
+import com.m0e_n00b.spatialworkbench.core.PlaybackCanvasEvent
 import android.util.Log
 import android.view.MotionEvent
 import android.view.Surface
@@ -121,6 +124,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   lateinit var controllerView: View
   lateinit var controlsFadeOutTimer: CountDownTimer
   private var transportOverlayState = ImmersiveTransportOverlayState()
+  private val canvasHandler = Handler(Looper.getMainLooper())
+  private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
+  private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -173,6 +179,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
           syncPlaybackControls()
+          dispatchPlaybackCanvas(PlaybackCanvasEvent.PlaybackStateChanged(isPlaying))
         }
 
         override fun onPositionDiscontinuity(reason: Int) {
@@ -213,6 +220,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             attachVideoOutput = ViriViriApplication.appState.playerSession::attachImmersiveSurface,
             onEffect = { effect -> Log.d(TAG, "MediaStage effect=$effect") },
         )
+    spatialPanelVisibilityController = SpatialPanelVisibilityController(canvasHandler)
+    immersivePlaybackCanvasHost =
+        ImmersivePlaybackCanvasHost(applyVisibleSlots = ::applyPlaybackCanvasSlots)
     player.addListener(immersiveStagePlayerListener)
     player.addListener(immersiveControlsPlayerListener)
 
@@ -235,6 +245,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
           override fun onFinish() {
             animateControllerVisibility(false)
+            dispatchPlaybackCanvas(PlaybackCanvasEvent.IdleTimeout)
           }
         }
 
@@ -298,6 +309,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
     systemManager.registerSystem(SpatialAudioSystem(panner, this))
     componentManager.registerComponent<SpatializedAudioPanel>(SpatializedAudioPanel.Companion)
+    componentManager.registerComponent<PanelLayerAlpha>(PanelLayerAlpha.Companion)
+    systemManager.registerSystem(PanelLayerAlphaSystem(systemManager.findSystem()))
 
     scene.isSystemPassthroughEnabled().let { isMrMode ->
       scene.enablePassthrough(isMrMode)
@@ -406,6 +419,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       }
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       createVideoPanel()
+      immersivePlaybackCanvasHost.applyInitialState()
       setMrMode(scene.isSystemPassthroughEnabled())
       isFirstReadyDone = true
     }
@@ -593,6 +607,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     receiver: SceneObject,
                     sourceOfInput: Entity,
                 ) {
+                  openPlaybackCanvasIfQuiet()
                   showTransportOverlay()
                 }
 
@@ -601,10 +616,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  when (ImmersiveTransportOverlayPolicy.primaryAction(transportOverlayState)) {
-                    ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
-                    ImmersiveTransportPrimaryAction.TOGGLE_PLAY_INTENT -> togglePlay()
-                  }
+                  val canvasWasQuiet =
+                      ::immersivePlaybackCanvasHost.isInitialized &&
+                          immersivePlaybackCanvasHost.state.canvas == PlaybackCanvas.QUIET_WATCH
+                  dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
+                  if (canvasWasQuiet) showTransportOverlay() else togglePlay()
                 }
 
                 override fun onInput(
@@ -780,11 +796,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       immersiveMediaStageHost.attachOutput(it.surface)
       reportImmersiveStageClock()
     }
+    if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.applyCurrentState()
   }
 
   override fun onDestroy() {
     player.removeListener(immersiveStagePlayerListener)
     player.removeListener(immersiveControlsPlayerListener)
+    canvasHandler.removeCallbacksAndMessages(null)
+    if (::spatialPanelVisibilityController.isInitialized) spatialPanelVisibilityController.clear()
     if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
     super.onDestroy()
   }
@@ -805,9 +824,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       when (action) {
         MotionEvent.ACTION_DOWN -> {}
         MotionEvent.ACTION_MOVE -> {
+          openPlaybackCanvasIfQuiet()
           resetControllerFadeOutTimer()
         }
-        MotionEvent.ACTION_UP -> resetControllerFadeOutTimer()
+        MotionEvent.ACTION_UP -> {
+          openPlaybackCanvasIfQuiet()
+          resetControllerFadeOutTimer()
+        }
         MotionEvent.ACTION_CANCEL -> {}
       }
       false
@@ -816,10 +839,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       val action = event.action
       when (action) {
         MotionEvent.ACTION_HOVER_ENTER -> {
+          openPlaybackCanvasIfQuiet()
           animateControllerVisibility(true)
           resetControllerFadeOutTimer()
         }
         MotionEvent.ACTION_HOVER_MOVE -> {
+          openPlaybackCanvasIfQuiet()
           resetControllerFadeOutTimer()
         }
         MotionEvent.ACTION_HOVER_EXIT -> {}
@@ -865,17 +890,38 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     resetControllerFadeOutTimer()
   }
 
-  fun resetControllerFadeOutTimer() {
-    if (!this::controllerView.isInitialized) {
-      return
+  private fun openPlaybackCanvasIfQuiet() {
+    if (::immersivePlaybackCanvasHost.isInitialized &&
+        immersivePlaybackCanvasHost.state.canvas == PlaybackCanvas.QUIET_WATCH) {
+      immersivePlaybackCanvasHost.dispatch(PlaybackCanvasEvent.PrimaryStageAction)
     }
+  }
 
+  fun resetControllerFadeOutTimer() {
+    if (!this::controllerView.isInitialized) return
     if (ImmersiveTransportOverlayPolicy.shouldScheduleIdleFade(isPlaying)) {
       controlsFadeOutTimer.cancel()
       controlsFadeOutTimer.start()
       if (!transportOverlayState.visible && alphaAnimator?.isRunning != true) {
         animateControllerVisibility(true)
       }
+    }
+  }
+
+  private fun dispatchPlaybackCanvas(event: PlaybackCanvasEvent) {
+    if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.dispatch(event)
+  }
+
+  private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
+    if (!::spatialPanelVisibilityController.isInitialized) return
+    val slotEntities =
+        mapOf(
+            PanelSlot.TRANSPORT to Entity(R.id.controls_id),
+            PanelSlot.SYSTEM_TOOLBAR to Entity(R.id.mode_panel),
+            PanelSlot.BROWSE to Entity(R.id.video_selector_panel),
+        )
+    slotEntities.forEach { (slot, entity) ->
+      spatialPanelVisibilityController.setVisible(slot, entity, slot in visibleSlots)
     }
   }
 
@@ -915,6 +961,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       brightenLights()
       animateControllerVisibility(true)
       controlsFadeOutTimer.cancel()
+      if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.applyCurrentState()
     }
   }
 
