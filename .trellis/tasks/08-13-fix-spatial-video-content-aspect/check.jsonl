@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review fixed-stage geometry, output, and Quest acceptance constraints."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review no-player/no-Surface side effects."}
+{"file":".trellis/tasks/08-13-fix-spatial-video-content-aspect/research/spatial-content-quad-aspect.md","reason":"Review contain geometry formula and invalid-size behavior."}
