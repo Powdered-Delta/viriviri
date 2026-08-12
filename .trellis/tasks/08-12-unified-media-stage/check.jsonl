@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Review core dependency and adapter ownership boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review one player and one active video output invariant."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review existing PlayerSession integration boundary."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Review focused Kotlin quality expectations."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Review MediaStage and overlay lifecycle acceptance."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Review product-level MediaStage scope."}
+{"file":".trellis/tasks/08-12-unified-media-stage/research/current-host-boundaries.md","reason":"Review host adaptation assumptions."}
