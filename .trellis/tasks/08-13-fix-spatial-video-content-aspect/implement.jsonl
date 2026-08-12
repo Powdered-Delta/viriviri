@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing video panel, fixed-scene, one-player/Surface and aspect behavior constraints."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Ensure VideoSize geometry update does not alter player or Surface ownership."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Keep Meta SDK mesh adapter in Spatial Activity and pure math in app module."}
+{"file":".trellis/tasks/08-13-fix-spatial-video-content-aspect/research/spatial-content-quad-aspect.md","reason":"Validated geometry cause and contain formula."}
