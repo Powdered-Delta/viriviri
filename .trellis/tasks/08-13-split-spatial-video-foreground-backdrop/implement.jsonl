@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Fixed stage, custom mesh, single player/Surface, and Quest visual validation boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Ensure dynamic geometry never creates or changes video outputs."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Keep build/runtime host responsibilities outside core/Compose contracts."}
+{"file":".trellis/tasks/08-13-split-spatial-video-foreground-backdrop/research/foreground-backdrop-and-build-hash.md","reason":"Verified SceneMesh commit API, layered mesh design, and build hash behavior."}
