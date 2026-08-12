@@ -69,6 +69,30 @@ fun BrowseScreen(metaSpatialObject: MetaSpatialObject) = Unit
 | `:spatial-workbench-core` | Kotlin standard library | Android, Compose, Meta SDK, Media3, Bilibili, Activity, Surface, network |
 | `:spatial-workbench-compose` | AndroidX Compose, `:spatial-workbench-core` | Meta SDK, Media3, Bilibili, Activity, player or video Surface ownership |
 
+### Convention: Core Contracts Validate, Adapters Execute
+
+**What**: `:spatial-workbench-core` owns immutable theme contracts and deterministic
+validation only. It may express semantic slots, layout modes, canvas composition,
+presentation policies, palette roles, browse-origin snapshots, and input
+composition transitions. It must not perform rendering, hit testing, scene-anchor
+binding, timer scheduling, cache eviction, player control, Surface handoff, or
+network work.
+
+**Why**: Themes remain portable and testable on the JVM. Platform adapters own
+Meta scene anchors and spatial panel behavior; application state owns result
+snapshots and input-session persistence; media ownership stays with the existing
+single-player host.
+
+**Required validation**:
+
+- A `TRANSPORT` placement is a `FRONT_OF_PARENT` relation to `MEDIA_STAGE`, not a
+  renderer coordinate.
+- A visible-overflow canvas preserves hit testing and references only registered
+  component-group members.
+- `PERSISTENT` slots are ineligible for default canvas hiding.
+- Semantic palette presets meet role contrast/range validation.
+
+
 ---
 
 ## Naming Conventions

@@ -26,6 +26,14 @@ sealed interface ThemeValidationIssue {
   data class InvalidAction(val componentId: String, val action: ThemeAction) : ThemeValidationIssue
 
   data class InvalidPipDock(val id: String) : ThemeValidationIssue
+
+  data class InvalidTransportOverlay(val mode: ImmersiveLayoutMode) : ThemeValidationIssue
+
+  data class InvalidCanvas(val id: String) : ThemeValidationIssue
+
+  data class DuplicateComponentGroupId(val id: String) : ThemeValidationIssue
+
+  data class InvalidPalette(val reason: String) : ThemeValidationIssue
 }
 
 object ThemeValidator {
@@ -36,7 +44,7 @@ object ThemeValidator {
     if (theme.displayName.isBlank()) add(ThemeValidationIssue.InvalidThemeIdentity("displayName"))
     if (theme.sceneReference.isBlank()) add(ThemeValidationIssue.InvalidThemeIdentity("sceneReference"))
 
-    listOf(ImmersiveLayoutMode.WATCH, ImmersiveLayoutMode.FOCUS).forEach { mode ->
+    ImmersiveLayoutMode.entries.forEach { mode ->
       if (theme.layouts[mode] == null) add(ThemeValidationIssue.MissingLayout(mode))
     }
 
@@ -44,6 +52,13 @@ object ThemeValidator {
     theme.toolbarModules.groupBy(ToolbarModule::id).forEach { (id, modules) ->
       if (id.isBlank() || modules.size > 1) add(ThemeValidationIssue.DuplicateToolbarModuleId(id))
     }
+    theme.componentGroups.groupBy(ComponentGroup::id).forEach { (id, groups) ->
+      if (id.isBlank() || groups.size > 1) add(ThemeValidationIssue.DuplicateComponentGroupId(id))
+      groups.forEach { group -> group.members.forEach { validateComponentTree(it, this) } }
+    }
+    val componentIds = collectComponentIds(theme.rootComponent, theme.componentGroups)
+    theme.canvases.forEach { canvas -> validateCanvas(theme, canvas, componentIds, this) }
+    validatePalette(theme.palette, this)
     validateComponentTree(theme.rootComponent, this)
   }
 
@@ -60,6 +75,11 @@ object ThemeValidator {
       }
       if (!placement.sizeMeters.isValid()) issues += ThemeValidationIssue.InvalidPanelSize("$mode.$slot")
       if (!placement.shape.isValid()) issues += ThemeValidationIssue.InvalidCylinderGeometry("$mode.$slot")
+      if (slot == PanelSlot.TRANSPORT &&
+          (placement.parentSlot != PanelSlot.MEDIA_STAGE ||
+              placement.depthRelation != SpatialDepthRelation.FRONT_OF_PARENT)) {
+        issues += ThemeValidationIssue.InvalidTransportOverlay(mode)
+      }
     }
     layout.pipDocks.forEach { (id, dock) ->
       if (id.isBlank() || dock.id != id || !dock.sizeMeters.isValid()) {
@@ -68,6 +88,71 @@ object ThemeValidator {
       validateAnchor(mode, "$mode.pipDocks.$id", dock.anchor, layout.placements, null, issues)
       validateAnchor(mode, "$mode.pipDocks.$id.exclusion", dock.exclusion.anchor, layout.placements, null, issues)
       if (dock.exclusion.id.isBlank()) issues += ThemeValidationIssue.InvalidPipDock(id)
+    }
+  }
+
+  private fun validateCanvas(
+      theme: SpatialTheme,
+      canvas: WorkbenchCanvas,
+      componentIds: Set<String>,
+      issues: MutableList<ThemeValidationIssue>,
+  ) {
+    if (canvas.id.isBlank() || theme.layouts[canvas.mode] == null || canvas.visibleSlots.isEmpty()) {
+      issues += ThemeValidationIssue.InvalidCanvas(canvas.id)
+      return
+    }
+    if (canvas.overflowPolicy == CanvasOverflowPolicy.VISIBLE && !canvas.preservesHitTesting) {
+      issues += ThemeValidationIssue.InvalidCanvas(canvas.id)
+    }
+    val layout = theme.layouts.getValue(canvas.mode)
+    if (canvas.visibleSlots.any { it !in layout.placements } ||
+        canvas.visibleComponentIds.any { it !in componentIds }) {
+      issues += ThemeValidationIssue.InvalidCanvas(canvas.id)
+    }
+  }
+
+  private fun collectComponentIds(
+      root: ComponentNode,
+      groups: List<ComponentGroup>,
+  ): Set<String> {
+    val ids = mutableSetOf<String>()
+    fun visit(node: ComponentNode) {
+      ids += node.id
+      node.children.forEach(::visit)
+      node.namedSlots.values.flatten().forEach(::visit)
+    }
+    visit(root)
+    groups.flatMap(ComponentGroup::members).forEach(::visit)
+    return ids
+  }
+
+  private fun validatePalette(palette: CinemaPalette, issues: MutableList<ThemeValidationIssue>) {
+    val colors =
+        listOf(
+            palette.background,
+            palette.surface,
+            palette.normalText,
+            palette.secondaryText,
+            palette.highlightText,
+            palette.primaryButton,
+            palette.primaryButtonLabel,
+            palette.secondaryButton,
+            palette.secondaryButtonLabel,
+            palette.border,
+            palette.danger,
+        )
+    if (colors.any { !it.isValid() }) issues += ThemeValidationIssue.InvalidPalette("channel-range")
+    if (!palette.surfaceOpacity.isFinite() || palette.surfaceOpacity !in 0f..1f) {
+      issues += ThemeValidationIssue.InvalidPalette("surface-opacity")
+    }
+    if (palette.normalText.contrastAgainst(palette.surface) < 4.5) {
+      issues += ThemeValidationIssue.InvalidPalette("normal-text-contrast")
+    }
+    if (palette.primaryButtonLabel.contrastAgainst(palette.primaryButton) < 4.5) {
+      issues += ThemeValidationIssue.InvalidPalette("primary-button-label-contrast")
+    }
+    if (palette.secondaryButtonLabel.contrastAgainst(palette.secondaryButton) < 4.5) {
+      issues += ThemeValidationIssue.InvalidPalette("secondary-button-label-contrast")
     }
   }
 
