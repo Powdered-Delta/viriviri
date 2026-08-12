@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing transport panel, player truth source, drag precedence, and no-new-Surface rules."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Spatial integration belongs in the Activity, not shared UI contracts."}
+{"file":"docs/Youtube-VR-UX.md","reason":"SeekTimeline semantic transport slot."}
+{"file":".trellis/tasks/08-12-immersive-transport-timeline/research/transport-timeline-boundary.md","reason":"Normalized timeline state and Activity-owned updater decision."}
