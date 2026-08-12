@@ -127,6 +127,29 @@ one.
   created, panel Surface callback, player Surface attach, decoder initialization,
   and Media3 first rendered frame.
 
+### 3.1 MediaStage Adapter Boundary
+
+The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
+`SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
+to `ImmersiveMediaStageHost`; the adapter dispatches the pure-core
+`MediaStageReducer` target event and executes its attach effect through the
+process-wide `PlayerSession`.
+
+- The core reducer receives only the stable target ID `immersive-video`, clock
+  snapshots, and lifecycle events. It never receives the SDK `Surface`.
+- The host must never release the SDK-owned Surface. At terminal Activity
+destruction it removes its Media3 listener and drops its local reference only.
+- `onResume` may repeat the target availability callback. The same Surface is a
+  no-op; a replacement Surface for the same target delegates to
+  `PlayerSession` identity-aware replacement without registering another video
+target.
+- Feed player state, playing-state, and position-discontinuity callbacks into
+  the host clock lifecycle. Do not add a frame timer or per-frame logging for
+  MediaStage state.
+- The protected immersive-to-2D route retains `beginOutputHandoff()` and must
+  not add an immersive detach/clear during Spatial teardown; the destination
+  Surface owns replacement.
+
 ### 4. Validation & Error Matrix
 
 | Symptom or condition | Required diagnosis and action |
