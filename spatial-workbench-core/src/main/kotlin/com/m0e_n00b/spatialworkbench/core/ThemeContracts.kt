@@ -8,17 +8,39 @@ enum class PanelSlot {
   CONTEXT,
   FOCUS,
   ACTION_SHEET,
+  SHORTS_DETAILS,
+  SHORTS_COMMENTS,
 }
 
 enum class ImmersiveLayoutMode {
   WATCH,
   FOCUS,
   EDIT,
+  SHORTS,
+}
+
+enum class SpatialDepthRelation {
+  ROOT,
+  FRONT_OF_PARENT,
+  BEHIND_PARENT,
 }
 
 enum class PanelVisibility {
   VISIBLE,
   HIDDEN,
+}
+
+enum class PanelPresentationPolicy {
+  PERSISTENT,
+  AUTO_FADE,
+  ON_DEMAND,
+  TRANSIENT,
+  THEME_CONTROLLED,
+}
+
+enum class CanvasOverflowPolicy {
+  CLIP,
+  VISIBLE,
 }
 
 data class Meters3(val x: Float = 0f, val y: Float = 0f, val z: Float = 0f)
@@ -47,6 +69,7 @@ data class SlotPlacement(
     val sizeMeters: PanelSizeMeters,
     val shape: PanelShape = PanelShape.Quad,
     val parentSlot: PanelSlot? = null,
+    val depthRelation: SpatialDepthRelation = SpatialDepthRelation.ROOT,
 )
 
 data class ContentExclusion(val id: String, val anchor: SpatialAnchor)
@@ -56,6 +79,20 @@ data class PipDock(
     val anchor: SpatialAnchor,
     val sizeMeters: PanelSizeMeters,
     val exclusion: ContentExclusion,
+)
+
+data class WorkbenchCanvas(
+    val id: String,
+    val mode: ImmersiveLayoutMode,
+    val visibleSlots: Set<PanelSlot>,
+    val visibleComponentIds: Set<String> = emptySet(),
+    val overflowPolicy: CanvasOverflowPolicy = CanvasOverflowPolicy.CLIP,
+    val preservesHitTesting: Boolean = true,
+)
+
+data class ComponentGroup(
+    val id: String,
+    val members: List<ComponentNode>,
 )
 
 data class ThemeLayout(
@@ -141,7 +178,17 @@ data class SpatialTheme(
     val layouts: Map<ImmersiveLayoutMode, ThemeLayout>,
     val toolbarModules: List<ToolbarModule>,
     val rootComponent: ComponentNode,
+    val componentGroups: List<ComponentGroup> = emptyList(),
+    val canvases: List<WorkbenchCanvas> = emptyList(),
+    val presentationPolicies: Map<PanelSlot, PanelPresentationPolicy> = emptyMap(),
+  val palette: CinemaPalette = CinemaPalette.DARK,
 ) {
   fun placement(mode: ImmersiveLayoutMode, slot: PanelSlot): SlotPlacement? =
       layouts[mode]?.placements?.get(slot)
+
+  fun presentationPolicy(slot: PanelSlot): PanelPresentationPolicy =
+      presentationPolicies[slot] ?: PanelPresentationPolicy.THEME_CONTROLLED
+
+  fun allowsDefaultCanvasHide(slot: PanelSlot): Boolean =
+      presentationPolicy(slot) != PanelPresentationPolicy.PERSISTENT
 }
