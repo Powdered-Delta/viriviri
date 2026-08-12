@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend package routing."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"MediaStage core/adapter boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"One player, SDK Surface ownership, identity-aware handoff lifecycle."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Quest PanelSceneObject lifecycle and visual validation requirements."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Existing PlayerSession ownership and immersive playback contract."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Approved MediaStage architecture and no-legacy-overlay decision."}
+{"file":".trellis/tasks/archive/2026-08/08-12-unified-media-stage/prd.md","reason":"Unified MediaStage core reducer contract."}
+{"file":".trellis/tasks/08-12-immersive-media-stage/research/immersive-stage-host.md","reason":"Observed existing video panel and adapter design."}
