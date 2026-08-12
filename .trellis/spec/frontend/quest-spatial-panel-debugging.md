@@ -209,6 +209,12 @@ author the correct scene anchor/parent relationship.
   waits for the scene-authored parent/anchor correction.
 - The existing controls Android root fade is only its local content treatment.
   It must not substitute for the Spatial layer/visibility lifecycle.
+- The existing transport Browse command records the current selected video ID,
+  returns the shared selector UI to recommendations, then opens core Browse.
+  A different selected video ID from that existing panel returns the canvas to
+  Playback while `ViriViriAppState` alone replaces the Media3 source. A primary
+  stage action from Browse also returns to Playback without toggling player
+  intent; only a primary stage action already in Playback toggles play intent.
 
 ### 3.4 MediaStage Adapter Boundary
 
