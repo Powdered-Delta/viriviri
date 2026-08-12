@@ -6,10 +6,11 @@
 
 ## Overview
 
-ViriViri currently uses one Quest-focused Android application module. Compose UI
-is grouped by feature under the app package; Spatial SDK registration and Surface
-ownership remain in the immersive Activity and must not leak into reusable UI
-composables.
+ViriViri uses a Quest-focused Android application module, a pure Kotlin
+workbench-core module, and a Compose-only workbench-compose module. Compose UI
+is grouped by feature under the app package or reusable Compose module; Spatial
+SDK registration and video Surface ownership remain in the immersive Activity
+and must not leak into reusable UI composables or workbench contracts.
 
 ---
 
@@ -22,6 +23,12 @@ app/src/main/java/com/m0e_n00b/viriviri/
 ├── BilibiliPlaybackProvider.kt   # Platform protocol adapter
 ├── PancakeActivity.kt            # Horizon OS 2D host
 └── SpatialVideoSampleActivity.kt # Immersive Spatial SDK host
+
+spatial-workbench-core/
+└── src/main/kotlin/.../core/     # Pure theme, slot, layout, component, and action contracts
+
+spatial-workbench-compose/
+└── src/main/java/.../compose/    # Compose panel shells and layout primitives
 ```
 
 ---
@@ -59,6 +66,8 @@ fun BrowseScreen(metaSpatialObject: MetaSpatialObject) = Unit
 | `RecommendationUi.kt` | AndroidX Compose, app state | Meta Spatial SDK entities, `Surface`, Activity routing |
 | `PancakeActivity.kt` | Compose, Android Activity APIs | Immersive panel construction |
 | `SpatialVideoSampleActivity.kt` | Meta Spatial SDK, application state | A second ExoPlayer or protocol parsing |
+| `:spatial-workbench-core` | Kotlin standard library | Android, Compose, Meta SDK, Media3, Bilibili, Activity, Surface, network |
+| `:spatial-workbench-compose` | AndroidX Compose, `:spatial-workbench-core` | Meta SDK, Media3, Bilibili, Activity, player or video Surface ownership |
 
 ---
 

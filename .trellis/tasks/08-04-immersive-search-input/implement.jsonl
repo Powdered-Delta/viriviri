@@ -3,3 +3,4 @@
 {"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Immersive panel and Surface lifecycle constraints"}
 {"file": ".trellis/spec/backend/directory-structure.md", "reason": "Provider and UI protocol boundary"}
 {"file": ".trellis/tasks/08-04-immersive-search-input/research/bilibili-video-search.md", "reason": "WBI video search contract and IME boundary"}
+{"file": ".trellis/tasks/08-04-immersive-search-input/research/offline-extensible-input-board.md", "reason": "Documents the offline input-method extension boundary and bundled offline lexicon."}

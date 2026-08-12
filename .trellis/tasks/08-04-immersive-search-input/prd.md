@@ -71,3 +71,54 @@ history, live, article, and mixed-type results remain out of scope.
 - UI host: `app/src/main/java/com/m0e_n00b/viriviri/MoviePanel.kt`.
 - Shared UI: `app/src/main/java/com/m0e_n00b/viriviri/RecommendationUi.kt`.
 - Provider boundary: `app/src/main/java/com/m0e_n00b/viriviri/BilibiliPlaybackProvider.kt`.
+
+## Revision: Offline Extensible Input Board
+
+### Goal
+
+Replace the system-IME-only search field with an application-owned input board
+that works when Horizon OS does not provide a Chinese IME. The default board is
+a Bilibili-TV-style multi-tap nine-key Pinyin input method with offline Chinese
+candidate generation. The system keyboard remains available as an optional
+input source, but search must only begin through an explicit `确定搜索` action.
+
+### Requirements
+
+- The search UI is a reusable input-panel composable, not inline text-field
+  logic inside the recommendation list.
+- The panel provides current input, Pinyin composition, candidate selection,
+  a nine-key layout, `清空输入`, `确定搜索`, and an icon-only system-keyboard
+  action.
+- The default Chinese input method works without network access. It must accept
+  multi-tap Pinyin, show offline Hanzi or phrase candidates, and append a
+  selected candidate to the committed search text.
+- The input-method engine is a pure Kotlin extension point. It exposes its own
+  keyboard layout, composition/candidate state, and event reducer. A developer
+  can register another language engine and offline lexicon without changing the
+  Compose input panel, `ViriViriAppState`, or Bilibili provider.
+- System-keyboard text updates the same committed query state and clears only
+  the active custom-method composition. It must not issue a search implicitly.
+- The panel has no Meta Spatial SDK, Activity-routing, player, Surface, or
+  Bilibili-protocol dependency.
+
+### Validation
+
+- Unit tests cover multi-tap letter cycling, offline Pinyin phrase candidates,
+  candidate commit, deletion, reset, and registry selection for a custom
+  language method.
+- `:app:testDebugUnitTest` and `:app:assembleDebug` pass.
+- Quest validation verifies hand/controller clicks, Chinese candidate commit,
+  explicit search, clear, and system-keyboard fallback in the embedded panel.
+
+### Follow-up And Known Limitations
+
+- The nine-key board still uses explicit multi-tap entry. A future interaction
+  redesign must support candidate generation from every letter represented by
+  the entered number sequence; that work is intentionally deferred.
+- Candidate mode presents `词组` first and `单字` second. The bundled offline
+  lexicon is a compact first-party dictionary, not a full frequency-ranked IME
+  language model, so ranking and coverage remain limited.
+- Search input text styling and candidate-strip layout are dark-workbench-safe;
+  the composition line and candidate strip reserve fixed height so typing does
+  not shift the keypad. The latest mode-switch behavior has unit/build
+  coverage, but has not yet had a dedicated Quest interaction regression pass.

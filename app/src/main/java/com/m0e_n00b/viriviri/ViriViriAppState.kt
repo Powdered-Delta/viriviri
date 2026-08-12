@@ -23,7 +23,7 @@ data class ViriViriUiState(
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val searchQuery: String = "",
+    val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
     val isShowingSearchResults: Boolean = false,
     val recommendationScrollPosition: ListScrollPosition = ListScrollPosition(),
     val searchScrollPosition: ListScrollPosition = ListScrollPosition(),
@@ -78,10 +78,16 @@ class PlayerSession(context: Context) {
   }
 }
 
-class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider()) {
+class ViriViriAppState(
+    context: Context,
+    private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider(),
+    internal val inputMethods: SearchInputMethodRegistry = DefaultSearchInputMethods.registry,
+) {
   val playerSession = PlayerSession(context)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-  private val mutableState = MutableStateFlow(ViriViriUiState(isLoading = true))
+  private val mutableState = MutableStateFlow(
+      ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
+  )
   private var playbackRequestId = 0L
   private var searchJob: Job? = null
   private val searchRequestTracker = SearchRequestTracker()
@@ -112,16 +118,30 @@ class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackP
   }
 
   fun updateSearchQuery(query: String) {
-    mutableState.value = mutableState.value.copy(searchQuery = query)
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(searchInput = inputMethods.replaceCommittedText(current.searchInput, query))
   }
 
-  fun submitSearch(query: String) {
+  fun applySearchInputAction(action: SearchInputAction) {
+    val current = mutableState.value
+    mutableState.value = current.copy(searchInput = inputMethods.reduce(current.searchInput, action))
+  }
+
+  fun clearSearchInput() {
+    val current = mutableState.value
+    mutableState.value = current.copy(searchInput = inputMethods.initialSession())
+  }
+
+  fun submitSearch() = submitSearch(mutableState.value.searchInput.committedText)
+
+  private fun submitSearch(query: String) {
     val normalizedQuery = normalizeSearchQuery(query)
     searchJob?.cancel()
     val requestId = searchRequestTracker.beginRequest()
     if (normalizedQuery.isBlank()) {
       mutableState.value = mutableState.value.copy(
-          searchQuery = "",
+          searchInput = inputMethods.initialSession(),
           isShowingSearchResults = false,
           isLoading = false,
           error = null,
@@ -132,7 +152,8 @@ class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackP
       mutableState.value = mutableState.value.copy(
           isLoading = true,
           error = null,
-          searchQuery = normalizedQuery,
+          searchInput =
+              inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
           isShowingSearchResults = true,
           searchScrollPosition = ListScrollPosition(),
       )
@@ -154,7 +175,8 @@ class ViriViriAppState(context: Context, private val provider: BilibiliPlaybackP
   }
 
   fun returnToRecommendationsFeed() {
-    mutableState.value = mutableState.value.copy(searchQuery = "", isShowingSearchResults = false)
+    mutableState.value =
+        mutableState.value.copy(searchInput = inputMethods.initialSession(), isShowingSearchResults = false)
     refreshRecommendations()
   }
 

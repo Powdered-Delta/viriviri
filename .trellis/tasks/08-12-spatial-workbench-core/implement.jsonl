@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Defines the current module boundary and the rule that reusable UI must not import Spatial SDK ownership."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Defines reusable Compose component and host callback boundaries for the later component layer."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Requires explicit, testable contracts across theme definitions, component trees, and runtime consumers."}
+{"file": "docs/immersive-ui-low-code-architecture.md", "reason": "Records the approved slot model, theme system, component library, and deferred media-stage decisions."}

@@ -24,3 +24,5 @@ dependencyResolutionManagement {
 rootProject.name = "ViriViri"
 
 include(":app")
+include(":spatial-workbench-core")
+include(":spatial-workbench-compose")
