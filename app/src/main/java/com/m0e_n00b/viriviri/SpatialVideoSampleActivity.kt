@@ -147,6 +147,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
   var elapsedTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var durationTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
+  var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
+  var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
@@ -260,7 +262,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     browseSelectionObserver =
         activityScope.launch {
           ViriViriApplication.appState.state.collect { appState ->
-            if (::immersivePlaybackCanvasHost.isInitialized &&
+            updateImmersiveMediaStatus(
+                selected = appState.selected,
+                error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
+            )
+          if (::immersivePlaybackCanvasHost.isInitialized &&
                 shouldReturnToPlaybackAfterBrowseSelection(
                     awaitingSelection = awaitingBrowseSelection,
                     canvas = immersivePlaybackCanvasHost.state.canvas,
@@ -821,6 +827,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           )
         },
         panelSetupWithRootView = { rootView, _, _ ->
+          currentMediaTitle.complete(rootView.findViewById(R.id.current_media_title))
+          currentMediaDetail.complete(rootView.findViewById(R.id.current_media_detail))
+          val appState = ViriViriApplication.appState.state.value
+          updateImmersiveMediaStatus(
+              selected = appState.selected,
+              error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
+          )
           val debugBuildLabel = rootView.findViewById<TextView>(R.id.debug_build_label)
           if (BuildConfig.DEBUG) {
             debugBuildLabel.text = "DEV ${BuildConfig.GIT_SHA}"
@@ -1022,6 +1035,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun pauseVideo() {
     player.pause()
+  }
+
+  private fun updateImmersiveMediaStatus(selected: Recommendation?, error: String?) {
+    val status = immersiveMediaStatus(selected, error)
+    currentMediaTitle.thenAccept { it.text = status.title }
+    currentMediaDetail.thenAccept { it.text = status.detail }
   }
 
   private fun syncPlaybackSpeedLabel() {
