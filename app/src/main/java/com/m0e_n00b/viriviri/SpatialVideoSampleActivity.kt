@@ -128,10 +128,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   lateinit var controlsFadeOutTimer: CountDownTimer
   private var transportOverlayState = ImmersiveTransportOverlayState()
   private val canvasHandler = Handler(Looper.getMainLooper())
+  private val transportTimelineUpdater =
+      object : Runnable {
+        override fun run() {
+          syncTransportTimeline()
+          canvasHandler.postDelayed(this, TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS)
+        }
+      }
+  private var transportTimelineUpdatesStarted = false
+  private var seekDragPositionMs: Long? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
+  var elapsedTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
+  var durationTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
@@ -178,9 +189,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private val immersiveControlsPlayerListener =
       object : Player.Listener {
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-          if (playbackState == Player.STATE_READY) {
-            seekBar.thenAccept { it.max = player.duration.toInt() }
-          }
+          syncTransportTimeline()
           syncPlaybackControls()
         }
 
@@ -190,7 +199,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         }
 
         override fun onPositionDiscontinuity(reason: Int) {
-          if (!isSeeking) seekBar.thenAccept { it.progress = player.currentPosition.toInt() }
+          syncTransportTimeline()
           syncPlaybackControls()
         }
 
@@ -607,6 +616,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                       fromUser: Boolean,
                   ) {
                     if (fromUser) {
+                      seekDragPositionMs = progress.toLong()
+                      syncTransportTimeline()
                       player.seekTo(progress.toLong())
                       resetControllerFadeOutTimer()
                     }
@@ -614,6 +625,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
                   override fun onStartTrackingTouch(seekBar: SeekBar?) {
                     isSeeking = true
+                    seekDragPositionMs = seekBar?.progress?.toLong()
                     if (seekDragPlaybackPolicy.start(player.playWhenReady)) {
                       player.playWhenReady = false
                     }
@@ -622,6 +634,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
                   override fun onStopTrackingTouch(seekBar: SeekBar?) {
                     isSeeking = false
+                    seekDragPositionMs = null
+                    syncTransportTimeline()
                     seekDragPlaybackPolicy.finish()?.let { player.playWhenReady = it }
                   }
                 }
@@ -667,18 +681,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               }
           )
 
-          val handler = Handler(Looper.getMainLooper())
-          handler.postDelayed(
-              object : Runnable {
-                override fun run() {
-                  if (!isSeeking) {
-                    seekBar.thenAccept { it.progress = player.currentPosition.toInt() }
-                  }
-                  handler.postDelayed(this, 500)
-                }
-              },
-              500,
-          )
         }
 
     immersiveMediaStageHost.attachOutput(panelSceneObject.surface)
@@ -753,8 +755,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           )
         },
         panelSetupWithRootView = { rootView, _, _ ->
-          var localSeekBar = rootView.findViewById<SeekBar>(R.id.seek_bar)!!
+          val localSeekBar = rootView.findViewById<SeekBar>(R.id.seek_bar)!!
           seekBar.complete(localSeekBar)
+          elapsedTime.complete(rootView.findViewById(R.id.elapsed_time))
+          durationTime.complete(rootView.findViewById(R.id.duration_time))
+          syncTransportTimeline()
+          startTransportTimelineUpdates()
 
           val browseButton = rootView.findViewById<Button>(R.id.browse_button)!!
           browseButton.setOnClickListener { openBrowseCanvas() }
@@ -842,6 +848,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     player.removeListener(immersiveControlsPlayerListener)
     browseSelectionObserver?.cancel()
     browseSelectionObserver = null
+    canvasHandler.removeCallbacks(transportTimelineUpdater)
     canvasHandler.removeCallbacksAndMessages(null)
     if (::spatialPanelVisibilityController.isInitialized) spatialPanelVisibilityController.clear()
     if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
@@ -995,6 +1002,28 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     speedButton.thenAccept { it.text = PlaybackSpeedControl.label(player.playbackParameters.speed) }
   }
 
+  private fun startTransportTimelineUpdates() {
+    if (transportTimelineUpdatesStarted) return
+    transportTimelineUpdatesStarted = true
+    canvasHandler.post(transportTimelineUpdater)
+  }
+
+  private fun syncTransportTimeline() {
+    val timeline =
+        immersiveTransportTimeline(
+            playerPositionMs = player.currentPosition,
+            playerDurationMs = player.duration,
+            dragPositionMs = seekDragPositionMs.takeIf { isSeeking },
+        )
+    seekBar.thenAccept { seek ->
+      seek.isEnabled = timeline.canSeek
+      seek.max = timeline.maxMs
+      if (!isSeeking) seek.progress = timeline.positionMs
+    }
+    elapsedTime.thenAccept { it.text = timeline.elapsedLabel }
+    durationTime.thenAccept { it.text = timeline.durationLabel }
+  }
+
   private fun showPlaybackSpeedMenu(anchor: View) {
     PopupMenu(this, anchor).apply {
       menu.setGroupCheckable(0, true, true)
@@ -1113,6 +1142,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val LIGHTS_DOWN_SCALE: Float = 0.25f
     const val TRANSPORT_IDLE_TIMEOUT_MS: Long = 4_000L
     const val TRANSPORT_FADE_DURATION_MS: Long = 200L
+    const val TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS: Long = 500L
 
     const val MR_SCREEN_WIDTH: Float = 16.0f / 10.0f
     const val MR_SCREEN_HEIGHT: Float = 9.0f / 10.0f
