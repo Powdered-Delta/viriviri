@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend package routing."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Core versus host adapter boundaries and overlay allocation convention."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Single player and identity-aware video Surface handoff invariant."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Existing shared PlayerSession ownership contract."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Cross-layer contract separation."}
+{"file":"docs/immersive-ui-low-code-architecture.md","reason":"Approved MediaStage, geometry, and overlay architecture."}
+{"file":"docs/Youtube-VR-UX.md","reason":"MediaStage product ownership and presentation behavior."}
+{"file":".trellis/tasks/08-12-unified-media-stage/research/current-host-boundaries.md","reason":"Observed current 2D and Spatial host ownership."}
