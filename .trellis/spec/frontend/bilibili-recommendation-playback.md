@@ -67,7 +67,7 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 | Duplicate item in a later feed/search page | Retain first occurrence and do not reinsert the video. |
 | Later page HTTP/API/JSON failure | Preserve already loaded items, end append loading, and show a recoverable inline error. |
 | Missing/invalid/unavailable cover | Preserve fixed thumbnail geometry and display a loading or failure placeholder. |
-| Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. |
+| Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. For charging/restricted candidates, treat absent DASH as a possible access restriction, not proof of a decoder failure; capture only bounded result metadata and never attempt credential bypass or speculative MP4 fallback. |
 | Retry selected playback resolution | Cancel the prior attempt, then re-run only the selected BV's existing source-resolution path. While resolving, reject another retry; stale retry/selection results cannot change player source or viewer error. |
 | Current source resolution exceeds 45 seconds | Clear loading, display `Video source resolution timed out`, and enable existing Retry without changing the current player source. |
 | A slower prior selection completes after a newer selection | Ignore the stale completion; a cancelled superseded attempt publishes no error. |
@@ -95,6 +95,10 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   duplicate suppression, cover success/failure placeholders, item selection,
   viewer playback-resolution error and Retry behavior, return to browse, both
   directions of 2D/immersive playback handoff, and retained playback position.
+* A future local-history repository must remain outside the Player, panel, UI,
+  and provider. Bilibili history synchronization is a later explicit-login,
+  opt-in feature; anonymous playback must not send history reports, heartbeats,
+  cookies, SESSDATA, CSRF values, access tokens, or device identifiers.
 
 ### 7. Wrong vs Correct
 
