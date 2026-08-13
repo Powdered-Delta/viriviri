@@ -6,6 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.roundToInt
 
 class InputConsoleStyleTest {
   @Test
@@ -15,7 +16,8 @@ class InputConsoleStyleTest {
 
     assertNotEquals(dark.shell.background, light.shell.background)
     assertNotEquals(dark.alphabetKey.background, light.alphabetKey.background)
-    assertEquals(CinemaPalette.DARK.surfaceOpacity, dark.shell.background.alpha, 0.001f)
+    val expectedSurfaceAlpha = (CinemaPalette.DARK.surfaceOpacity * 255f).roundToInt() / 255f
+    assertEquals(expectedSurfaceAlpha, dark.shell.background.alpha, 0f)
     assertTrue(dark.candidateStripHeight.value > 0f)
   }
 
@@ -31,7 +33,7 @@ class InputConsoleStyleTest {
   @Test
   fun voiceCallbackContractIsOneSharedActionForBothEntryPoints() {
     var voiceCalls = 0
-    val voice = { voiceCalls++ }
+    val voice: () -> Unit = { voiceCalls++; Unit }
     val actions =
         CinemaInputConsoleActions(
             onBackspace = {},

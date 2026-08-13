@@ -25,28 +25,44 @@ class RecommendationPaginationTest {
   @Test
   fun recommendationFeedMappingUsesOnlyExplicitChargingExclusiveField() {
     val charging =
-        BilibiliPlaybackProvider.mapRecommendationItem(
-            org.json.JSONObject("""{"bvid":"BV1charge","is_chargeable_season":true}""")
+        BilibiliPlaybackProvider.mapRecommendationVideo(
+            BilibiliRecommendationVideo(
+                bvid = "BV1charge",
+                title = "Charge",
+                authorName = "Creator",
+                coverUrl = "",
+                durationSeconds = 60,
+                viewCount = 1,
+                displayLabel = null,
+                isChargeableSeason = true,
+            )
         )
-    val ordinary = BilibiliPlaybackProvider.mapRecommendationItem(org.json.JSONObject("""{"bvid":"BV1ordinary"}"""))
+    val ordinary =
+        BilibiliPlaybackProvider.mapRecommendationVideo(
+            BilibiliRecommendationVideo(
+                bvid = "BV1ordinary",
+                title = "Ordinary",
+                authorName = "Creator",
+                coverUrl = "",
+                durationSeconds = 60,
+                viewCount = 1,
+                displayLabel = null,
+            )
+        )
 
     assertEquals(ContentAccess.CHARGING_EXCLUSIVE, charging?.access)
     assertEquals(ContentAccess.STANDARD, ordinary?.access)
   }
 
   @Test
-  fun recommendationMappingCarriesChargingBadgeOnlyForExplicitFlag() {
-    val response =
-        org.json.JSONObject(
-            """
-            {"data":{"result":[
-              {"bvid":"BV1charge","title":"Charge","author":"Creator","pic":"","duration":"1:00","play":"1","is_chargeable_season":true},
-              {"bvid":"BV1ordinary","title":"Ordinary","author":"Creator","pic":"","duration":"1:00","play":"1","rights":{"elec":1}}
-            ]}}
-            """.trimIndent()
+  fun searchMappingCarriesChargingBadgeOnlyForExplicitFlag() {
+    val mapped =
+        BilibiliPlaybackProvider.mapVideoSearchResults(
+            listOf(
+                BilibiliSearchVideo("BV1charge", "Charge", "Creator", "", "1:00", "1", null, true),
+                BilibiliSearchVideo("BV1ordinary", "Ordinary", "Creator", "", "1:00", "1", null),
+            )
         )
-
-    val mapped = BilibiliPlaybackProvider.mapVideoSearchResults(response)
 
     assertEquals(ContentAccess.CHARGING_EXCLUSIVE, mapped[0].access)
     assertEquals(ContentAccess.STANDARD, mapped[1].access)
