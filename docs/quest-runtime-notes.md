@@ -22,18 +22,34 @@ compileSdk = 36
 targetSdk = 34
 ```
 
-本机未安装 Meta Spatial Editor CLI。上游场景导出任务 `:app:export` 无法执行，且导出的 `scenes/Composition.glxf` 不存在。应用在加载该可选环境场景失败时记录日志并继续启动视频样例：
+Windows Meta Spatial Editor CLI is installed at:
 
 ```text
-Unable to load optional environment scene
+D:\Program Files\Meta Spatial Editor\v16\Resources\CLI.exe
 ```
 
-这会省略 MediaRoom 环境，不影响 Spatial video panel、视频列表、2D 路由或 OpenXR 生命周期验证。
+The Gradle Spatial plugin exports `app/scenes/Main.metaspatial` into
+`app/src/main/assets/scenes/`. `:app:preBuild` depends on `:app:export`, so a
+normal debug build packages the authored MediaRoom environment:
+
+```text
+assets/scenes/Composition.glxf
+assets/scenes/MediaRoom.gltf
+assets/scenes/<exported-textures>.png
+```
+
+`SpatialVideoSampleActivity` loads `apk:///scenes/Composition.glxf` and looks
+up the exported `MediaRoom` node. The GLXF composition references
+`MediaRoom.gltf`; the environment is visible outside system passthrough and is
+hidden when MR passthrough is enabled. A Windows export/build validation
+confirmed that the debug APK contains `Composition.glxf`, `MediaRoom.gltf`, and
+three exported texture PNG assets under `assets/scenes/`. Quest visual
+validation of the packaged environment remains a separate manual step.
 
 构建命令：
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon
 ```
 
 ## 已验证的应用路由
@@ -68,7 +84,7 @@ SpatialVideoSampleActivity
 - 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
 - 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。
 - 2D 视频输出保留现有 `TextureView` Surface 生命周期，并从 Media3 `VideoSize` 更新 view transform。输出在黑色容器中按 contain 比例居中，产生 letterbox 或 pillarbox，不拉伸或裁切源帧。
-- 尚未完成 Quest 人工验证。本次代码验证应使用 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export`；需要从头显应用库验证推荐、选择、返回列表及 immersive/2D 循环时仅存在一个输出 Surface。
+- 尚未完成 Quest 人工验证。本次代码验证应使用 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon`；`assembleDebug` 会先执行 `:app:export` 并打包 MediaRoom。需要从头显应用库验证推荐、选择、返回列表及 immersive/2D 循环时仅存在一个输出 Surface，以及非 passthrough 模式下 MediaRoom 环境可见。
 
 新包已验证可与旧包同时安装：
 
