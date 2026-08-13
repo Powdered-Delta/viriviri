@@ -102,6 +102,7 @@ class WorkbenchContractsTest {
   fun palettePresetsPassRoleValidationAndRejectPoorContrast() {
     listOf(CinemaPalette.DARK, CinemaPalette.LIGHT, CinemaPalette.HIGH_CONTRAST).forEach { palette ->
       assertTrue(ThemeValidator.validate(CinemaTheme.create().copy(palette = palette)).none { it is ThemeValidationIssue.InvalidPalette })
+      assertTrue(palette.chargingBadgeLabel.contrastAgainst(palette.chargingBadge) >= 4.5)
     }
 
     val invalid =

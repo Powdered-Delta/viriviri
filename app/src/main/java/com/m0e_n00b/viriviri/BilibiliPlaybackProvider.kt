@@ -23,7 +23,18 @@ data class Recommendation(
     val viewCount: Long?,
     val displayLabel: String?,
     val videoUrl: String,
+    val access: RecommendationAccess = RecommendationAccess.STANDARD,
 )
+
+enum class RecommendationAccess {
+  STANDARD,
+  CHARGING_EXCLUSIVE,
+}
+
+internal fun recommendationAccess(
+    isChargeableSeason: Boolean,
+): RecommendationAccess =
+    if (isChargeableSeason) RecommendationAccess.CHARGING_EXCLUSIVE else RecommendationAccess.STANDARD
 
 internal data class BilibiliSearchVideo(
     val bvid: String,
@@ -33,6 +44,7 @@ internal data class BilibiliSearchVideo(
     val duration: String,
     val play: String,
     val pubdate: String?,
+    val isChargeableSeason: Boolean = false,
 )
 
 class PlaybackProviderException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -56,6 +68,22 @@ class BilibiliPlaybackProvider(
             "?version=1&feed_version=V8&homepage_ver=1&ps=$pageSize" +
             "&fresh_idx=$freshIndex&brush=$freshIndex&fresh_type=4"
 
+    internal fun mapRecommendationItem(item: JSONObject): Recommendation? {
+      val bvid = item.optString("bvid").trim()
+      if (bvid.isBlank()) return null
+      return Recommendation(
+          videoId = bvid,
+          title = item.optString("title", "Untitled video"),
+          authorName = item.optJSONObject("owner")?.optString("name", "Unknown author") ?: "Unknown author",
+          coverUrl = item.optString("pic").takeIf { it.isNotBlank() },
+          durationSeconds = item.optInt("duration").takeIf { it > 0 },
+          viewCount = item.optJSONObject("stat")?.optLong("view")?.takeIf { it >= 0 },
+          displayLabel = item.optJSONObject("rcmd_reason")?.optString("content")?.takeIf { it.isNotBlank() },
+          videoUrl = "https://www.bilibili.com/video/$bvid",
+          access = recommendationAccess(item.optBoolean("is_chargeable_season")),
+      )
+    }
+
     internal fun mapVideoSearchResults(response: JSONObject): List<Recommendation> {
       val results = response.optJSONObject("data")?.optJSONArray("result") ?: JSONArray()
       return mapVideoSearchResults(
@@ -71,6 +99,7 @@ class BilibiliPlaybackProvider(
                   duration = result.optString("duration"),
                   play = result.optString("play"),
                   pubdate = result.opt("pubdate")?.toString(),
+                  isChargeableSeason = result.optBoolean("is_chargeable_season"),
               )
           )
         }
@@ -90,6 +119,7 @@ class BilibiliPlaybackProvider(
               viewCount = parseSearchCount(result.play),
               displayLabel = result.pubdate?.takeIf { it.isNotBlank() },
               videoUrl = "https://www.bilibili.com/video/$bvid",
+              access = recommendationAccess(result.isChargeableSeason),
           )
         }
 
@@ -129,22 +159,7 @@ class BilibiliPlaybackProvider(
     val items = response.optJSONObject("data")?.optJSONArray("item") ?: JSONArray()
     return buildList {
       for (index in 0 until items.length()) {
-        val item = items.optJSONObject(index) ?: continue
-        val bvid = item.optString("bvid")
-        if (bvid.isBlank()) continue
-        add(
-            Recommendation(
-                videoId = bvid,
-                title = item.optString("title", "Untitled video"),
-                authorName = item.optJSONObject("owner")?.optString("name", "Unknown author") ?: "Unknown author",
-                coverUrl = item.optString("pic").takeIf { it.isNotBlank() },
-                durationSeconds = item.optInt("duration").takeIf { it > 0 },
-                viewCount = item.optJSONObject("stat")?.optLong("view")?.takeIf { it >= 0 },
-                displayLabel =
-                    item.optJSONObject("rcmd_reason")?.optString("content")?.takeIf { it.isNotBlank() },
-                videoUrl = "https://www.bilibili.com/video/$bvid",
-            )
-        )
+        mapRecommendationItem(items.optJSONObject(index) ?: continue)?.let(::add)
       }
     }.ifEmpty { throw PlaybackProviderException("Bilibili returned no recommendations") }
   }

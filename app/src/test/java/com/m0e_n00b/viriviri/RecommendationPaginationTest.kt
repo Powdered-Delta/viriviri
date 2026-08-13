@@ -8,6 +8,54 @@ import org.junit.Test
 
 class RecommendationPaginationTest {
   @Test
+  fun chargingExclusiveAccessRequiresTheDedicatedSeasonFlag() {
+    assertEquals(
+        RecommendationAccess.CHARGING_EXCLUSIVE,
+        recommendationAccess(isChargeableSeason = true),
+    )
+    assertEquals(
+        RecommendationAccess.STANDARD,
+        recommendationAccess(isChargeableSeason = false),
+    )
+  }
+
+  @Test
+  fun recommendationFeedMappingUsesOnlyExplicitChargingExclusiveField() {
+    val charging =
+        BilibiliPlaybackProvider.mapRecommendationItem(
+            org.json.JSONObject("""{"bvid":"BV1charge","is_chargeable_season":true}""")
+        )
+    val ordinary = BilibiliPlaybackProvider.mapRecommendationItem(org.json.JSONObject("""{"bvid":"BV1ordinary"}"""))
+
+    assertEquals(RecommendationAccess.CHARGING_EXCLUSIVE, charging?.access)
+    assertEquals(RecommendationAccess.STANDARD, ordinary?.access)
+  }
+
+  @Test
+  fun recommendationMappingCarriesChargingBadgeOnlyForExplicitFlag() {
+    val response =
+        org.json.JSONObject(
+            """
+            {"data":{"result":[
+              {"bvid":"BV1charge","title":"Charge","author":"Creator","pic":"","duration":"1:00","play":"1","is_chargeable_season":true},
+              {"bvid":"BV1ordinary","title":"Ordinary","author":"Creator","pic":"","duration":"1:00","play":"1","rights":{"elec":1}}
+            ]}}
+            """.trimIndent()
+        )
+
+    val mapped = BilibiliPlaybackProvider.mapVideoSearchResults(response)
+
+    assertEquals(RecommendationAccess.CHARGING_EXCLUSIVE, mapped[0].access)
+    assertEquals(RecommendationAccess.STANDARD, mapped[1].access)
+  }
+
+  @Test
+  fun chargingBadgeLabelUsesCompactTokenText() {
+    assertEquals("充电", chargingBadgeLabel(RecommendationAccess.CHARGING_EXCLUSIVE))
+    assertNull(chargingBadgeLabel(RecommendationAccess.STANDARD))
+  }
+
+  @Test
   fun mergeAppendsOnlyNewVideoIdsAndKeepsFirstOccurrence() {
     val first = recommendation("BV1first")
     val duplicate = recommendation("BV1first", title = "Duplicate")

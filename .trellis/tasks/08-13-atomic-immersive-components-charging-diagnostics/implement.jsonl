@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Entry-point checklist for app and shared UI changes."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Keeps list rendering host-neutral and defines semantic palette token use."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Defines ownership boundaries for recommendation data and UI state."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Defines anonymous Bilibili provider limits, restricted-content behavior, and list-marker rules."}
+{"file":".trellis/tasks/08-13-atomic-immersive-components-charging-diagnostics/prd.md","reason":"Task scope, API evidence, verification limitation, and acceptance criteria."}
+{"file":".trellis/tasks/08-13-atomic-immersive-components-charging-diagnostics/research/bilibili-charging-marker-probe.md","reason":"Bounded anonymous diagnostic evidence for the supplied BV."}
