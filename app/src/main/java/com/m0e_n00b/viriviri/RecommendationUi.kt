@@ -39,8 +39,10 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
 import com.m0e_n00b.spatialworkbench.compose.MediaThumbnailFrame
+import com.m0e_n00b.spatialworkbench.compose.TransientMessageHost
 import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 import com.m0e_n00b.spatialworkbench.core.ContentAccess
+import com.m0e_n00b.spatialworkbench.core.TransientMessage
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal data class TextureViewScale(val x: Float, val y: Float)
@@ -78,9 +80,18 @@ fun RecommendationContent(
     showPlayer: Boolean,
     palette: CinemaPalette = CinemaPalette.DARK,
 ) {
-  when (state.destination) {
-    ViriViriDestination.RECOMMENDATIONS -> RecommendationList(state, appState, palette)
-    ViriViriDestination.VIEWER -> Viewer(state, appState, showPlayer)
+  Box(modifier = Modifier.fillMaxSize()) {
+    when (state.destination) {
+      ViriViriDestination.RECOMMENDATIONS -> RecommendationList(state, appState, palette)
+      ViriViriDestination.VIEWER -> Viewer(state, appState, showPlayer)
+    }
+    TransientMessageHost(
+        state = state.transientMessages,
+        palette = palette,
+        onEvent = appState::dispatchTransientMessage,
+        onAction = { _: TransientMessage, _: String -> },
+        modifier = Modifier.align(Alignment.BottomCenter),
+    )
   }
 }
 

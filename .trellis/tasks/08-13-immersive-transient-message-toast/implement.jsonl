@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Shared UI and app state checklist."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Host-neutral composable and semantic palette requirements."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"App state ownership boundary for message dispatch."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Preserves provider error and player ownership boundaries."}
+{"file":".trellis/tasks/08-13-immersive-transient-message-toast/prd.md","reason":"Toast scope and acceptance criteria."}

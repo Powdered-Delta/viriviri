@@ -16,8 +16,29 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import com.m0e_n00b.spatialworkbench.core.TransientMessage
+import com.m0e_n00b.spatialworkbench.core.TransientMessageEvent
+import com.m0e_n00b.spatialworkbench.core.TransientMessageReducer
+import com.m0e_n00b.spatialworkbench.core.TransientMessageSeverity
+import com.m0e_n00b.spatialworkbench.core.TransientMessageState
 
 enum class ViriViriDestination { RECOMMENDATIONS, VIEWER }
+
+internal fun enqueueErrorMessage(
+    state: TransientMessageState,
+    id: Long,
+    text: String,
+): TransientMessageState =
+    TransientMessageReducer.reduce(
+        state,
+        TransientMessageEvent.Enqueue(
+            TransientMessage(
+                id = "error-$id",
+                text = text,
+                severity = TransientMessageSeverity.ERROR,
+            )
+        ),
+    )
 
 data class ViriViriUiState(
     val recommendations: List<Recommendation> = emptyList(),
@@ -29,6 +50,7 @@ data class ViriViriUiState(
     val nextPage: Int = 1,
     val isResolvingPlayback: Boolean = false,
     val error: String? = null,
+    val transientMessages: TransientMessageState = TransientMessageState(),
     val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
     val isShowingSearchResults: Boolean = false,
     val recommendationScrollPosition: ListScrollPosition = ListScrollPosition(),
@@ -99,6 +121,7 @@ class ViriViriAppState(
       ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
   )
   private var playbackRequestId = 0L
+  private var transientMessageId = 0L
   private var playbackResolutionJob: Job? = null
   private var listJob: Job? = null
   private var nextPageJob: Job? = null
@@ -109,6 +132,13 @@ class ViriViriAppState(
   internal val thumbnailStates: StateFlow<Map<String, ThumbnailState>> = mutableThumbnailStates.asStateFlow()
 
   init { refreshRecommendations() }
+
+  fun dispatchTransientMessage(event: TransientMessageEvent) {
+    mutableState.value =
+        mutableState.value.copy(
+            transientMessages = TransientMessageReducer.reduce(mutableState.value.transientMessages, event)
+        )
+  }
 
   fun refreshRecommendations() {
     listJob?.cancel()
@@ -148,6 +178,7 @@ class ViriViriAppState(
                           isLoading = false,
                           canLoadMore = false,
                           error = error.message ?: "Unable to load recommendations",
+                          transientMessages = enqueueError(error.message ?: "Unable to load recommendations"),
                       )
                 }
               }
@@ -223,6 +254,7 @@ class ViriViriAppState(
                           isLoading = false,
                           canLoadMore = false,
                           error = error.message ?: "Unable to search Bilibili",
+                          transientMessages = enqueueError(error.message ?: "Unable to search Bilibili"),
                       )
                 }
               }
@@ -273,6 +305,7 @@ class ViriViriAppState(
                     mutableState.value.copy(
                         isLoadingNextPage = false,
                         error = error.message ?: "Unable to load more videos",
+                        transientMessages = enqueueError(error.message ?: "Unable to load more videos"),
                     )
               }
         }
@@ -355,25 +388,32 @@ class ViriViriAppState(
             }
           } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
             if (requestId == playbackRequestId) {
+              val message = playbackResolutionError(error)
               mutableState.value =
                   mutableState.value.copy(
                       isResolvingPlayback = false,
-                      error = playbackResolutionError(error),
+                      error = message,
+                      transientMessages = enqueueError(message),
                   )
             }
           } catch (_: CancellationException) {
             // A newer selection or retry owns the current loading/error state.
           } catch (error: Throwable) {
             if (requestId == playbackRequestId) {
+              val message = playbackResolutionError(error)
               mutableState.value =
                   mutableState.value.copy(
                       isResolvingPlayback = false,
-                      error = playbackResolutionError(error),
+                      error = message,
+                      transientMessages = enqueueError(message),
                   )
             }
           }
         }
   }
+
+  private fun enqueueError(text: String): TransientMessageState =
+      enqueueErrorMessage(mutableState.value.transientMessages, ++transientMessageId, text)
 
   fun returnToRecommendations() {
     mutableState.value = mutableState.value.copy(destination = ViriViriDestination.RECOMMENDATIONS, error = null)

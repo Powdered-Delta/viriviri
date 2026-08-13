@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Verification entry point."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Shared host/token boundary validation."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Regression-test expectations."}
+{"file":".trellis/tasks/08-13-immersive-transient-message-toast/prd.md","reason":"Toast acceptance criteria."}
