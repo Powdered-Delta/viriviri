@@ -6,15 +6,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+import com.m0e_n00b.spatialworkbench.core.ContentAccess
+import com.m0e_n00b.spatialworkbench.core.badgeText
+
 class RecommendationPaginationTest {
   @Test
   fun chargingExclusiveAccessRequiresTheDedicatedSeasonFlag() {
     assertEquals(
-        RecommendationAccess.CHARGING_EXCLUSIVE,
+        ContentAccess.CHARGING_EXCLUSIVE,
         recommendationAccess(isChargeableSeason = true),
     )
     assertEquals(
-        RecommendationAccess.STANDARD,
+        ContentAccess.STANDARD,
         recommendationAccess(isChargeableSeason = false),
     )
   }
@@ -27,8 +30,8 @@ class RecommendationPaginationTest {
         )
     val ordinary = BilibiliPlaybackProvider.mapRecommendationItem(org.json.JSONObject("""{"bvid":"BV1ordinary"}"""))
 
-    assertEquals(RecommendationAccess.CHARGING_EXCLUSIVE, charging?.access)
-    assertEquals(RecommendationAccess.STANDARD, ordinary?.access)
+    assertEquals(ContentAccess.CHARGING_EXCLUSIVE, charging?.access)
+    assertEquals(ContentAccess.STANDARD, ordinary?.access)
   }
 
   @Test
@@ -45,14 +48,14 @@ class RecommendationPaginationTest {
 
     val mapped = BilibiliPlaybackProvider.mapVideoSearchResults(response)
 
-    assertEquals(RecommendationAccess.CHARGING_EXCLUSIVE, mapped[0].access)
-    assertEquals(RecommendationAccess.STANDARD, mapped[1].access)
+    assertEquals(ContentAccess.CHARGING_EXCLUSIVE, mapped[0].access)
+    assertEquals(ContentAccess.STANDARD, mapped[1].access)
   }
 
   @Test
-  fun chargingBadgeLabelUsesCompactTokenText() {
-    assertEquals("充电", chargingBadgeLabel(RecommendationAccess.CHARGING_EXCLUSIVE))
-    assertNull(chargingBadgeLabel(RecommendationAccess.STANDARD))
+  fun contentAccessBadgeTextUsesSharedContract() {
+    assertEquals("充电", ContentAccess.CHARGING_EXCLUSIVE.badgeText())
+    assertNull(ContentAccess.STANDARD.badgeText())
   }
 
   @Test

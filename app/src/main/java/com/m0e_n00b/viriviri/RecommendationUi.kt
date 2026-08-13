@@ -37,9 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
-import com.m0e_n00b.spatialworkbench.compose.composeColor
-import com.m0e_n00b.spatialworkbench.core.CinemaColorRole
+import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
 import com.m0e_n00b.spatialworkbench.core.CinemaPalette
+import com.m0e_n00b.spatialworkbench.core.ContentAccess
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal data class TextureViewScale(val x: Float, val y: Float)
@@ -177,7 +177,7 @@ private fun RecommendationRow(
     Thumbnail(
         state = thumbnailState,
         palette = palette,
-        chargingBadge = chargingBadgeLabel(recommendation.access),
+        access = recommendation.access,
     )
     Spacer(Modifier.width(10.dp))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -188,17 +188,11 @@ private fun RecommendationRow(
   }
 }
 
-internal fun chargingBadgeLabel(access: RecommendationAccess): String? =
-    when (access) {
-      RecommendationAccess.STANDARD -> null
-      RecommendationAccess.CHARGING_EXCLUSIVE -> "充电"
-    }
-
 @Composable
 private fun Thumbnail(
     state: ThumbnailState?,
     palette: CinemaPalette,
-    chargingBadge: String? = null,
+    access: ContentAccess = ContentAccess.STANDARD,
 ) {
   Box(
       modifier = Modifier.width(128.dp).height(72.dp).background(Color(0xFF24333A)),
@@ -215,16 +209,11 @@ private fun Thumbnail(
       ThumbnailState.Failed -> Text("No image", color = Color.LightGray)
       null -> Text("No image", color = Color.LightGray)
     }
-    chargingBadge?.let { label ->
-      Text(
-          text = label,
-          color = palette.composeColor(CinemaColorRole.CHARGING_BADGE_LABEL),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .background(palette.composeColor(CinemaColorRole.CHARGING_BADGE))
-                  .padding(horizontal = 6.dp, vertical = 2.dp),
-      )
-    }
+    ContentAccessBadge(
+        access = access,
+        palette = palette,
+        modifier = Modifier.align(Alignment.BottomEnd),
+    )
   }
 }
 
