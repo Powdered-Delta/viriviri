@@ -166,6 +166,16 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
   `SpatialVideoSampleActivity`，但设备当时显示系统 reprojected OS dialog，
   Horizon OS 缓存并阻止启动；因此本次不构成应用启动或交互验收。
 - Quest 设备尚未人工验收 2D 接管同一播放会话的实际 Surface 切换。
+- 竖屏 aspect probe：沉浸视频 mesh 不再包含应用添加的局部 `-Z` 黑色底板。debug
+  构建在每次 distinct `VideoSize` geometry commit 后记录 `ViriViriAspect`，包括
+  source dimensions、pixel ratio、display aspect 与目标 quad half-size。验证 9:16
+  BV 时应同时记录 `DEV <hash>`、BV ID 和该 logcat event；若 event 显示
+  `1080x1920 / 0.5625 / 0.253125x0.45` 而画面仍拉伸，问题在 material UV 或
+  raw Spatial Surface compositor，不能再以第二层黑色 mesh 补偿。
+- debug 构建包含一个左手 wrist tracking probe：运行时 panel 仅显示
+  `DEV <hash>`，使用本地 avatar 的 head/left-hand Transform 更新；追踪 transform
+  不可用时隐藏。验收其稳定性、手势/控制器输入隔离、丢失/恢复追踪与不遮挡主画面。
+  它没有 Media3 player、Surface 或直播功能。
 - 2D/immersive handoff 黑屏尚无应用层根治方案。
 - 若系统结束 OpenXR session，应用不能强制重启 Horizon OS PhaseSync、恢复 runtime focus 或清理 stale compositor frame。
 - reference-space 重定位策略仅保持面板相对于返回时用户姿态的连续性；它不是跨 session 的持久世界锚定方案。

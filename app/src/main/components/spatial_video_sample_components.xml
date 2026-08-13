@@ -8,4 +8,9 @@
 <Component name="PanelLayerAlpha">
   <FloatAttribute name="layerAlpha" defaultValue="1.0f" />
 </Component>
+<Component name="WristAttached">
+  <Vector3Attribute name="position" defaultValue="0f, 0f, 0f" />
+  <Vector3Attribute name="rotation" defaultValue="0f, 0f, 0f" />
+  <BooleanAttribute name="faceUser" defaultValue="true" />
+</Component>
 </ComponentSchema>
