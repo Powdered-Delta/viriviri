@@ -5,6 +5,7 @@ import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MediaSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 enum class ViriViriDestination { RECOMMENDATIONS, VIEWER }
 
@@ -97,6 +99,7 @@ class ViriViriAppState(
       ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
   )
   private var playbackRequestId = 0L
+  private var playbackResolutionJob: Job? = null
   private var listJob: Job? = null
   private var nextPageJob: Job? = null
   private val searchRequestTracker = SearchRequestTracker()
@@ -325,38 +328,51 @@ class ViriViriAppState(
               recommendationScrollPosition = scrollPosition,
           )
         }
-    val requestId = ++playbackRequestId
-    resolveSelectedVideo(recommendation, requestId)
+    startPlaybackResolution(recommendation)
   }
 
   fun retrySelectedVideo() {
     val current = mutableState.value
     val selected = current.selected ?: return
     if (!canRetryImmersiveMedia(current.destination, selected, current.error, current.isResolvingPlayback)) return
-    mutableState.value = current.copy(isResolvingPlayback = true, error = null)
-    val requestId = ++playbackRequestId
-    resolveSelectedVideo(selected, requestId)
+    startPlaybackResolution(selected)
   }
 
-  private fun resolveSelectedVideo(recommendation: Recommendation, requestId: Long) {
-    scope.launch {
-      runCatching { withContext(Dispatchers.IO) { provider.createMediaSource(recommendation.videoId) } }
-          .onSuccess { source ->
+  private fun startPlaybackResolution(recommendation: Recommendation) {
+    playbackResolutionJob?.cancel()
+    mutableState.value = mutableState.value.copy(isResolvingPlayback = true, error = null)
+    val requestId = ++playbackRequestId
+    playbackResolutionJob =
+        scope.launch {
+          try {
+            val source =
+                withTimeout(PLAYBACK_RESOLUTION_TIMEOUT_MS) {
+                  withContext(Dispatchers.IO) { provider.createMediaSource(recommendation.videoId) }
+                }
             if (requestId == playbackRequestId) {
               playerSession.setMediaSource(source)
               mutableState.value = mutableState.value.copy(isResolvingPlayback = false)
             }
-          }
-          .onFailure { error ->
+          } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
             if (requestId == playbackRequestId) {
               mutableState.value =
                   mutableState.value.copy(
                       isResolvingPlayback = false,
-                      error = error.message ?: "Unable to play this video",
+                      error = playbackResolutionError(error),
+                  )
+            }
+          } catch (_: CancellationException) {
+            // A newer selection or retry owns the current loading/error state.
+          } catch (error: Throwable) {
+            if (requestId == playbackRequestId) {
+              mutableState.value =
+                  mutableState.value.copy(
+                      isResolvingPlayback = false,
+                      error = playbackResolutionError(error),
                   )
             }
           }
-    }
+        }
   }
 
   fun returnToRecommendations() {
