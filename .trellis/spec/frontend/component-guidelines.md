@@ -58,6 +58,29 @@ own documented contract explicitly says otherwise. System IME input is an
 optional fallback that updates the same committed query but must not silently
 start a search.
 
+### Convention: Transient Messages
+
+**What**: Short-lived feedback uses the shared `TransientMessageState` reducer
+and `TransientMessageHost`, not Android system Toasts or ad hoc panel code.
+Core owns the FIFO queue and message validity; the Compose host owns the
+visible timeout and dispatches `Advance`, `Dismiss`, or `ActionTriggered` back
+to its host callback.
+
+**Why**: The same message behavior works in a Horizon OS 2D window and an
+immersive panel without adding a platform object, a second panel, a video
+Surface, or a coroutine to core state. A persistent inline error remains the
+source for recovery; a transient ERROR message is supplemental feedback.
+
+**Required behavior**:
+
+- Place `TransientMessageHost` in an existing Compose overlay slot; do not
+  encode spatial coordinates or create a scene entity in the shared host.
+- Dispatch actions through explicit callbacks. Shared code must not issue retry,
+  routing, player, or network operations itself.
+- Resolve severity styling from `CinemaPalette` roles. Do not hardcode colors.
+- A host must render at most the reducer's current item; pending messages remain
+  FIFO until timeout, dismissal, or action advances the queue.
+
 ### Convention: Semantic Palette Tokens
 
 **What**: Shared visual components resolve semantic colors from
@@ -86,10 +109,10 @@ has a different layout and later a custom spatial scene.
 
 ## Props Conventions
 
-* Prefer immutable Kotlin data classes such as `Recommendation` and
+- Prefer immutable Kotlin data classes such as `Recommendation` and
   `ViriViriUiState`.
-* Prefer explicit callbacks over passing Activity, Context, or SDK objects.
-* Keep default preview/sample data in clearly named placeholders until real
+- Prefer explicit callbacks over passing Activity, Context, or SDK objects.
+- Keep default preview/sample data in clearly named placeholders until real
   Bilibili data exists.
 
 ---
