@@ -279,14 +279,20 @@ single media output buffer must match that geometry:
   `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
   and non-square-pixel sources must retain their display aspect within the one
   existing Surface through pillarbox/letterbox rather than stretch or crop.
-- The custom mesh contains two independent visual layers on the existing media
-  panel: a fixed full-stage translucent black backdrop behind an adaptive video
-  foreground quad. Both live in the same `SceneMesh`; the backdrop is not a
-  panel/entity/video target and uses no additional Surface.
-- On `VideoSize`, update foreground vertices and call
+- The custom mesh contains one adaptive video-content quad and its existing
+  shadow/input footprint. Do not add a full-stage black plane behind the video:
+  application geometry at local `-Z` is not Media3 letterboxing and cannot
+  correct compositor or texture sampling.
+- On `VideoSize`, update content vertices and call
   `SceneMesh.updateWithTriangleMesh(...)` after `TriangleMesh.updateGeometry()`
-  so the new geometry is committed to the mesh that is currently rendered.
-  The fixed backdrop and shadow/input footprint remain unchanged.
+  so the new geometry is committed to the mesh that is currently rendered. The
+  shadow/input footprint remains unchanged.
+- Debug builds log one `ViriViriAspect` event for each distinct committed source
+  size, including dimensions, pixel ratio, display aspect, target half-size, and
+  `meshCommit=true`. It is an event diagnostic, not a frame log. If a confirmed
+  9:16 target geometry still displays stretched, investigate the supported
+  material/UV or raw-Surface compositor contract before changing mesh APIs or
+  adding another visual layer.
 - Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes;
   invalid or unavailable video dimensions retain full-stage foreground geometry.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
@@ -296,6 +302,21 @@ single media output buffer must match that geometry:
   first confirm this monoscopic 16:9 buffer contract and `StereoMode.None`, then
   compare another source. Do not compensate by changing the scene transform or
   adding a second video output.
+
+### 3.8 Wrist Debug Panel
+
+Debug builds may create one small, non-interactive runtime panel bound to the
+local avatar's left hand. It displays only `DEV <hash>` for Quest tracking
+validation and is neither a video target nor a static scene object.
+
+- Use an ECS system driven by local `AvatarBody` head and left-hand `Transform`
+  components. The panel must hide when either transform is unavailable and may
+  reappear when tracking returns.
+- It must not own a Media3 player, Surface, source request, transport command,
+  input listener, or live-room behavior. Destroy its dynamic entity with the
+  Activity.
+- Quest acceptance checks tracking stability, hand/controller input isolation,
+  visibility on tracking loss/recovery, and main-stage non-occlusion.
 
 ### 3.9 Current Media Status
 

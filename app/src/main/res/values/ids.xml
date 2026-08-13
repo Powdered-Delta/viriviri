@@ -6,4 +6,5 @@
   <item type="id" name="spatialized_video_panel" />
   <item type="id" name="debug_panel" />
   <item type="id" name="mode_panel" />
+  <item type="id" name="wrist_debug_panel" />
 </resources>

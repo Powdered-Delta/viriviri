@@ -68,9 +68,7 @@ import com.meta.spatial.isdk.updateIsdkComponentProperties
 import com.meta.spatial.ovrmetrics.OVRMetricsDataModel
 import com.meta.spatial.ovrmetrics.OVRMetricsFeature
 import com.meta.spatial.runtime.AlphaMode
-import com.meta.spatial.runtime.BlendMode
 import com.meta.spatial.runtime.ButtonBits
-import com.meta.spatial.runtime.DepthWrite
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
 import com.meta.spatial.runtime.PanelSceneObject
@@ -109,6 +107,7 @@ import com.meta.spatial.toolkit.SceneObjectSystem
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.toolkit.TransformParent
 import com.meta.spatial.toolkit.UIPanelSettings
+import com.meta.spatial.toolkit.createPanelEntity
 import com.meta.spatial.toolkit.Visible
 import com.meta.spatial.vr.LocomotionSystem
 import com.meta.spatial.vr.VRFeature
@@ -141,6 +140,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var seekDragPositionMs: Long? = null
   private var spatialVideoTriangleMesh: TriangleMesh? = null
   private var spatialVideoSceneMesh: SceneMesh? = null
+  private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
+  private var wristDebugPanelEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -336,9 +337,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         modePanelRegistration(),
     )
         .apply {
-          if (DEBUG) {
-            add(debugPanelRegistration())
-          }
+          if (BuildConfig.DEBUG) add(wristDebugPanelRegistration())
+          if (DEBUG) add(debugPanelRegistration())
         }
   }
 
@@ -377,7 +377,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     systemManager.registerSystem(SpatialAudioSystem(panner, this))
     componentManager.registerComponent<SpatializedAudioPanel>(SpatializedAudioPanel.Companion)
     componentManager.registerComponent<PanelLayerAlpha>(PanelLayerAlpha.Companion)
+    componentManager.registerComponent<WristAttached>(WristAttached.Companion)
     systemManager.registerSystem(PanelLayerAlphaSystem(systemManager.findSystem()))
+    systemManager.registerSystem(WristAttachedSystem())
 
     scene.isSystemPassthroughEnabled().let { isMrMode ->
       scene.enablePassthrough(isMrMode)
@@ -403,6 +405,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         )
 
     scene.updateIBLEnvironment("chromatic.env")
+    if (BuildConfig.DEBUG) createWristDebugPanel()
   }
 
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
@@ -515,19 +518,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             val halfDepth = 0.1f
             val rounding = 0.075f
             val triMesh = TriangleMesh(
-                12,
-                24,
-                intArrayOf(0, 6, 6, 6, 12, 6, 18, 6),
+                8,
+                18,
+                intArrayOf(6, 6, 12, 6, 0, 6),
                 arrayOf(
-                    SceneMaterial(
-                        texture,
-                        AlphaMode.HOLE_PUNCH,
-                        SceneMaterial.HOLE_PUNCH_SHADER,
-                    )
-                        .apply {
-                          setStereoMode(stereoMode)
-                          setUnlit(true)
-                        },
                     SceneMaterial(
                         texture,
                         AlphaMode.TRANSLUCENT,
@@ -537,34 +531,31 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                           setStereoMode(stereoMode)
                           setUnlit(true)
                         },
-                    SceneMaterial(texture, AlphaMode.TRANSLUCENT, SceneMaterial.UNLIT_SHADER)
-                        .apply {
-                          setAlbedoColor(Color.valueOf(Color.argb(VIDEO_BACKDROP_ALPHA, 0, 0, 0)))
-                          setBlendMode(BlendMode.TRANSLUCENT)
-                          setDepthWrite(DepthWrite.DISABLE)
-                          setUnlit(true)
-                        },
                     SceneMaterial(
                         texture,
                         AlphaMode.TRANSLUCENT,
                         "data/shaders/spatial/shadow",
                     )
                         .apply { setUnlit(true) },
+                    SceneMaterial(
+                        texture,
+                        AlphaMode.HOLE_PUNCH,
+                        SceneMaterial.HOLE_PUNCH_SHADER,
+                    )
+                        .apply {
+                          setStereoMode(stereoMode)
+                          setUnlit(true)
+                        },
                 ),
             )
             triMesh.updateGeometry(
                 0,
                 floatArrayOf(
-                    // Foreground video content, updated from Media3 VideoSize.
+                    // Video quad; dimensions are updated from Media3 VideoSize.
                     -halfWidth, -halfHeight, 0f,
                     halfWidth, -halfHeight, 0f,
                     halfWidth, halfHeight, 0f,
                     -halfWidth, halfHeight, 0f,
-                    // Fixed black backdrop, behind foreground content.
-                    -halfWidth, -halfHeight, VIDEO_BACKDROP_DEPTH,
-                    halfWidth, -halfHeight, VIDEO_BACKDROP_DEPTH,
-                    halfWidth, halfHeight, VIDEO_BACKDROP_DEPTH,
-                    -halfWidth, halfHeight, VIDEO_BACKDROP_DEPTH,
                     // Existing shadow footprint.
                     -halfWidth, -halfHeight, halfDepth,
                     halfWidth, -halfHeight, halfDepth,
@@ -572,38 +563,17 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     -halfWidth, -halfHeight, -halfDepth,
                 ),
                 floatArrayOf(
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
-                    0f,
-                    0f,
-                    1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
+                    0f, 0f, 1f,
                 ),
                 floatArrayOf(
-                    // foreground video
-                    0f, 1f,
-                    1f, 1f,
-                    1f, 0f,
-                    0f, 0f,
-                    // black backdrop
+                    // front
                     0f, 1f,
                     1f, 1f,
                     1f, 0f,
@@ -617,20 +587,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 intArrayOf(
                     Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
                     Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
-                    Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
                 ),
             )
             triMesh.updatePrimitives(
                 0,
-                intArrayOf(
-                    // Foreground front and back retain the original media material behavior.
-                    0, 1, 2, 0, 2, 3,
-                    0, 2, 1, 0, 3, 2,
-                    // Fixed black backdrop behind the adaptive foreground quad.
-                    4, 5, 6, 4, 6, 7,
-                    // Existing shadow footprint.
-                    8, 10, 9, 8, 11, 10,
-                ),
+                intArrayOf(0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2, 4, 6, 5, 4, 7, 6),
             )
             val sceneMesh = SceneMesh.fromTriangleMesh(triMesh, false)
             spatialVideoTriangleMesh = triMesh
@@ -833,6 +794,34 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     )
   }
 
+  private fun wristDebugPanelRegistration(): PanelRegistration {
+    return LayoutXMLPanelRegistration(
+        R.id.wrist_debug_panel,
+        layoutIdCreator = { R.layout.wrist_debug_panel },
+        settingsCreator = {
+          UIPanelSettings(
+              shape = QuadShapeOptions(width = WRIST_DEBUG_PANEL_WIDTH, height = WRIST_DEBUG_PANEL_HEIGHT),
+              display = DpDisplayOptions(width = 224f, height = 80f, dpi = 1600),
+              style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+          )
+        },
+        panelSetupWithRootView = { rootView, _, _ ->
+          rootView.findViewById<TextView>(R.id.wrist_debug_label).text = "DEV ${BuildConfig.GIT_SHA}"
+        },
+    )
+  }
+
+  private fun createWristDebugPanel() {
+    if (wristDebugPanelEntity != null) return
+    wristDebugPanelEntity =
+        Entity.createPanelEntity(
+            R.id.wrist_debug_panel,
+            Transform(Pose()),
+            WristAttached(position = Vector3(0f, 0.03f, 0.02f), faceUser = true),
+            Visible(false),
+        )
+  }
+
   private fun modePanelRegistration(): PanelRegistration {
     return LayoutXMLPanelRegistration(
         R.id.mode_panel,
@@ -919,6 +908,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     canvasHandler.removeCallbacksAndMessages(null)
     if (::spatialPanelVisibilityController.isInitialized) spatialPanelVisibilityController.clear()
     if (::immersiveMediaStageHost.isInitialized) immersiveMediaStageHost.close()
+    wristDebugPanelEntity?.destroy()
+    wristDebugPanelEntity = null
     super.onDestroy()
   }
 
@@ -1121,32 +1112,28 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       pixelWidthHeightRatio: Float,
   ) {
     val mesh = spatialVideoTriangleMesh ?: return
-    val content =
-        spatialVideoContentQuad(
+    val sceneMesh = spatialVideoSceneMesh ?: return
+    val diagnostic =
+        spatialVideoAspectDiagnostic(
             stageWidth = MR_SCREEN_WIDTH,
             stageHeight = MR_SCREEN_HEIGHT,
             videoWidth = videoWidth,
             videoHeight = videoHeight,
             pixelWidthHeightRatio = pixelWidthHeightRatio,
         )
+    if (diagnostic == lastAspectDiagnostic) return
     val stageHalfWidth = MR_SCREEN_WIDTH / 2f
     val stageHalfHeight = MR_SCREEN_HEIGHT / 2f
-    val backdropDepth = VIDEO_BACKDROP_DEPTH
     val shadowDepth = 0.1f
     mesh.updateGeometry(
         0,
         floatArrayOf(
-            // Adaptive video foreground.
-            -content.halfWidth, -content.halfHeight, 0f,
-            content.halfWidth, -content.halfHeight, 0f,
-            content.halfWidth, content.halfHeight, 0f,
-            -content.halfWidth, content.halfHeight, 0f,
-            // Fixed 16:9 black backdrop.
-            -stageHalfWidth, -stageHalfHeight, backdropDepth,
-            stageHalfWidth, -stageHalfHeight, backdropDepth,
-            stageHalfWidth, stageHalfHeight, backdropDepth,
-            -stageHalfWidth, stageHalfHeight, backdropDepth,
-            // Existing shadow footprint.
+            // Content remains centered and contained in the fixed stage.
+            -diagnostic.contentHalfWidth, -diagnostic.contentHalfHeight, 0f,
+            diagnostic.contentHalfWidth, -diagnostic.contentHalfHeight, 0f,
+            diagnostic.contentHalfWidth, diagnostic.contentHalfHeight, 0f,
+            -diagnostic.contentHalfWidth, diagnostic.contentHalfHeight, 0f,
+            // The shadow keeps the full stage footprint and existing panel input geometry.
             -stageHalfWidth, -stageHalfHeight, shadowDepth,
             stageHalfWidth, -stageHalfHeight, shadowDepth,
             stageHalfWidth, -stageHalfHeight, -shadowDepth,
@@ -1161,16 +1148,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             0f, 0f, 1f,
             0f, 0f, 1f,
             0f, 0f, 1f,
-            0f, 0f, 1f,
-            0f, 0f, 1f,
-            0f, 0f, 1f,
-            0f, 0f, 1f,
         ),
         floatArrayOf(
-            0f, 1f,
-            1f, 1f,
-            1f, 0f,
-            0f, 0f,
             0f, 1f,
             1f, 1f,
             1f, 0f,
@@ -1183,10 +1162,19 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         intArrayOf(
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
-            Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
         ),
     )
-    spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, false)
+    sceneMesh.updateWithTriangleMesh(mesh, false)
+    lastAspectDiagnostic = diagnostic
+    if (BuildConfig.DEBUG) {
+      Log.i(
+          "ViriViriAspect",
+          "video=${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
+              "pixelRatio=${diagnostic.pixelWidthHeightRatio} " +
+              "displayAspect=${diagnostic.displayAspectRatio} " +
+              "quadHalf=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight} meshCommit=true",
+      )
+    }
   }
 
   private fun startTransportTimelineUpdates() {
@@ -1330,8 +1318,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val TRANSPORT_IDLE_TIMEOUT_MS: Long = 4_000L
     const val TRANSPORT_FADE_DURATION_MS: Long = 200L
     const val TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS: Long = 500L
-    const val VIDEO_BACKDROP_ALPHA: Int = 192
-    const val VIDEO_BACKDROP_DEPTH: Float = -0.001f
+    const val WRIST_DEBUG_PANEL_WIDTH: Float = 0.14f
+    const val WRIST_DEBUG_PANEL_HEIGHT: Float = 0.05f
 
     const val MR_SCREEN_WIDTH: Float = 16.0f / 10.0f
     const val MR_SCREEN_HEIGHT: Float = 9.0f / 10.0f
