@@ -298,6 +298,11 @@ request, Entity, or new Spatial registration.
 - The initial panel setup renders the latest state, and the existing
   Activity-owned app-state collector refreshes it after selection or viewer
   error. Its existing `onDestroy` cancellation remains the cleanup path.
+- When viewer playback resolution has settled with an error, the same existing
+  mode panel shows Retry. Its click delegates only to
+  `ViriViriAppState.retrySelectedVideo()`; while resolution is in flight the
+  button is visible but disabled as `Retrying...`. Browse/list errors never
+  expose this action.
 
 ### 3.9 MediaStage Adapter Boundary
 
