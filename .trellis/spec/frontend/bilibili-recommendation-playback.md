@@ -35,10 +35,12 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 * No Cookie, SESSDATA, access key, CSRF value, device identifier, or server-side
   playback heartbeat is sent or logged.
 * `ViriViriAppState` owns retryable playback resolution for the selected video.
-  Selection and explicit retry share one source-resolution path and increment a
-  request ID before starting network work. Only the latest request may set the
-  existing `PlayerSession` MediaSource or publish its error; retry is disabled
-  while resolution is active.
+  Selection and explicit retry share one source-resolution path. Starting either
+  cancels the prior resolution job, increments a request ID, and bounds source
+  resolution to 45 seconds. Only the latest request may set the existing
+  `PlayerSession` MediaSource or publish its error; retry is disabled while
+  resolution is active. A superseded job exits silently, while a current timeout
+  settles to a readable retryable viewer error.
 * Recommendation pagination advances web-feed `fresh_idx` and `brush` together
   from the loaded-result count. Search pagination advances the WBI-signed
   `page` parameter. Refresh or a new search cancels/invalidates earlier list
@@ -66,8 +68,9 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 | Later page HTTP/API/JSON failure | Preserve already loaded items, end append loading, and show a recoverable inline error. |
 | Missing/invalid/unavailable cover | Preserve fixed thumbnail geometry and display a loading or failure placeholder. |
 | Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. |
-| Retry selected playback resolution | Re-run only the selected BV's existing source-resolution path. While resolving, reject another retry; stale retry/selection results cannot change player source or viewer error. |
-| A slower prior selection completes after a newer selection | Ignore the stale completion. |
+| Retry selected playback resolution | Cancel the prior attempt, then re-run only the selected BV's existing source-resolution path. While resolving, reject another retry; stale retry/selection results cannot change player source or viewer error. |
+| Current source resolution exceeds 45 seconds | Clear loading, display `Video source resolution timed out`, and enable existing Retry without changing the current player source. |
+| A slower prior selection completes after a newer selection | Ignore the stale completion; a cancelled superseded attempt publishes no error. |
 | 2D or immersive output changes | Capture position and play intent, then attach the target to the same player. |
 | Old 2D Surface is destroyed after immersive attaches | Detach by identity only, then release the application-created Surface. |
 
@@ -86,8 +89,8 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   and forbidden-character removal.
 * Unit test the recommendation endpoint contract so changes do not silently
   replace the verified web feed with another endpoint.
-* Unit test stale selection completion and current-surface-only detachment when
-  those state helpers are extracted or changed.
+* Unit test stale selection completion, timeout error mapping, and
+  current-surface-only detachment when those state helpers are extracted or changed.
 * Device test initial recommendation/search pages, automatic next-page append,
   duplicate suppression, cover success/failure placeholders, item selection,
   viewer playback-resolution error and Retry behavior, return to browse, both

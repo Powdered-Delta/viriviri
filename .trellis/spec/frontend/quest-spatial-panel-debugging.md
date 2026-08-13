@@ -320,8 +320,11 @@ request, Entity, or new Spatial registration.
   expose this action.
 - The current-media detail explicitly prioritizes viewer resolution state:
   `Loading video...` while resolving, the settled viewer error after failure,
-  then selected author after success. This is a pure state projection; it must
-  not add polling, player commands, or a second observer.
+  then selected author after success. Source resolution is bounded to 45 seconds;
+  its current-attempt timeout settles as `Video source resolution timed out` and
+  enables existing Retry. A superseded selection/retry cancellation remains
+  silent and cannot clear the newer Loading state. This is a pure state
+  projection; it must not add polling, player commands, or a second observer.
 
 ### 3.10 MediaStage Adapter Boundary
 
