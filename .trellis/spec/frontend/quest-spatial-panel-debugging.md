@@ -303,6 +303,10 @@ request, Entity, or new Spatial registration.
   `ViriViriAppState.retrySelectedVideo()`; while resolution is in flight the
   button is visible but disabled as `Retrying...`. Browse/list errors never
   expose this action.
+- The current-media detail explicitly prioritizes viewer resolution state:
+  `Loading video...` while resolving, the settled viewer error after failure,
+  then selected author after success. This is a pure state projection; it must
+  not add polling, player commands, or a second observer.
 
 ### 3.9 MediaStage Adapter Boundary
 

@@ -8,12 +8,20 @@ internal data class ImmersiveMediaStatus(
 internal fun immersiveMediaStatus(
     selected: Recommendation?,
     error: String?,
+    isResolvingPlayback: Boolean = false,
     maxTitleLength: Int = 42,
     maxDetailLength: Int = 56,
 ): ImmersiveMediaStatus {
   val title = selected?.title?.trim().orEmpty().ifBlank { "No video selected" }.truncateForPanel(maxTitleLength)
-  val detail = (error?.trim()?.takeIf { it.isNotBlank() } ?: selected?.authorName?.trim().orEmpty().ifBlank { "Browse to choose a video" })
-      .truncateForPanel(maxDetailLength)
+  val detail =
+      (
+              when {
+                selected != null && isResolvingPlayback -> "Loading video..."
+                !error.isNullOrBlank() -> error.trim()
+                else -> selected?.authorName?.trim().orEmpty().ifBlank { "Browse to choose a video" }
+              }
+          )
+          .truncateForPanel(maxDetailLength)
   return ImmersiveMediaStatus(title = title, detail = detail)
 }
 

@@ -21,6 +21,18 @@ class ImmersiveMediaStatusTest {
   }
 
   @Test
+  fun resolvingPlaybackOverridesAuthorAndErrorUntilAttemptSettles() {
+    val status = immersiveMediaStatus(
+        recommendation(title = "Video title", author = "Creator"),
+        error = "Old error",
+        isResolvingPlayback = true,
+    )
+
+    assertEquals("Video title", status.title)
+    assertEquals("Loading video...", status.detail)
+  }
+
+  @Test
   fun emptyStateAndLongTextAreStableForFixedPanelGeometry() {
     assertEquals(ImmersiveMediaStatus("No video selected", "Browse to choose a video"), immersiveMediaStatus(null, null))
     assertEquals("ab...", immersiveMediaStatus(recommendation(title = "abcdef", author = "Creator"), null, maxTitleLength = 5).title)
