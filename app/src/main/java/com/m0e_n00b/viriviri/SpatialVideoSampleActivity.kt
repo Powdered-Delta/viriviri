@@ -150,6 +150,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var volumeButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
@@ -212,6 +213,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
           syncPlaybackSpeedLabel()
+        }
+
+        override fun onVolumeChanged(volume: Float) {
+          syncPlaybackVolumeLabel()
         }
 
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
@@ -800,6 +805,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           val browseButton = rootView.findViewById<Button>(R.id.browse_button)!!
           browseButton.setOnClickListener { openBrowseCanvas() }
           setupHoverAndTouchListeners(browseButton)
+          val volumeButtonLocal = rootView.findViewById<Button>(R.id.volume_button)!!
+          volumeButton.complete(volumeButtonLocal)
+          syncPlaybackVolumeLabel()
+          volumeButtonLocal.setOnClickListener { showPlaybackVolumeMenu(volumeButtonLocal) }
+          setupHoverAndTouchListeners(volumeButtonLocal)
           val speedButtonLocal = rootView.findViewById<Button>(R.id.speed_button)!!
           speedButton.complete(speedButtonLocal)
           syncPlaybackSpeedLabel()
@@ -1082,6 +1092,27 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun syncPlaybackSpeedLabel() {
     speedButton.thenAccept { it.text = PlaybackSpeedControl.label(player.playbackParameters.speed) }
+  }
+
+  private fun syncPlaybackVolumeLabel() {
+    volumeButton.thenAccept { it.text = PlaybackVolumeControl.label(player.volume) }
+  }
+
+  private fun showPlaybackVolumeMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      menu.setGroupCheckable(0, true, true)
+      PlaybackVolumeControl.supportedVolumes.forEachIndexed { index, volume ->
+        menu.add(0, index, index, PlaybackVolumeControl.label(volume)).isChecked =
+            volume == PlaybackVolumeControl.normalizedForDisplay(player.volume)
+      }
+      setOnMenuItemClickListener { item: MenuItem ->
+        val volume = PlaybackVolumeControl.supportedVolumes.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        player.volume = volume
+        true
+      }
+      show()
+    }
   }
 
   private fun updateSpatialVideoContentQuad(

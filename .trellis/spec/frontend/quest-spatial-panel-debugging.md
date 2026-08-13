@@ -232,7 +232,22 @@ an existing transport button, not a new Spatial panel/entity.
   validation. If it is not viable, replace only the menu shell in a later task;
   preserve the same controlled speed action and player ownership boundary.
 
-### 3.5 Transport Timeline Ownership
+### 3.5 Playback Volume Control
+
+The existing transport panel exposes a controlled volume menu with fixed choices
+`0%`, `25%`, `50%`, `75%`, and `100%`. It is an Android popup anchored to the
+existing `controls_id` panel and not a new Spatial object.
+
+- The label and checked menu item follow the process-wide Media3 `player.volume`
+  through panel setup and `onVolumeChanged`.
+- Selection writes only the existing player's `volume`; it must not prepare,
+  reload, seek, set a source, recreate a player, or attach/detach a Surface.
+- Unknown/non-finite external values display as safe `Vol 100%` without
+  silently rewriting player state.
+- Popup visibility and controller/hand input in the embedded Quest panel remain
+  manual device acceptance items, as for playback speed.
+
+### 3.6 Transport Timeline Ownership
 
 The existing transport `SeekTimeline` is rendered from the process-wide Media3
 player. Its compact elapsed/duration labels and seek bar remain Android views in
@@ -252,7 +267,7 @@ player. Its compact elapsed/duration labels and seek bar remain Android views in
   `onDestroy()` before clearing handler callbacks. It updates view state only;
   it must not create/prepare/seek a player or alter video Surface ownership.
 
-### 3.6 Immersive Video Aspect Ratio
+### 3.7 Immersive Video Aspect Ratio
 
 The persistent `spatialized_video_panel` has a fixed 16:9 physical mesh. Its
 single media output buffer must match that geometry:
@@ -282,7 +297,7 @@ single media output buffer must match that geometry:
   compare another source. Do not compensate by changing the scene transform or
   adding a second video output.
 
-### 3.8 Current Media Status
+### 3.9 Current Media Status
 
 The existing `mode_panel` is the first immersive current-media status surface.
 It displays the selected title and author from `ViriViriAppState`, with viewer
@@ -308,7 +323,7 @@ request, Entity, or new Spatial registration.
   then selected author after success. This is a pure state projection; it must
   not add polling, player commands, or a second observer.
 
-### 3.9 MediaStage Adapter Boundary
+### 3.10 MediaStage Adapter Boundary
 
 The existing `spatialized_video_panel` is the immersive `VIDEO_OUTPUT` target.
 `SpatialVideoSampleActivity` provides its SDK-owned `PanelSceneObject.surface`
