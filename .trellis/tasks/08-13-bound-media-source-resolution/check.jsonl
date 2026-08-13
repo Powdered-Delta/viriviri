@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/bilibili-recommendation-playback.md", "reason": "Verify resolution cancellation, timeout and retry behavior."}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "Verify no player or Surface lifecycle regression."}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Verify current-media status behavior remains panel-only."}
+{"file": ".trellis/tasks/08-13-bound-media-source-resolution/research/resolution-cancellation-boundary.md", "reason": "Verify timeout, stale-result and single-output acceptance boundaries."}
