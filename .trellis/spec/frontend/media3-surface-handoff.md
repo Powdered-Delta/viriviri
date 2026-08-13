@@ -42,7 +42,10 @@ Reference projects under `temp/` use explicit owner-bound cleanup. `MediaSpatial
 * `loadTestMedia()` is idempotent for the PlayerManager lifetime. It calls
   `setMediaItem()` and `prepare()` only on its first invocation.
 * `attachSurface()` normally clears the previous output by identity before setting the new
-  valid surface. For a protected immersive-to-system-panel destination replacement only,
+  valid surface. A normal same-Surface callback is a no-op, but an explicit completed
+  system-panel-to-immersive route must force a single rebind of the retained SDK-owned
+  Surface because the source handoff intentionally cleared the player's current output.
+  For a protected immersive-to-system-panel destination replacement only,
   it sets the new TextureView Surface directly without app-level detachment of the old
   Spatial Surface. This avoids the confirmed Quest detach timeout; all other replacements
   remain clear-then-set. After a replacement only, the manager explicitly calls the
@@ -118,7 +121,8 @@ Reference projects under `temp/` use explicit owner-bound cleanup. `MediaSpatial
 | Condition | Required behavior |
 | --- | --- |
 | Invalid Surface | Do not attach it. |
-| Same Surface reattached | Do nothing and report that no replacement occurred. |
+| Same Surface reattached outside a route handoff | Do nothing and report that no replacement occurred. |
+| Same SDK Surface returned after an explicit 2D-to-immersive handoff | Rebind it once to the player without releasing it or adding a video target. |
 | Replacement Surface attaches but playback stalls | Reassert `player.play()` once and inspect the ordered player/TextureView diagnostic events; do not prepare, reload, seek, or recreate. |
 | Spatial-to-Texture destination | For the protected handoff, skip app-level Spatial clear during shutdown, fully tear down the Spatial Activity/session, then attach the TextureView with direct replacement. Normal paths remain clear-then-set. |
 | Old TextureView destruction after new target attaches | Do not clear the new target. |

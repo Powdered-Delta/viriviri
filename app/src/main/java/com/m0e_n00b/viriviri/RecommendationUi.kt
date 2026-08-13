@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.Button
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -27,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +40,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.media3.common.Player
 import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
 import com.m0e_n00b.spatialworkbench.compose.MediaThumbnailFrame
@@ -82,7 +89,13 @@ fun RecommendationContent(
 ) {
   Box(modifier = Modifier.fillMaxSize()) {
     when (state.destination) {
-      ViriViriDestination.RECOMMENDATIONS -> RecommendationList(state, appState, palette)
+      ViriViriDestination.RECOMMENDATIONS ->
+          RecommendationList(
+              state = state,
+              appState = appState,
+              palette = palette,
+              showSearchConsoleByDefault = !showPlayer,
+          )
       ViriViriDestination.VIEWER -> Viewer(state, appState, showPlayer)
     }
     TransientMessageHost(
@@ -111,6 +124,7 @@ private fun RecommendationList(
     state: ViriViriUiState,
     appState: ViriViriAppState,
     palette: CinemaPalette,
+    showSearchConsoleByDefault: Boolean,
 ) {
   val savedScrollPosition =
       if (state.isShowingSearchResults) state.searchScrollPosition else state.recommendationScrollPosition
@@ -130,26 +144,46 @@ private fun RecommendationList(
         }
   }
   val thumbnailStates by appState.thumbnailStates.collectAsState()
+  var isSearchConsoleVisible by
+      rememberSaveable(state.isShowingSearchResults) {
+        mutableStateOf(showSearchConsoleByDefault || state.isShowingSearchResults)
+      }
   Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       Text(if (state.isShowingSearchResults) "Search results" else "Bilibili recommendations", color = Color.White)
-      Button(onClick = if (state.isShowingSearchResults) appState::returnToRecommendationsFeed else appState::refreshRecommendations) {
-        Text(if (state.isShowingSearchResults) "Recommendations" else "Refresh")
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { isSearchConsoleVisible = !isSearchConsoleVisible }) {
+          Icon(
+              imageVector = if (isSearchConsoleVisible) Icons.Default.Close else Icons.Default.Search,
+              contentDescription = if (isSearchConsoleVisible) "Close search" else "Search",
+              tint = Color.White,
+          )
+        }
+        Button(onClick = if (state.isShowingSearchResults) appState::returnToRecommendationsFeed else appState::refreshRecommendations) {
+          Text(if (state.isShowingSearchResults) "Recommendations" else "Refresh")
+        }
       }
     }
-    SearchInputPanel(
-        session = state.searchInput,
-        method = appState.inputMethods.methodFor(state.searchInput),
-        onSystemTextChanged = appState::updateSearchQuery,
-        onInputAction = appState::applySearchInputAction,
-        onClear = appState::clearSearchInput,
-        onSearch = appState::submitSearch,
-    )
+    if (isSearchConsoleVisible) {
+      SearchInputPanel(
+          session = state.searchInput,
+          method = appState.inputMethods.methodFor(state.searchInput),
+          onSystemTextChanged = appState::updateSearchQuery,
+          onInputAction = appState::applySearchInputAction,
+          onClear = appState::clearSearchInput,
+          onSearch = appState::submitSearch,
+      )
+    }
     when {
       state.isLoading -> Text(if (state.isShowingSearchResults) "Searching Bilibili..." else "Loading recommendations...", color = Color.White)
       state.recommendations.isEmpty() && state.error != null -> Text(state.error, color = Color(0xFFFFB4AB))
       state.recommendations.isEmpty() -> Text(if (state.isShowingSearchResults) "No matching videos found." else "No recommendations are available.", color = Color.White)
-      else -> LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      else ->
+          LazyColumn(
+              state = listState,
+              modifier = Modifier.weight(1f),
+              verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
         items(state.recommendations, key = { it.videoId }) { recommendation ->
           RecommendationRow(
               recommendation = recommendation,

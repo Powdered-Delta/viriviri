@@ -34,6 +34,7 @@ class PancakeActivity : ComponentActivity() {
           startActivity(
               Intent(this, SpatialVideoSampleActivity::class.java).apply {
                 action = Intent.ACTION_MAIN
+                putExtra(SpatialVideoSampleActivity.EXTRA_REATTACH_IMMERSIVE_OUTPUT, true)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
               }
           )
