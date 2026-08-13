@@ -176,6 +176,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var browseSelectionBaselineId: String? = null
   private var awaitingBrowseSelection = false
   private var browseSelectionObserver: Job? = null
+  private var shouldReattachImmersiveOutput = false
   private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
   private val immersiveStagePlayerListener =
       object : Player.Listener {
@@ -252,6 +253,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    shouldReattachImmersiveOutput =
+        intent.getBooleanExtra(EXTRA_REATTACH_IMMERSIVE_OUTPUT, false)
 
     requestPermissions()
 
@@ -264,6 +267,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         ImmersiveMediaStageHost(
             attachVideoOutput = ViriViriApplication.appState.playerSession::attachImmersiveSurface,
             onEffect = { effect -> Log.d(TAG, "MediaStage effect=$effect") },
+            reattachVideoOutput = ViriViriApplication.appState.playerSession::reattachImmersiveSurface,
         )
     spatialPanelVisibilityController = SpatialPanelVisibilityController(canvasHandler)
     immersivePlaybackCanvasHost =
@@ -689,8 +693,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         }
 
-    immersiveMediaStageHost.attachOutput(panelSceneObject.surface)
-    reportImmersiveStageClock()
+    attachImmersiveOutput(panelSceneObject)
 
     systemManager
         .findSystem<SceneObjectSystem>()
@@ -891,16 +894,20 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     )
   }
 
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    shouldReattachImmersiveOutput =
+        intent.getBooleanExtra(EXTRA_REATTACH_IMMERSIVE_OUTPUT, false)
+  }
+
   override fun onResume() {
     super.onResume()
     val panel =
         systemManager.findSystem<SceneObjectSystem>()
             .getSceneObject(Entity(R.id.spatialized_video_panel))
             ?.getNow(null) as? PanelSceneObject
-    panel?.let {
-      immersiveMediaStageHost.attachOutput(it.surface)
-      reportImmersiveStageClock()
-    }
+    panel?.let(::attachImmersiveOutput)
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.applyCurrentState()
   }
 
@@ -916,6 +923,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     wristDebugPanelEntity?.destroy()
     wristDebugPanelEntity = null
     super.onDestroy()
+  }
+
+  private fun attachImmersiveOutput(panel: PanelSceneObject) {
+    if (shouldReattachImmersiveOutput) {
+      immersiveMediaStageHost.attachOutputAfterHandoff(panel.surface)
+      shouldReattachImmersiveOutput = false
+    } else {
+      immersiveMediaStageHost.attachOutput(panel.surface)
+    }
+    reportImmersiveStageClock()
   }
 
   private fun reportImmersiveStageClock() {
@@ -1314,6 +1331,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   companion object {
     const val TAG = "SpatialVideoSampleActivity"
+    const val EXTRA_REATTACH_IMMERSIVE_OUTPUT =
+        "com.m0e_n00b.viriviri.extra.REATTACH_IMMERSIVE_OUTPUT"
     lateinit var appContext: Context
     lateinit var appPackageName: String
 

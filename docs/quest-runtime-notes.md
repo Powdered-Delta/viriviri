@@ -74,7 +74,7 @@ SpatialVideoSampleActivity
 -> PancakeActivity
 ```
 
-`PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。
+`PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
 
 ## Bilibili 推荐与播放
 
@@ -82,9 +82,9 @@ SpatialVideoSampleActivity
 - selector panel 使用独立的 `SearchInputPanel`，不再只依赖 Horizon OS 系统 IME。默认 `ChineseT9InputMethod` 在应用内提供多击九宫格拼音、离线热门短语排序和 Android ICU `Han-Latin` 单字候选回退；选中候选后才会写入共享查询。`SearchInputMethod`、`OfflinePinyinLexicon` 和 `SearchInputMethodRegistry` 是纯 Kotlin 扩展边界，其他开发者可注册自己的语言键盘和离线词典，不改 Compose 搜索面板、状态层或 Bilibili provider。输入面板包含 `清空输入` 与 `确定搜索`，只有后者才会请求 WBI 签名的视频搜索；系统虚拟键盘保留为图标触发的备用输入。该面板不创建 Spatial entity、播放器或 Surface。共享状态取消前一搜索并以请求序号丢弃过期结果，`Recommendations` 会重新加载推荐 feed。
 - 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
 - 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
-- 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。
+- 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。普通同一 Spatial Surface 的重复 callback 是 no-op；但从 2D 返回 immersive 时，一次性 intent signal 会强制把已缓存的 SDK Surface 重附着到同一 player，因为离开路由已清除该 player 的当前输出。
 - 2D 视频输出保留现有 `TextureView` Surface 生命周期，并从 Media3 `VideoSize` 更新 view transform。输出在黑色容器中按 contain 比例居中，产生 letterbox 或 pillarbox，不拉伸或裁切源帧。
-- 尚未完成 Quest 人工验证。本次代码验证应使用 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon`；`assembleDebug` 会先执行 `:app:export` 并打包 MediaRoom。需要从头显应用库验证推荐、选择、返回列表及 immersive/2D 循环时仅存在一个输出 Surface，以及非 passthrough 模式下 MediaRoom 环境可见。
+- 尚未完成此修复的 Quest 人工验证。本次代码验证已在 Windows JDK 17 通过 `:app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon`；`assembleDebug` 会先执行 `:app:export` 并打包 MediaRoom。需要从头显应用库验证 2D recommendation list 默认可见、Search icon 展开九宫格、返回 immersive 后首帧恢复、切换新视频更新 spatial panel、全程仅存在一个输出 Surface，以及非 passthrough 模式下 MediaRoom 环境可见。
 
 新包已验证可与旧包同时安装：
 

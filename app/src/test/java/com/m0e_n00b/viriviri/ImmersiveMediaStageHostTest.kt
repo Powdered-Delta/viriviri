@@ -38,6 +38,29 @@ class ImmersiveMediaStageHostTest {
   }
 
   @Test
+  fun handoffReattachesTheSameOutputWithoutDuplicatingTheSemanticTarget() {
+    val attached = mutableListOf<Any>()
+    val reattached = mutableListOf<Any>()
+    val effects = mutableListOf<MediaStageEffect>()
+    val host =
+        ImmersiveMediaStageHost(
+            attachVideoOutput = attached::add,
+            onEffect = effects::add,
+            reattachVideoOutput = reattached::add,
+        )
+    val output = Any()
+
+    host.attachOutput(output)
+    host.attachOutput(output)
+    host.attachOutputAfterHandoff(output)
+
+    assertEquals(listOf(output), attached)
+    assertEquals(listOf(output), reattached)
+    assertEquals(listOf(MediaStageEffect.AttachVideoOutput("immersive-video")), effects)
+    assertEquals("immersive-video", host.state.activeVideoTargetId)
+  }
+
+  @Test
   fun clockAndSeekDoNotAttachAdditionalVideoOutput() {
     val attached = mutableListOf<Any>()
     val effects = mutableListOf<MediaStageEffect>()

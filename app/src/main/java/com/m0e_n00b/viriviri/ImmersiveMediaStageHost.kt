@@ -16,6 +16,7 @@ import com.m0e_n00b.spatialworkbench.core.MediaStageTargetSpec
 internal class ImmersiveMediaStageHost<Output : Any>(
     private val attachVideoOutput: (Output) -> Unit,
     private val onEffect: (MediaStageEffect) -> Unit = {},
+    private val reattachVideoOutput: (Output) -> Unit = attachVideoOutput,
 ) {
   private var output: Output? = null
   var state: MediaStageState =
@@ -32,16 +33,24 @@ internal class ImmersiveMediaStageHost<Output : Any>(
     )
     private set
 
-  fun attachOutput(newOutput: Output) {
+  fun attachOutput(newOutput: Output) = attachOutput(newOutput, afterHandoff = false)
+
+  /**
+   * Reattaches a retained SDK output after an explicit route handoff cleared the player Surface.
+   * Normal duplicate callbacks stay no-ops; only the route signal bypasses that optimization.
+   */
+  fun attachOutputAfterHandoff(newOutput: Output) = attachOutput(newOutput, afterHandoff = true)
+
+  private fun attachOutput(newOutput: Output, afterHandoff: Boolean) {
     val previousOutput = output
     output = newOutput
     val transition = dispatch(MediaStageEvent.AttachVideoOutput(IMMERSIVE_VIDEO_TARGET_ID))
     val attachedByReducer = transition.effects.any { it is MediaStageEffect.AttachVideoOutput }
 
     // A recreated PanelSceneObject can supply a new SDK-owned Surface for the same semantic
-    // target. PlayerSession performs the identity-aware replacement; no core target changes.
-    if (!attachedByReducer && previousOutput !== newOutput) {
-      attachVideoOutput(newOutput)
+    // target. A route handoff must rebind even when the SDK returns the same Surface object.
+    if (!attachedByReducer && (afterHandoff || previousOutput !== newOutput)) {
+      if (afterHandoff) reattachVideoOutput(newOutput) else attachVideoOutput(newOutput)
     }
   }
 

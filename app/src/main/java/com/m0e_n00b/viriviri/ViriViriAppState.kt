@@ -93,6 +93,9 @@ class PlayerSession(context: Context) {
 
   fun attachImmersiveSurface(newSurface: Surface) = attachSurface(newSurface)
 
+  /** Rebinds the SDK-owned output after an explicit 2D-to-immersive route handoff. */
+  fun reattachImmersiveSurface(newSurface: Surface) = attachSurface(newSurface, force = true)
+
   fun attach2dSurface(newSurface: Surface) = attachSurface(newSurface)
 
   fun detachSurface(oldSurface: Surface) {
@@ -102,9 +105,9 @@ class PlayerSession(context: Context) {
     }
   }
 
-  private fun attachSurface(newSurface: Surface) {
-    if (!newSurface.isValid || surface === newSurface) return
-    surface?.let(player::clearVideoSurface)
+  private fun attachSurface(newSurface: Surface, force: Boolean = false) {
+    if (!newSurface.isValid || (!force && surface === newSurface)) return
+    if (surface !== newSurface) surface?.let(player::clearVideoSurface)
     surface = newSurface
     player.setVideoSurface(newSurface)
   }
