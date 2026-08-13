@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 class MoviePanel : ComponentActivity() {
   override fun onCreate(savedInstanceBundle: Bundle?) {
     super.onCreate(savedInstanceBundle)
-    setContent { RecommendationPanel() }
+    setContent {
+      RecommendationPanel(onReturnToPlayback = ViriViriApplication.appState::requestImmersiveBrowseReturn)
+    }
   }
 }

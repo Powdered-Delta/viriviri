@@ -10,8 +10,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,6 +61,10 @@ data class ViriViriUiState(
 )
 
 data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
+
+internal enum class ImmersiveBrowseCommand {
+  RETURN_TO_PLAYBACK,
+}
 
 internal class SearchRequestTracker {
   private var latestRequestId = 0L
@@ -123,6 +130,7 @@ class ViriViriAppState(
   private val mutableState = MutableStateFlow(
       ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
   )
+  private val mutableImmersiveBrowseCommands = MutableSharedFlow<ImmersiveBrowseCommand>(extraBufferCapacity = 1)
   private var playbackRequestId = 0L
   private var transientMessageId = 0L
   private var playbackResolutionJob: Job? = null
@@ -133,6 +141,8 @@ class ViriViriAppState(
   private val mutableThumbnailStates = MutableStateFlow<Map<String, ThumbnailState>>(emptyMap())
   val state: StateFlow<ViriViriUiState> = mutableState.asStateFlow()
   internal val thumbnailStates: StateFlow<Map<String, ThumbnailState>> = mutableThumbnailStates.asStateFlow()
+  internal val immersiveBrowseCommands: SharedFlow<ImmersiveBrowseCommand> =
+      mutableImmersiveBrowseCommands.asSharedFlow()
 
   init { refreshRecommendations() }
 
@@ -420,6 +430,10 @@ class ViriViriAppState(
 
   fun returnToRecommendations() {
     mutableState.value = mutableState.value.copy(destination = ViriViriDestination.RECOMMENDATIONS, error = null)
+  }
+
+  fun requestImmersiveBrowseReturn() {
+    mutableImmersiveBrowseCommands.tryEmit(ImmersiveBrowseCommand.RETURN_TO_PLAYBACK)
   }
 
   fun selectAdjacentRecommendation(direction: Int) {
