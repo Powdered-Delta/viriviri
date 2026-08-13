@@ -32,6 +32,17 @@ internal fun recommendationAccess(
 ): ContentAccess =
     if (isChargeableSeason) ContentAccess.CHARGING_EXCLUSIVE else ContentAccess.STANDARD
 
+internal data class BilibiliRecommendationVideo(
+    val bvid: String,
+    val title: String,
+    val authorName: String,
+    val coverUrl: String,
+    val durationSeconds: Int,
+    val viewCount: Long,
+    val displayLabel: String?,
+    val isChargeableSeason: Boolean = false,
+)
+
 internal data class BilibiliSearchVideo(
     val bvid: String,
     val title: String,
@@ -64,19 +75,32 @@ class BilibiliPlaybackProvider(
             "?version=1&feed_version=V8&homepage_ver=1&ps=$pageSize" +
             "&fresh_idx=$freshIndex&brush=$freshIndex&fresh_type=4"
 
-    internal fun mapRecommendationItem(item: JSONObject): Recommendation? {
-      val bvid = item.optString("bvid").trim()
-      if (bvid.isBlank()) return null
+    internal fun mapRecommendationItem(item: JSONObject): Recommendation? =
+        mapRecommendationVideo(
+            BilibiliRecommendationVideo(
+                bvid = item.optString("bvid"),
+                title = item.optString("title", "Untitled video"),
+                authorName = item.optJSONObject("owner")?.optString("name", "Unknown author") ?: "Unknown author",
+                coverUrl = item.optString("pic"),
+                durationSeconds = item.optInt("duration"),
+                viewCount = item.optJSONObject("stat")?.optLong("view") ?: -1L,
+                displayLabel = item.optJSONObject("rcmd_reason")?.optString("content"),
+                isChargeableSeason = item.optBoolean("is_chargeable_season"),
+            )
+        )
+
+    internal fun mapRecommendationVideo(video: BilibiliRecommendationVideo): Recommendation? {
+      val bvid = video.bvid.trim().takeIf { it.isNotBlank() } ?: return null
       return Recommendation(
           videoId = bvid,
-          title = item.optString("title", "Untitled video"),
-          authorName = item.optJSONObject("owner")?.optString("name", "Unknown author") ?: "Unknown author",
-          coverUrl = item.optString("pic").takeIf { it.isNotBlank() },
-          durationSeconds = item.optInt("duration").takeIf { it > 0 },
-          viewCount = item.optJSONObject("stat")?.optLong("view")?.takeIf { it >= 0 },
-          displayLabel = item.optJSONObject("rcmd_reason")?.optString("content")?.takeIf { it.isNotBlank() },
+          title = video.title,
+          authorName = video.authorName,
+          coverUrl = video.coverUrl.takeIf { it.isNotBlank() },
+          durationSeconds = video.durationSeconds.takeIf { it > 0 },
+          viewCount = video.viewCount.takeIf { it >= 0 },
+          displayLabel = video.displayLabel?.takeIf { it.isNotBlank() },
           videoUrl = "https://www.bilibili.com/video/$bvid",
-          access = recommendationAccess(item.optBoolean("is_chargeable_season")),
+          access = recommendationAccess(video.isChargeableSeason),
       )
     }
 
