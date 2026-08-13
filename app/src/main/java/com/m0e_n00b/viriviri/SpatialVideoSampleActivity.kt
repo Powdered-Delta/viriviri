@@ -266,6 +266,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             updateImmersiveMediaStatus(
                 selected = appState.selected,
                 error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
+                isResolvingPlayback = appState.isResolvingPlayback,
             )
             updateImmersiveRetryAvailability(
                 destination = appState.destination,
@@ -843,6 +844,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           updateImmersiveMediaStatus(
               selected = appState.selected,
               error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
+              isResolvingPlayback = appState.isResolvingPlayback,
           )
           updateImmersiveRetryAvailability(
               destination = appState.destination,
@@ -1053,8 +1055,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     player.pause()
   }
 
-  private fun updateImmersiveMediaStatus(selected: Recommendation?, error: String?) {
-    val status = immersiveMediaStatus(selected, error)
+  private fun updateImmersiveMediaStatus(
+      selected: Recommendation?,
+      error: String?,
+      isResolvingPlayback: Boolean,
+  ) {
+    val status = immersiveMediaStatus(selected, error, isResolvingPlayback)
     currentMediaTitle.thenAccept { it.text = status.title }
     currentMediaDetail.thenAccept { it.text = status.detail }
   }
