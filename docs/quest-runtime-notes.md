@@ -74,7 +74,9 @@ SpatialVideoSampleActivity
 -> PancakeActivity
 ```
 
-`PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
+- `PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
+
+`mode_panel` 在 Debug APK 中扩大为约 `420dp x 300dp`（空间尺寸 `1.0m x 0.65m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 提供三条手动路径：`Geometry only`、`Commit false`、`Commit true`。选择后会用当前 Media3 `VideoSize` 重放 geometry 更新，并显示 source dimensions、display aspect 和目标 quad half-size。该 probe 复用 `mode_panel`，不增加 video panel、Entity、Player 或 Surface。
 
 ## Bilibili 推荐与播放
 

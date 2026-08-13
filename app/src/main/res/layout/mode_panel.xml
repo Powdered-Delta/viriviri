@@ -50,6 +50,24 @@
     android:textSize="11sp"
     android:visibility="gone"
   />
+  <TextView
+    android:id="@+id/debug_aspect_detail"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="2dp"
+    android:gravity="center"
+    android:textColor="#B3FFFFFF"
+    android:textSize="10sp"
+    android:visibility="gone"
+  />
+  <Button
+    android:id="@+id/debug_aspect_probe_button"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:text="Aspect probe"
+    android:visibility="gone"
+  />
   <Button
     android:id="@+id/open_2d_button"
     android:layout_width="match_parent"
