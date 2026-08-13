@@ -117,8 +117,31 @@ ViriViri 是一个面向 VR 视频平台的 Quest 客户端原型。当前以 Bi
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export
-adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 ```
+
+### Windows / Quest 安装
+
+在 Windows PowerShell 5.1 或 PowerShell 7 中，先连接并授权一台 Quest，然后从仓库
+根目录运行：
+
+```powershell
+.\scripts\install-quest.ps1
+```
+
+脚本默认且只使用 `app\build\outputs\apk\debug\app-debug.apk`；它会定位 `adb.exe`、
+列出并确认设备、输出 Windows APK 路径/大小/SHA-256，执行 `adb install -r`，再输出
+`com.m0e_n00b.viriviri` 的版本与安装路径。常用显式选项：
+
+```powershell
+.\scripts\install-quest.ps1 -Apk C:\builds\viriviri-debug.apk -DeviceSerial <Quest-serial>
+.\scripts\install-quest.ps1 -AdbPath C:\Android\Sdk\platform-tools\adb.exe -WhatIf
+.\scripts\install-quest.ps1 -DeviceSerial <Quest-serial> -Launch
+```
+
+`-WhatIf` 会完成 APK、ADB 和设备预检，但不会安装或启动应用。设备缺失、未授权/离线、
+或连接多台设备而未指定 `-DeviceSerial` 时脚本会以非零退出。`Installed package` 和
+`Package path(s)` 表示安装确认，不表示 Quest 视觉验收；仍须从头显应用库启动，并按
+[Quest 运行时记录](docs/quest-runtime-notes.md) 完成实际画面、输入和播放验证。
 
 环境与设备运行时记录见 [Quest 运行时记录](docs/quest-runtime-notes.md)。
 
