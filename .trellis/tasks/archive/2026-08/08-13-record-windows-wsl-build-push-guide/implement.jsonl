@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Build and verification documentation context."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Quest runtime and device-validation boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Confirms installation/validation must not change player Surface ownership."}
+{"file":".trellis/tasks/08-13-record-windows-wsl-build-push-guide/prd.md","reason":"Task scope and acceptance criteria."}
