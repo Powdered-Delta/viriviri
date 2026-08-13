@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing transport panel, embedded popup, and one-player/Surface constraints."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Player-only volume update must not affect Surface ownership."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Transport action strip includes controlled volume."}
+{"file":".trellis/tasks/08-13-add-immersive-volume-control/research/volume-control-boundary.md","reason":"Fixed volume menu and callback ownership decision."}
