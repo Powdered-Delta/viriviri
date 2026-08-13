@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Defines Compose callback boundaries: shared browse UI must receive neutral actions and not own Activity, Meta SDK, player, Surface, or network work."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Defines shared recommendation state, immersive Browse behavior, selection ownership, and one-player output constraints."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Defines existing Spatial panel visibility mapping and prohibits runtime reparenting of scene-authored panel relationships."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Preserves process-wide player and single active video Surface ownership while refining only browse interaction state."}

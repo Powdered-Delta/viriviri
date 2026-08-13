@@ -85,6 +85,7 @@ fun RecommendationContent(
     state: ViriViriUiState,
     appState: ViriViriAppState,
     showPlayer: Boolean,
+    onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
 ) {
   Box(modifier = Modifier.fillMaxSize()) {
@@ -95,6 +96,7 @@ fun RecommendationContent(
               appState = appState,
               palette = palette,
               showSearchConsoleByDefault = !showPlayer,
+              onReturnToPlayback = onReturnToPlayback,
           )
       ViriViriDestination.VIEWER -> Viewer(state, appState, showPlayer)
     }
@@ -111,11 +113,18 @@ fun RecommendationContent(
 @Composable
 fun RecommendationPanel(
     appState: ViriViriAppState = ViriViriApplication.appState,
+    onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
 ) {
   val state by appState.state.collectAsState()
   Box(modifier = Modifier.fillMaxSize().background(Color(0xFF102025))) {
-    RecommendationContent(state, appState, showPlayer = false, palette = palette)
+    RecommendationContent(
+        state = state,
+        appState = appState,
+        showPlayer = false,
+        onReturnToPlayback = onReturnToPlayback,
+        palette = palette,
+    )
   }
 }
 
@@ -125,6 +134,7 @@ private fun RecommendationList(
     appState: ViriViriAppState,
     palette: CinemaPalette,
     showSearchConsoleByDefault: Boolean,
+    onReturnToPlayback: (() -> Unit)?,
 ) {
   val savedScrollPosition =
       if (state.isShowingSearchResults) state.searchScrollPosition else state.recommendationScrollPosition
@@ -161,6 +171,9 @@ private fun RecommendationList(
         }
         Button(onClick = if (state.isShowingSearchResults) appState::returnToRecommendationsFeed else appState::refreshRecommendations) {
           Text(if (state.isShowingSearchResults) "Recommendations" else "Refresh")
+        }
+        onReturnToPlayback?.let { returnToPlayback ->
+          Button(onClick = returnToPlayback) { Text("Back to playback") }
         }
       }
     }

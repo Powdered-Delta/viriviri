@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review that immersive-only Browse callbacks preserve composable ownership boundaries and 2D host behavior."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review recommendation selection ownership and same-player playback continuity."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review existing-panel visibility changes and ensure Context remains unbound pending scene authoring."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review that Browse UX changes cannot create or alter video output ownership."}

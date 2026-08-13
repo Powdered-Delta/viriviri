@@ -177,9 +177,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private var gltfxEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
-  private var browseSelectionBaselineId: String? = null
-  private var awaitingBrowseSelection = false
+  private var immersiveBrowseSession = ImmersiveBrowseSession()
   private var browseSelectionObserver: Job? = null
+  private var browseCommandObserver: Job? = null
   private var shouldReattachImmersiveOutput = false
   private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
   private val immersiveStagePlayerListener =
@@ -292,16 +292,23 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 error = appState.error,
                 isResolvingPlayback = appState.isResolvingPlayback,
             )
-            if (::immersivePlaybackCanvasHost.isInitialized &&
-                shouldReturnToPlaybackAfterBrowseSelection(
-                    awaitingSelection = awaitingBrowseSelection,
+            val transition =
+                ImmersiveBrowseSessionReducer.onAppState(
+                    session = immersiveBrowseSession,
                     canvas = immersivePlaybackCanvasHost.state.canvas,
-                    baselineVideoId = browseSelectionBaselineId,
-                    selectedVideoId = appState.selected?.videoId,
-                )) {
-              awaitingBrowseSelection = false
-              browseSelectionBaselineId = null
-              dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
+                    destination = appState.destination,
+                )
+            immersiveBrowseSession = transition.session
+            if (transition.returnToPlayback) dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
+          }
+        }
+    browseCommandObserver =
+        activityScope.launch {
+          ViriViriApplication.appState.immersiveBrowseCommands.collect { command ->
+            if (command == ImmersiveBrowseCommand.RETURN_TO_PLAYBACK) {
+              val transition = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession)
+              immersiveBrowseSession = transition.session
+              if (transition.returnToPlayback) dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
             }
           }
         }
@@ -943,6 +950,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     player.removeListener(immersiveControlsPlayerListener)
     browseSelectionObserver?.cancel()
     browseSelectionObserver = null
+    browseCommandObserver?.cancel()
+    browseCommandObserver = null
     canvasHandler.removeCallbacks(transportTimelineUpdater)
     canvasHandler.removeCallbacksAndMessages(null)
     if (::spatialPanelVisibilityController.isInitialized) spatialPanelVisibilityController.clear()
@@ -1068,8 +1077,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun openBrowseCanvas() {
     val appState = ViriViriApplication.appState
-    browseSelectionBaselineId = appState.state.value.selected?.videoId
-    awaitingBrowseSelection = true
+    immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.returnToRecommendations()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
