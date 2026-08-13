@@ -7,6 +7,8 @@ import com.m0e_n00b.spatialworkbench.core.CinemaColorRole
 import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 import com.m0e_n00b.spatialworkbench.core.RgbColor
 
+fun CinemaPalette.composeColor(role: CinemaColorRole): Color = color(role).toComposeColor()
+
 /** Visual tokens for the application-owned input console. */
 data class InputConsoleKeyStyle(
     val background: Color,
@@ -47,7 +49,7 @@ data class InputConsoleStyle(
         palette: CinemaPalette,
         shell: SpatialPanelShellStyle = SpatialPanelShellStyle(),
     ): InputConsoleStyle {
-      fun color(role: CinemaColorRole): Color = palette.color(role).toComposeColor()
+      fun color(role: CinemaColorRole): Color = palette.composeColor(role)
       val surface = color(CinemaColorRole.SURFACE)
       val normalText = color(CinemaColorRole.NORMAL_TEXT)
       val secondaryText = color(CinemaColorRole.SECONDARY_TEXT)

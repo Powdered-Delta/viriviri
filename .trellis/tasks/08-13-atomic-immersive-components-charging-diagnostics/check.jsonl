@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Quality-check entry point and required verification commands."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Test and regression expectations for frontend/data changes."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Confirms no credential, protocol, or playback-boundary regression."}
+{"file":".trellis/tasks/08-13-atomic-immersive-components-charging-diagnostics/prd.md","reason":"Acceptance criteria for charging markers and diagnostic evidence."}

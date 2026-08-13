@@ -58,6 +58,22 @@ own documented contract explicitly says otherwise. System IME input is an
 optional fallback that updates the same committed query but must not silently
 start a search.
 
+### Convention: Semantic Palette Tokens
+
+**What**: Shared visual components resolve semantic colors from
+`CinemaPalette` / `CinemaColorRole`, including compact content markers such as
+`CHARGING_BADGE` and `CHARGING_BADGE_LABEL`.
+
+**Why**: Theme presets remain replaceable and independently validated. A
+component may describe a badge's role, but it must not embed an RGB/hex color
+that silently diverges from light or high-contrast themes.
+
+**Example**:
+
+```kotlin
+val badgeColor = palette.composeColor(CinemaColorRole.CHARGING_BADGE)
+```
+
 ### Convention: Distinct low/high immersion layouts
 
 **What**: Low-immersion browse UI and high-immersion UI should be separate entry

@@ -51,6 +51,13 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   bounded `ThumbnailRepository`. It normalizes protocol-relative/HTTP URLs to
   HTTPS and exposes loading, ready, and failed view states. Compose renders
   these states but must not make thumbnail HTTP requests or assemble API URLs.
+* `Recommendation.access` is a presentation-neutral capability derived only
+  from explicit public list fields. `is_chargeable_season=true` maps to
+  `CHARGING_EXCLUSIVE` and renders the compact `充电` cover badge. `rights.elec`
+  indicates that a creator accepts charging; it does not prove exclusive access
+  and must not create the badge. Never infer an access badge from title text,
+  author text, `playurl` structure, a missing DASH response, or a playback
+  error.
 * The immersive Browse command records the current selected video ID, calls
   `returnToRecommendations()` so the existing `video_selector_panel` shows its
   shared list instead of the Viewer screen, then opens the core Browse canvas.
@@ -67,6 +74,7 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 | Duplicate item in a later feed/search page | Retain first occurrence and do not reinsert the video. |
 | Later page HTTP/API/JSON failure | Preserve already loaded items, end append loading, and show a recoverable inline error. |
 | Missing/invalid/unavailable cover | Preserve fixed thumbnail geometry and display a loading or failure placeholder. |
+| Public charging-exclusive list field | Render the non-interactive `充电` cover badge. Absence or `rights.elec` alone renders no badge. |
 | Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. For charging/restricted candidates, treat absent DASH as a possible access restriction, not proof of a decoder failure; capture only bounded result metadata and never attempt credential bypass or speculative MP4 fallback. |
 | Retry selected playback resolution | Cancel the prior attempt, then re-run only the selected BV's existing source-resolution path. While resolving, reject another retry; stale retry/selection results cannot change player source or viewer error. |
 | Current source resolution exceeds 45 seconds | Clear loading, display `Video source resolution timed out`, and enable existing Retry without changing the current player source. |

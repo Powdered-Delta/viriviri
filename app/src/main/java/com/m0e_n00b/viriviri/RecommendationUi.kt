@@ -37,6 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
+import com.m0e_n00b.spatialworkbench.compose.composeColor
+import com.m0e_n00b.spatialworkbench.core.CinemaColorRole
+import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal data class TextureViewScale(val x: Float, val y: Float)
@@ -68,23 +71,35 @@ internal fun calculateTextureViewScale(
 }
 
 @Composable
-fun RecommendationContent(state: ViriViriUiState, appState: ViriViriAppState, showPlayer: Boolean) {
+fun RecommendationContent(
+    state: ViriViriUiState,
+    appState: ViriViriAppState,
+    showPlayer: Boolean,
+    palette: CinemaPalette = CinemaPalette.DARK,
+) {
   when (state.destination) {
-    ViriViriDestination.RECOMMENDATIONS -> RecommendationList(state, appState)
+    ViriViriDestination.RECOMMENDATIONS -> RecommendationList(state, appState, palette)
     ViriViriDestination.VIEWER -> Viewer(state, appState, showPlayer)
   }
 }
 
 @Composable
-fun RecommendationPanel(appState: ViriViriAppState = ViriViriApplication.appState) {
+fun RecommendationPanel(
+    appState: ViriViriAppState = ViriViriApplication.appState,
+    palette: CinemaPalette = CinemaPalette.DARK,
+) {
   val state by appState.state.collectAsState()
   Box(modifier = Modifier.fillMaxSize().background(Color(0xFF102025))) {
-    RecommendationContent(state, appState, showPlayer = false)
+    RecommendationContent(state, appState, showPlayer = false, palette = palette)
   }
 }
 
 @Composable
-private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppState) {
+private fun RecommendationList(
+    state: ViriViriUiState,
+    appState: ViriViriAppState,
+    palette: CinemaPalette,
+) {
   val savedScrollPosition =
       if (state.isShowingSearchResults) state.searchScrollPosition else state.recommendationScrollPosition
   val listState =
@@ -127,6 +142,7 @@ private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppStat
           RecommendationRow(
               recommendation = recommendation,
               thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],
+              palette = palette,
               onClick = {
                 appState.selectRecommendation(
                     recommendation,
@@ -151,13 +167,18 @@ private fun RecommendationList(state: ViriViriUiState, appState: ViriViriAppStat
 private fun RecommendationRow(
     recommendation: Recommendation,
     thumbnailState: ThumbnailState?,
+    palette: CinemaPalette,
     onClick: () -> Unit,
 ) {
   Row(
       modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(8.dp),
       verticalAlignment = Alignment.CenterVertically,
   ) {
-    Thumbnail(thumbnailState)
+    Thumbnail(
+        state = thumbnailState,
+        palette = palette,
+        chargingBadge = chargingBadgeLabel(recommendation.access),
+    )
     Spacer(Modifier.width(10.dp))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
       Text(recommendation.title, color = Color.White)
@@ -167,8 +188,18 @@ private fun RecommendationRow(
   }
 }
 
+internal fun chargingBadgeLabel(access: RecommendationAccess): String? =
+    when (access) {
+      RecommendationAccess.STANDARD -> null
+      RecommendationAccess.CHARGING_EXCLUSIVE -> "充电"
+    }
+
 @Composable
-private fun Thumbnail(state: ThumbnailState?) {
+private fun Thumbnail(
+    state: ThumbnailState?,
+    palette: CinemaPalette,
+    chargingBadge: String? = null,
+) {
   Box(
       modifier = Modifier.width(128.dp).height(72.dp).background(Color(0xFF24333A)),
       contentAlignment = Alignment.Center,
@@ -183,6 +214,16 @@ private fun Thumbnail(state: ThumbnailState?) {
       ThumbnailState.Loading -> Text("Loading", color = Color.LightGray)
       ThumbnailState.Failed -> Text("No image", color = Color.LightGray)
       null -> Text("No image", color = Color.LightGray)
+    }
+    chargingBadge?.let { label ->
+      Text(
+          text = label,
+          color = palette.composeColor(CinemaColorRole.CHARGING_BADGE_LABEL),
+          modifier =
+              Modifier.align(Alignment.BottomEnd)
+                  .background(palette.composeColor(CinemaColorRole.CHARGING_BADGE))
+                  .padding(horizontal = 6.dp, vertical = 2.dp),
+      )
     }
   }
 }

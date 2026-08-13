@@ -140,6 +140,8 @@ object ThemeValidator {
             palette.secondaryButtonLabel,
             palette.border,
             palette.danger,
+            palette.chargingBadge,
+            palette.chargingBadgeLabel,
         )
     if (colors.any { !it.isValid() }) issues += ThemeValidationIssue.InvalidPalette("channel-range")
     if (!palette.surfaceOpacity.isFinite() || palette.surfaceOpacity !in 0f..1f) {
@@ -153,6 +155,9 @@ object ThemeValidator {
     }
     if (palette.secondaryButtonLabel.contrastAgainst(palette.secondaryButton) < 4.5) {
       issues += ThemeValidationIssue.InvalidPalette("secondary-button-label-contrast")
+    }
+    if (palette.chargingBadgeLabel.contrastAgainst(palette.chargingBadge) < 4.5) {
+      issues += ThemeValidationIssue.InvalidPalette("charging-badge-label-contrast")
     }
   }
 

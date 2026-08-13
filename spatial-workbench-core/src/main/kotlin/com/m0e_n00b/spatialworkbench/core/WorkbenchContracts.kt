@@ -15,6 +15,8 @@ enum class CinemaColorRole {
   SECONDARY_BUTTON_LABEL,
   BORDER,
   DANGER,
+  CHARGING_BADGE,
+  CHARGING_BADGE_LABEL,
 }
 
 data class RgbColor(val red: Int, val green: Int, val blue: Int) {
@@ -55,6 +57,8 @@ data class CinemaPalette(
     val secondaryButtonLabel: RgbColor,
     val border: RgbColor,
     val danger: RgbColor,
+    val chargingBadge: RgbColor,
+    val chargingBadgeLabel: RgbColor,
     val surfaceOpacity: Float,
 ) {
   fun color(role: CinemaColorRole): RgbColor =
@@ -70,6 +74,8 @@ data class CinemaPalette(
         CinemaColorRole.SECONDARY_BUTTON_LABEL -> secondaryButtonLabel
         CinemaColorRole.BORDER -> border
         CinemaColorRole.DANGER -> danger
+        CinemaColorRole.CHARGING_BADGE -> chargingBadge
+        CinemaColorRole.CHARGING_BADGE_LABEL -> chargingBadgeLabel
       }
 
   fun interactionColors(role: CinemaColorRole): InteractionColors {
@@ -96,6 +102,8 @@ data class CinemaPalette(
         secondaryButtonLabel = RgbColor(245, 247, 250),
         border = RgbColor(106, 116, 132),
         danger = RgbColor(214, 62, 72),
+        chargingBadge = RgbColor(188, 48, 112),
+        chargingBadgeLabel = RgbColor(255, 255, 255),
         surfaceOpacity = 0.94f,
     )
 
@@ -111,6 +119,8 @@ data class CinemaPalette(
         secondaryButtonLabel = RgbColor(28, 34, 43),
         border = RgbColor(116, 126, 142),
         danger = RgbColor(178, 34, 45),
+        chargingBadge = RgbColor(176, 0, 86),
+        chargingBadgeLabel = RgbColor(255, 255, 255),
         surfaceOpacity = 0.96f,
     )
 
@@ -126,6 +136,8 @@ data class CinemaPalette(
         secondaryButtonLabel = RgbColor(255, 255, 255),
         border = RgbColor(255, 255, 255),
         danger = RgbColor(255, 80, 80),
+        chargingBadge = RgbColor(255, 255, 255),
+        chargingBadgeLabel = RgbColor(0, 0, 0),
         surfaceOpacity = 1f,
     )
   }
