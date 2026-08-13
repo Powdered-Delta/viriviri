@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Shared Compose and app UI checklist."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Host-neutral reusable component and semantic token conventions."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Keeps thumbnail downloading/state in app and UI rendering passive."}
+{"file":".trellis/tasks/08-13-media-thumbnail-frame-atom/prd.md","reason":"Task boundaries and acceptance criteria."}
