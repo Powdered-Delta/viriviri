@@ -30,6 +30,13 @@
       android:background="@android:color/transparent"
     />
     <Button
+      android:id="@+id/volume_button"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Vol 100%"
+      android:background="@android:color/transparent"
+    />
+    <Button
       android:id="@+id/speed_button"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
