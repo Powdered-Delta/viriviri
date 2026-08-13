@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Verification entry point."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Regression and test expectations."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Checks atom remains token-driven and renderer-neutral."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Checks no provider/playback boundary regression."}
+{"file":".trellis/tasks/08-13-content-access-marker-atom/prd.md","reason":"Acceptance criteria and scope boundaries."}

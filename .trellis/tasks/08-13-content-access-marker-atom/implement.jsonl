@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Entry-point checklist for shared UI and application changes."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Shared component boundaries and semantic palette-token rules."}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Immutable cross-module contract conventions."}
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Anonymous provider mapping and restricted-content marker rules."}
+{"file":".trellis/tasks/08-13-content-access-marker-atom/prd.md","reason":"Task contract, scope, and acceptance criteria."}

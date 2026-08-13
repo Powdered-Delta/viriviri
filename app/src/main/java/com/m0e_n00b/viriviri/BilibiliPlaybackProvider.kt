@@ -13,6 +13,7 @@ import java.net.URL
 import java.security.MessageDigest
 import org.json.JSONArray
 import org.json.JSONObject
+import com.m0e_n00b.spatialworkbench.core.ContentAccess
 
 data class Recommendation(
     val videoId: String,
@@ -23,18 +24,13 @@ data class Recommendation(
     val viewCount: Long?,
     val displayLabel: String?,
     val videoUrl: String,
-    val access: RecommendationAccess = RecommendationAccess.STANDARD,
+    val access: ContentAccess = ContentAccess.STANDARD,
 )
-
-enum class RecommendationAccess {
-  STANDARD,
-  CHARGING_EXCLUSIVE,
-}
 
 internal fun recommendationAccess(
     isChargeableSeason: Boolean,
-): RecommendationAccess =
-    if (isChargeableSeason) RecommendationAccess.CHARGING_EXCLUSIVE else RecommendationAccess.STANDARD
+): ContentAccess =
+    if (isChargeableSeason) ContentAccess.CHARGING_EXCLUSIVE else ContentAccess.STANDARD
 
 internal data class BilibiliSearchVideo(
     val bvid: String,
