@@ -139,6 +139,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
   private var spatialVideoTriangleMesh: TriangleMesh? = null
+  private var spatialVideoSceneMesh: SceneMesh? = null
+  private var spatialVideoAspectProbeMode = SpatialVideoAspectProbeMode.GEOMETRY_ONLY
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
@@ -150,6 +152,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
+  var debugAspectProbeButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var volumeButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -605,6 +609,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             val sceneMesh = SceneMesh.fromTriangleMesh(triMesh, false)
             spatialVideoTriangleMesh = triMesh
+            spatialVideoSceneMesh = sceneMesh
             updateSpatialVideoContentQuad(
                 videoWidth = player.videoSize.width,
                 videoHeight = player.videoSize.height,
@@ -835,9 +840,19 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         R.id.mode_panel,
         layoutIdCreator = { R.layout.mode_panel },
         settingsCreator = {
+          val isDebugPanel = BuildConfig.DEBUG
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.7f, height = 0.35f),
-              display = DpDisplayOptions(width = 280f, height = 140f, dpi = 600),
+              shape =
+                  QuadShapeOptions(
+                      width = if (isDebugPanel) 1.0f else 0.7f,
+                      height = if (isDebugPanel) 0.65f else 0.35f,
+                  ),
+              display =
+                  DpDisplayOptions(
+                      width = if (isDebugPanel) 420f else 280f,
+                      height = if (isDebugPanel) 300f else 140f,
+                      dpi = 600,
+                  ),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
           )
         },
@@ -863,6 +878,18 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           if (BuildConfig.DEBUG) {
             debugBuildLabel.text = "DEV ${BuildConfig.GIT_SHA}"
             debugBuildLabel.visibility = View.VISIBLE
+          }
+          val debugAspectDetailLocal = rootView.findViewById<TextView>(R.id.debug_aspect_detail)
+          val debugAspectProbeButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_probe_button)
+          debugAspectDetail.complete(debugAspectDetailLocal)
+          debugAspectProbeButton.complete(debugAspectProbeButtonLocal)
+          if (BuildConfig.DEBUG) {
+            debugAspectDetailLocal.visibility = View.VISIBLE
+            debugAspectProbeButtonLocal.visibility = View.VISIBLE
+            syncSpatialVideoAspectProbeUi()
+            debugAspectProbeButtonLocal.setOnClickListener {
+              showSpatialVideoAspectProbeMenu(debugAspectProbeButtonLocal)
+            }
           }
           rootView.findViewById<Button>(R.id.open_2d_button).setOnClickListener {
             ViriViriApplication.appState.playerSession.beginOutputHandoff()
@@ -1128,6 +1155,44 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
   }
 
+  private fun showSpatialVideoAspectProbeMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      SpatialVideoAspectProbeMode.entries.forEachIndexed { index, mode ->
+        menu.add(0, index, index, mode.label).isChecked = mode == spatialVideoAspectProbeMode
+      }
+      menu.setGroupCheckable(0, true, true)
+      setOnMenuItemClickListener { item: MenuItem ->
+        val mode = SpatialVideoAspectProbeMode.entries.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        spatialVideoAspectProbeMode = mode
+        lastAspectDiagnostic = null
+        updateSpatialVideoContentQuad(
+            videoWidth = player.videoSize.width,
+            videoHeight = player.videoSize.height,
+            pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
+        )
+        syncSpatialVideoAspectProbeUi()
+        true
+      }
+      show()
+    }
+  }
+
+  private fun syncSpatialVideoAspectProbeUi() {
+    debugAspectProbeButton.thenAccept { it.text = "Aspect probe: ${spatialVideoAspectProbeMode.label}" }
+    val diagnostic = lastAspectDiagnostic
+    debugAspectDetail.thenAccept { detail ->
+      detail.text =
+          if (diagnostic == null) {
+            "No VideoSize geometry yet"
+          } else {
+            "${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
+                "aspect=${diagnostic.displayAspectRatio} " +
+                "quad=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight}"
+          }
+    }
+  }
+
   private fun updateSpatialVideoContentQuad(
       videoWidth: Int,
       videoHeight: Int,
@@ -1185,7 +1250,15 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
         ),
     )
+    when (spatialVideoAspectProbeMode) {
+      SpatialVideoAspectProbeMode.GEOMETRY_ONLY -> Unit
+      SpatialVideoAspectProbeMode.COMMIT_FALSE ->
+          spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, false)
+      SpatialVideoAspectProbeMode.COMMIT_TRUE ->
+          spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, true)
+    }
     lastAspectDiagnostic = diagnostic
+    syncSpatialVideoAspectProbeUi()
     if (BuildConfig.DEBUG) {
       Log.i(
           "ViriViriAspect",
@@ -1193,7 +1266,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               "pixelRatio=${diagnostic.pixelWidthHeightRatio} " +
               "displayAspect=${diagnostic.displayAspectRatio} " +
               "quadHalf=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight} " +
-                  "triangleMeshUpdated=true",
+              "probe=${spatialVideoAspectProbeMode.label}",
       )
     }
   }

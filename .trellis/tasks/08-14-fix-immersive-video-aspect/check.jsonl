@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review Spatial panel visibility, custom mesh/material constraints, monoscopic output, and aspect validation evidence."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review that geometry changes preserve one ExoPlayer, one active video Surface, and SDK Surface ownership."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Apply the frontend verification baseline to the focused geometry tests and Windows build."}
+{"file":".trellis/tasks/archive/2026-08/08-13-fix-immersive-portrait-video-aspect/research/geometry-and-wrist-probe-boundary.md","reason":"Check prior device evidence and avoid unsupported shader/SceneMesh guesses."}

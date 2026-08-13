@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Defines the Spatial video panel, custom mesh visibility, monoscopic material path, one Surface ownership, and runtime aspect validation boundaries."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Protects the single ExoPlayer and single active video Surface while changing only immersive mesh geometry."}
+{"file":".trellis/tasks/archive/2026-08/08-13-fix-spatial-video-content-aspect/research/spatial-content-quad-aspect.md","reason":"Provides the validated contain geometry formula and the intended fixed-stage foreground-only update boundary."}
+{"file":".trellis/tasks/archive/2026-08/08-13-fix-immersive-portrait-video-aspect/research/geometry-and-wrist-probe-boundary.md","reason":"Records prior Quest evidence: geometry diagnostics versus downstream material/UV/compositor causes and the prohibition on unsupported shader guesses."}
