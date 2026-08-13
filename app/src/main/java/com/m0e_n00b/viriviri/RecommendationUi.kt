@@ -38,6 +38,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
+import com.m0e_n00b.spatialworkbench.compose.MediaThumbnailFrame
 import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 import com.m0e_n00b.spatialworkbench.core.ContentAccess
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -194,27 +195,28 @@ private fun Thumbnail(
     palette: CinemaPalette,
     access: ContentAccess = ContentAccess.STANDARD,
 ) {
-  Box(
-      modifier = Modifier.width(128.dp).height(72.dp).background(Color(0xFF24333A)),
-      contentAlignment = Alignment.Center,
-  ) {
-    when (state) {
-      is ThumbnailState.Ready -> Image(
-          bitmap = state.bitmap.asImageBitmap(),
-          contentDescription = null,
-          contentScale = ContentScale.Crop,
-          modifier = Modifier.fillMaxSize(),
-      )
-      ThumbnailState.Loading -> Text("Loading", color = Color.LightGray)
-      ThumbnailState.Failed -> Text("No image", color = Color.LightGray)
-      null -> Text("No image", color = Color.LightGray)
-    }
-    ContentAccessBadge(
-        access = access,
-        palette = palette,
-        modifier = Modifier.align(Alignment.BottomEnd),
-    )
-  }
+  MediaThumbnailFrame(
+      content = {
+        when (state) {
+          is ThumbnailState.Ready -> Image(
+              bitmap = state.bitmap.asImageBitmap(),
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier.fillMaxSize(),
+          )
+          ThumbnailState.Loading -> Text("Loading", color = Color.LightGray)
+          ThumbnailState.Failed -> Text("No image", color = Color.LightGray)
+          null -> Text("No image", color = Color.LightGray)
+        }
+      },
+      overlay = {
+        ContentAccessBadge(
+            access = access,
+            palette = palette,
+            modifier = Modifier.align(Alignment.BottomEnd),
+        )
+      },
+  )
 }
 
 @Composable

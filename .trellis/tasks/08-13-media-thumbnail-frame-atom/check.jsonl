@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Verification entry point."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Reusable frame and renderer-neutral boundary checks."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Regression-test expectations."}
+{"file":".trellis/tasks/08-13-media-thumbnail-frame-atom/prd.md","reason":"Acceptance criteria."}
