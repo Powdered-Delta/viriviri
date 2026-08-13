@@ -116,7 +116,15 @@ ViriViri 是一个面向 VR 视频平台的 Quest 客户端原型。当前以 Bi
 ## 开发与验证
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon -x :app:export
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-build-cache --no-daemon
+```
+
+`assembleDebug` now depends on `:app:export`, which exports the authored
+MediaRoom environment to `app/src/main/assets/scenes/` before packaging. The
+Windows Meta Spatial Editor CLI is configured at:
+
+```text
+D:\Program Files\Meta Spatial Editor\v16\Resources\CLI.exe
 ```
 
 ### Windows / Quest 安装

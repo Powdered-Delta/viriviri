@@ -117,9 +117,8 @@ val sceneDirectory = projectDir.dir("scenes")
 spatial {
   allowUsageDataCollection.set(true)
   scenes {
-    // if you have installed Meta Spatial Editor somewhere else, update the file path.
-
-    // cliPath.set("/Applications/Meta Spatial Editor.app/Contents/MacOS/CLI")
+    // Keep the scene exporter explicit so Windows builds include authored GLXF assets.
+    cliPath.set("D:\\Program Files\\Meta Spatial Editor\\v16\\Resources\\CLI.exe")
 
     exportItems {
       item {
@@ -133,4 +132,9 @@ spatial {
       assetsDir.set(File("src/main/assets"))
     }
   }
+}
+
+// The immersive default environment is an exported GLXF asset, not an optional build byproduct.
+tasks.named("preBuild") {
+  dependsOn("export")
 }
