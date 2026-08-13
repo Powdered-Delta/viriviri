@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Existing Spatial panel, SceneMesh and manual Quest acceptance constraints."}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "Single-player, one active video Surface ownership contract."}
+{"file": ".trellis/spec/frontend/bilibili-recommendation-playback.md", "reason": "Shared playback and viewer behavior constraints."}
+{"file": ".trellis/tasks/08-13-fix-immersive-portrait-video-aspect/research/geometry-and-wrist-probe-boundary.md", "reason": "Aspect geometry evidence and dynamic wrist debug-panel boundary."}
