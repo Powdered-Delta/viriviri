@@ -99,7 +99,7 @@ one.
   immersive feature bootstrap.
 * In `onSceneReady()`, configure the reference space and documented view origin
   before placing scene content. The current test host uses
-  `ReferenceSpace.LOCAL_FLOOR` and `scene.setViewOrigin(0f, 0f, 2f, 180f)`.
+  `ReferenceSpace.LOCAL_FLOOR` and `scene.setViewOrigin(0f, 0f, 0f, 0f)`.
 * Create the dynamic panel entity in `onVRReady()`, not merely in
   `onSceneReady()`. `onVRReady()` is the lifecycle point used by Meta's
   `SpatialVideoSample` for its video panel entity setup.
@@ -283,16 +283,19 @@ single media output buffer must match that geometry:
   shadow/input footprint. Do not add a full-stage black plane behind the video:
   application geometry at local `-Z` is not Media3 letterboxing and cannot
   correct compositor or texture sampling.
-- On `VideoSize`, update content vertices and call
-  `SceneMesh.updateWithTriangleMesh(...)` after `TriangleMesh.updateGeometry()`
-  so the new geometry is committed to the mesh that is currently rendered. The
-  shadow/input footprint remains unchanged.
-- Debug builds log one `ViriViriAspect` event for each distinct committed source
-  size, including dimensions, pixel ratio, display aspect, target half-size, and
-  `meshCommit=true`. It is an event diagnostic, not a frame log. If a confirmed
-  9:16 target geometry still displays stretched, investigate the supported
-  material/UV or raw-Surface compositor contract before changing mesh APIs or
-  adding another visual layer.
+- On `VideoSize`, update the retained `TriangleMesh` content vertices. Do not
+  call `SceneMesh.updateWithTriangleMesh(...)` for this panel: the Quest build
+  that introduced that call retained stage hit testing but lost visible video,
+  whereas the existing `TriangleMesh.updateGeometry(...)` path remains visible.
+  A future GPU/material update mechanism requires SDK evidence and separate
+  device validation.
+- Debug builds log one `ViriViriAspect` event for each distinct source size
+  after the retained `TriangleMesh` is updated, including dimensions, pixel
+  ratio, display aspect, target half-size, and `triangleMeshUpdated=true`. It
+  is an event diagnostic, not evidence that the compositor accepted a GPU mesh
+  commit. If a confirmed 9:16 target geometry still displays stretched,
+  investigate the supported material/UV or raw-Surface compositor contract
+  before changing mesh APIs or adding another visual layer.
 - Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes;
   invalid or unavailable video dimensions retain full-stage foreground geometry.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
