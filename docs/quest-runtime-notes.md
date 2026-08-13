@@ -183,6 +183,16 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
   `DEV <hash>`，使用本地 avatar 的 head/left-hand Transform 更新；追踪 transform
   不可用时隐藏。验收其稳定性、手势/控制器输入隔离、丢失/恢复追踪与不遮挡主画面。
   它没有 Media3 player、Surface 或直播功能。
+- 2026-08-13：Quest 验证观察到不定时空间/手部跟随漂移，当前不确定是 Horizon OS
+  tracking、`LOCAL_FLOOR` reference space 还是应用 lifecycle。禁止据此增加 yaw
+  补偿或重写 panel Transform。后续复现必须记录 `DEV <hash>`、影响范围（全部固定
+  panel 或仅 wrist）、操作路径（系统长按重置、菜单、2D/沉浸、Passthrough、手部追踪
+  切换）以及 `adb logcat -d -s ViriViriSpatial:I`。
+- 2026-08-13：推荐中可能出现“充电专属”内容。匿名普通 UGC provider 在
+  `/x/player/wbi/playurl` 未返回 `data.dash` 时会显示 `Bilibili did not provide
+  DASH streams`；这表示未获得兼容普通 DASH payload，不等于 decoder 或 Spatial
+  video 故障。先记录 BV ID、API result code/message、`data.dash` 是否存在和可见
+  access marker；禁止记录 signed media URL、Cookie、SESSDATA、CSRF 或完整响应。
 - 2D/immersive handoff 黑屏尚无应用层根治方案。
 - 若系统结束 OpenXR session，应用不能强制重启 Horizon OS PhaseSync、恢复 runtime focus 或清理 stale compositor frame。
 - reference-space 重定位策略仅保持面板相对于返回时用户姿态的连续性；它不是跨 session 的持久世界锚定方案。

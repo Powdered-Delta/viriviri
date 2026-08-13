@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Quest tracking observation and Spatial diagnostic collection boundaries."}
+{"file": ".trellis/spec/frontend/bilibili-recommendation-playback.md", "reason": "Anonymous provider and restricted-content behavior boundary."}
