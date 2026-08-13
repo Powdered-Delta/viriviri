@@ -34,9 +34,11 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   a stable, non-credential user agent.
 * No Cookie, SESSDATA, access key, CSRF value, device identifier, or server-side
   playback heartbeat is sent or logged.
-* `ViriViriAppState` is the single process-level source for the list, selected
-  item, browse/viewer destination, pagination cursor, thumbnail states, and sole
-  `PlayerSession`.
+* `ViriViriAppState` owns retryable playback resolution for the selected video.
+  Selection and explicit retry share one source-resolution path and increment a
+  request ID before starting network work. Only the latest request may set the
+  existing `PlayerSession` MediaSource or publish its error; retry is disabled
+  while resolution is active.
 * Recommendation pagination advances web-feed `fresh_idx` and `brush` together
   from the loaded-result count. Search pagination advances the WBI-signed
   `page` parameter. Refresh or a new search cancels/invalidates earlier list
@@ -64,6 +66,7 @@ fun PlayerSession.attach2dSurface(surface: Surface)
 | Later page HTTP/API/JSON failure | Preserve already loaded items, end append loading, and show a recoverable inline error. |
 | Missing/invalid/unavailable cover | Preserve fixed thumbnail geometry and display a loading or failure placeholder. |
 | Missing `cid`, WBI key, DASH object, AVC track, or MPEG-4 audio track | Enter viewer error state; do not replace the prior request's player source. |
+| Retry selected playback resolution | Re-run only the selected BV's existing source-resolution path. While resolving, reject another retry; stale retry/selection results cannot change player source or viewer error. |
 | A slower prior selection completes after a newer selection | Ignore the stale completion. |
 | 2D or immersive output changes | Capture position and play intent, then attach the target to the same player. |
 | Old 2D Surface is destroyed after immersive attaches | Detach by identity only, then release the application-created Surface. |
@@ -87,8 +90,8 @@ fun PlayerSession.attach2dSurface(surface: Surface)
   those state helpers are extracted or changed.
 * Device test initial recommendation/search pages, automatic next-page append,
   duplicate suppression, cover success/failure placeholders, item selection,
-  return to browse, both directions of 2D/immersive playback handoff, and
-  retained playback position.
+  viewer playback-resolution error and Retry behavior, return to browse, both
+  directions of 2D/immersive playback handoff, and retained playback position.
 
 ### 7. Wrong vs Correct
 

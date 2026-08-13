@@ -25,6 +25,7 @@ data class ViriViriUiState(
     val isLoadingNextPage: Boolean = false,
     val canLoadMore: Boolean = true,
     val nextPage: Int = 1,
+    val isResolvingPlayback: Boolean = false,
     val error: String? = null,
     val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
     val isShowingSearchResults: Boolean = false,
@@ -311,6 +312,7 @@ class ViriViriAppState(
           current.copy(
               selected = recommendation,
               destination = ViriViriDestination.VIEWER,
+              isResolvingPlayback = true,
               error = null,
               searchScrollPosition = scrollPosition,
           )
@@ -318,17 +320,40 @@ class ViriViriAppState(
           current.copy(
               selected = recommendation,
               destination = ViriViriDestination.VIEWER,
+              isResolvingPlayback = true,
               error = null,
               recommendationScrollPosition = scrollPosition,
           )
         }
     val requestId = ++playbackRequestId
+    resolveSelectedVideo(recommendation, requestId)
+  }
+
+  fun retrySelectedVideo() {
+    val current = mutableState.value
+    val selected = current.selected ?: return
+    if (!canRetryImmersiveMedia(current.destination, selected, current.error, current.isResolvingPlayback)) return
+    mutableState.value = current.copy(isResolvingPlayback = true, error = null)
+    val requestId = ++playbackRequestId
+    resolveSelectedVideo(selected, requestId)
+  }
+
+  private fun resolveSelectedVideo(recommendation: Recommendation, requestId: Long) {
     scope.launch {
       runCatching { withContext(Dispatchers.IO) { provider.createMediaSource(recommendation.videoId) } }
-          .onSuccess { source -> if (requestId == playbackRequestId) playerSession.setMediaSource(source) }
+          .onSuccess { source ->
+            if (requestId == playbackRequestId) {
+              playerSession.setMediaSource(source)
+              mutableState.value = mutableState.value.copy(isResolvingPlayback = false)
+            }
+          }
           .onFailure { error ->
             if (requestId == playbackRequestId) {
-              mutableState.value = mutableState.value.copy(error = error.message ?: "Unable to play this video")
+              mutableState.value =
+                  mutableState.value.copy(
+                      isResolvingPlayback = false,
+                      error = error.message ?: "Unable to play this video",
+                  )
             }
           }
     }

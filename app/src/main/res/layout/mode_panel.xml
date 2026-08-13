@@ -32,6 +32,14 @@
     android:textColor="#B3FFFFFF"
     android:textSize="12sp"
   />
+  <Button
+    android:id="@+id/retry_media_button"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    android:text="Retry"
+    android:visibility="gone"
+  />
   <TextView
     android:id="@+id/debug_build_label"
     android:layout_width="match_parent"

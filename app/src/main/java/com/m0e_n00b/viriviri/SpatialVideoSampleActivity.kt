@@ -149,6 +149,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var durationTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
+  var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
   val panner: ChannelMixingAudioProcessor = ChannelMixingAudioProcessor()
@@ -266,7 +267,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 selected = appState.selected,
                 error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
             )
-          if (::immersivePlaybackCanvasHost.isInitialized &&
+            updateImmersiveRetryAvailability(
+                destination = appState.destination,
+                selected = appState.selected,
+                error = appState.error,
+                isResolvingPlayback = appState.isResolvingPlayback,
+            )
+            if (::immersivePlaybackCanvasHost.isInitialized &&
                 shouldReturnToPlaybackAfterBrowseSelection(
                     awaitingSelection = awaitingBrowseSelection,
                     canvas = immersivePlaybackCanvasHost.state.canvas,
@@ -829,10 +836,19 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         panelSetupWithRootView = { rootView, _, _ ->
           currentMediaTitle.complete(rootView.findViewById(R.id.current_media_title))
           currentMediaDetail.complete(rootView.findViewById(R.id.current_media_detail))
+          val retryMediaButtonLocal = rootView.findViewById<Button>(R.id.retry_media_button)
+          retryMediaButton.complete(retryMediaButtonLocal)
+          retryMediaButtonLocal.setOnClickListener { ViriViriApplication.appState.retrySelectedVideo() }
           val appState = ViriViriApplication.appState.state.value
           updateImmersiveMediaStatus(
               selected = appState.selected,
               error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
+          )
+          updateImmersiveRetryAvailability(
+              destination = appState.destination,
+              selected = appState.selected,
+              error = appState.error,
+              isResolvingPlayback = appState.isResolvingPlayback,
           )
           val debugBuildLabel = rootView.findViewById<TextView>(R.id.debug_build_label)
           if (BuildConfig.DEBUG) {
@@ -1041,6 +1057,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val status = immersiveMediaStatus(selected, error)
     currentMediaTitle.thenAccept { it.text = status.title }
     currentMediaDetail.thenAccept { it.text = status.detail }
+  }
+
+  private fun updateImmersiveRetryAvailability(
+      destination: ViriViriDestination,
+      selected: Recommendation?,
+      error: String?,
+      isResolvingPlayback: Boolean,
+  ) {
+    retryMediaButton.thenAccept { button ->
+      val isViewerAttempt = destination == ViriViriDestination.VIEWER && selected != null && isResolvingPlayback
+      val canRetry = canRetryImmersiveMedia(destination, selected, error, isResolvingPlayback)
+      button.visibility = if (isViewerAttempt || canRetry) View.VISIBLE else View.GONE
+      button.isEnabled = canRetry
+      button.text = if (isViewerAttempt) "Retrying..." else "Retry"
+    }
   }
 
   private fun syncPlaybackSpeedLabel() {
