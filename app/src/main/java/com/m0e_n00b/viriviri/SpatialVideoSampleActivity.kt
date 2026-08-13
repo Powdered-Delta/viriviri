@@ -139,7 +139,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
   private var spatialVideoTriangleMesh: TriangleMesh? = null
-  private var spatialVideoSceneMesh: SceneMesh? = null
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
@@ -244,6 +243,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       features.add(DataModelInspectorFeature(spatial, this.componentManager))
     }
     return features
+  }
+
+  override fun onSessionStateChanged(state: SessionState) {
+    super.onSessionStateChanged(state)
+    Log.i("ViriViriSpatial", "sessionState=$state")
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -390,6 +394,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
 
     scene.setViewOrigin(0f, 0.0f, 0.0f, 0.0f)
+    Log.i("ViriViriSpatial", "referenceSpace=LOCAL_FLOOR viewOrigin=0,0,0,0")
 
     skydome =
         Entity.create(
@@ -488,6 +493,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
       }
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
+      Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
       immersivePlaybackCanvasHost.applyInitialState()
       setMrMode(scene.isSystemPassthroughEnabled())
@@ -595,7 +601,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             val sceneMesh = SceneMesh.fromTriangleMesh(triMesh, false)
             spatialVideoTriangleMesh = triMesh
-            spatialVideoSceneMesh = sceneMesh
             updateSpatialVideoContentQuad(
                 videoWidth = player.videoSize.width,
                 videoHeight = player.videoSize.height,
@@ -1112,7 +1117,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       pixelWidthHeightRatio: Float,
   ) {
     val mesh = spatialVideoTriangleMesh ?: return
-    val sceneMesh = spatialVideoSceneMesh ?: return
     val diagnostic =
         spatialVideoAspectDiagnostic(
             stageWidth = MR_SCREEN_WIDTH,
@@ -1164,7 +1168,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
         ),
     )
-    sceneMesh.updateWithTriangleMesh(mesh, false)
     lastAspectDiagnostic = diagnostic
     if (BuildConfig.DEBUG) {
       Log.i(
@@ -1172,7 +1175,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           "video=${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
               "pixelRatio=${diagnostic.pixelWidthHeightRatio} " +
               "displayAspect=${diagnostic.displayAspectRatio} " +
-              "quadHalf=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight} meshCommit=true",
+              "quadHalf=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight} " +
+                  "triangleMeshUpdated=true",
       )
     }
   }
