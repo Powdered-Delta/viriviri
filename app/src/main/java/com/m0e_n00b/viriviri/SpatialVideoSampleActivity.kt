@@ -186,6 +186,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var browseCommandObserver: Job? = null
   private var shouldReattachImmersiveOutput = false
   private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
+  private lateinit var immersiveWorkbenchHost: ImmersiveWorkbenchHost
   private val immersiveStagePlayerListener =
       object : Player.Listener {
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
@@ -278,6 +279,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             reattachVideoOutput = ViriViriApplication.appState.playerSession::reattachImmersiveSurface,
         )
     spatialPanelVisibilityController = SpatialPanelVisibilityController(canvasHandler)
+    immersiveWorkbenchHost = ImmersiveWorkbenchHost(::applyWorkbenchModules)
     immersivePlaybackCanvasHost =
         ImmersivePlaybackCanvasHost(applyVisibleSlots = ::applyPlaybackCanvasSlots)
     player.addListener(immersiveStagePlayerListener)
@@ -1116,17 +1118,33 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
+    if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.applyCanvasSlots(visibleSlots)
+  }
+
+  private fun applyWorkbenchModules(visibleModules: Set<WorkbenchModule>) {
     if (!::spatialPanelVisibilityController.isInitialized) return
-    val slotEntities =
+    val moduleEntities =
         mapOf(
-            PanelSlot.TRANSPORT to Entity(R.id.controls_id),
-            PanelSlot.SYSTEM_TOOLBAR to Entity(R.id.mode_panel),
-            PanelSlot.BROWSE to Entity(R.id.video_selector_panel),
+            WorkbenchModule.TRANSPORT to Entity(R.id.controls_id),
+            WorkbenchModule.CONTENT_LIST to Entity(R.id.video_selector_panel),
+            WorkbenchModule.VIDEO_CONTEXT to Entity(R.id.mode_panel),
         )
-    slotEntities.forEach { (slot, entity) ->
-      spatialPanelVisibilityController.setVisible(slot, entity, slot in visibleSlots)
+    moduleEntities.forEach { (module, entity) ->
+      spatialPanelVisibilityController.setVisible(
+          module.toPanelSlot(),
+          entity,
+          module in visibleModules,
+      )
     }
   }
+
+  private fun WorkbenchModule.toPanelSlot(): PanelSlot =
+      when (this) {
+        WorkbenchModule.TRANSPORT -> PanelSlot.TRANSPORT
+        WorkbenchModule.CONTENT_LIST -> PanelSlot.BROWSE
+        WorkbenchModule.VIDEO_CONTEXT -> PanelSlot.CONTEXT
+        WorkbenchModule.NAVIGATION, WorkbenchModule.PLAYBACK_CONFIG -> PanelSlot.SYSTEM_TOOLBAR
+      }
 
   fun togglePlay() {
     scene.playSound(audio, 1f)
