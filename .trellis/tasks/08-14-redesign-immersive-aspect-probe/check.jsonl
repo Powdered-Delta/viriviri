@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review custom mesh geometry, debug panel bounds, video visibility risk, and no-new-output constraints."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review that the probe only changes geometry and cannot alter player, source, Surface, or handoff lifecycle."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review debug UI control separation and panel-size readability."}
+{"file":".trellis/tasks/archive/2026-08/08-13-fix-immersive-portrait-video-aspect/research/geometry-and-wrist-probe-boundary.md","reason":"Review against historical device evidence and prohibit claiming a final solution before Quest validation."}

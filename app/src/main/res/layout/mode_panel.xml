@@ -61,11 +61,27 @@
     android:visibility="gone"
   />
   <Button
-    android:id="@+id/debug_aspect_probe_button"
+    android:id="@+id/debug_aspect_target_button"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="4dp"
-    android:text="Aspect probe"
+    android:text="Target: Default"
+    android:visibility="gone"
+  />
+  <Button
+    android:id="@+id/debug_aspect_plan_button"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:text="Plan: Plan 1"
+    android:visibility="gone"
+  />
+  <Button
+    android:id="@+id/debug_aspect_apply_button"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:text="Apply"
     android:visibility="gone"
   />
   <Button
