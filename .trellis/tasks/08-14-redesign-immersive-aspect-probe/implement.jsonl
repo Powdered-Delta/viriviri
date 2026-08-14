@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Defines the existing Spatial video panel/custom mesh path, one-output ownership, visible-panel constraints, and bounded Quest diagnostics."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Preserves the process-wide player and single active video Surface while changing only debug mesh geometry."}
+{"file":".trellis/tasks/archive/2026-08/08-13-fix-immersive-portrait-video-aspect/research/geometry-and-wrist-probe-boundary.md","reason":"Captures the distinction between correct contain geometry and unproven downstream Spatial mesh/material behavior."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Requires debug UI controls to remain host-owned callbacks without leaking player, Activity, or Meta SDK ownership into shared UI."}

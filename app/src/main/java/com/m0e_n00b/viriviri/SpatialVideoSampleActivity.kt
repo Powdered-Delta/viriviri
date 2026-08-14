@@ -140,7 +140,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var seekDragPositionMs: Long? = null
   private var spatialVideoTriangleMesh: TriangleMesh? = null
   private var spatialVideoSceneMesh: SceneMesh? = null
-  private var spatialVideoAspectProbeMode = SpatialVideoAspectProbeMode.GEOMETRY_ONLY
+  private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
@@ -153,7 +153,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
-  var debugAspectProbeButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var debugAspectTargetButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var debugAspectPlanButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var debugAspectApplyButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var volumeButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -852,12 +854,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               shape =
                   QuadShapeOptions(
                       width = if (isDebugPanel) 1.0f else 0.7f,
-                      height = if (isDebugPanel) 0.65f else 0.35f,
+                      height = if (isDebugPanel) 0.8f else 0.35f,
                   ),
               display =
                   DpDisplayOptions(
                       width = if (isDebugPanel) 420f else 280f,
-                      height = if (isDebugPanel) 300f else 140f,
+                      height = if (isDebugPanel) 380f else 140f,
                       dpi = 600,
                   ),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
@@ -887,16 +889,26 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             debugBuildLabel.visibility = View.VISIBLE
           }
           val debugAspectDetailLocal = rootView.findViewById<TextView>(R.id.debug_aspect_detail)
-          val debugAspectProbeButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_probe_button)
+          val debugAspectTargetButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_target_button)
+          val debugAspectPlanButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_plan_button)
+          val debugAspectApplyButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_apply_button)
           debugAspectDetail.complete(debugAspectDetailLocal)
-          debugAspectProbeButton.complete(debugAspectProbeButtonLocal)
+          debugAspectTargetButton.complete(debugAspectTargetButtonLocal)
+          debugAspectPlanButton.complete(debugAspectPlanButtonLocal)
+          debugAspectApplyButton.complete(debugAspectApplyButtonLocal)
           if (BuildConfig.DEBUG) {
             debugAspectDetailLocal.visibility = View.VISIBLE
-            debugAspectProbeButtonLocal.visibility = View.VISIBLE
+            debugAspectTargetButtonLocal.visibility = View.VISIBLE
+            debugAspectPlanButtonLocal.visibility = View.VISIBLE
+            debugAspectApplyButtonLocal.visibility = View.VISIBLE
             syncSpatialVideoAspectProbeUi()
-            debugAspectProbeButtonLocal.setOnClickListener {
-              showSpatialVideoAspectProbeMenu(debugAspectProbeButtonLocal)
+            debugAspectTargetButtonLocal.setOnClickListener {
+              showSpatialVideoAspectTargetMenu(debugAspectTargetButtonLocal)
             }
+            debugAspectPlanButtonLocal.setOnClickListener {
+              showSpatialVideoAspectPlanMenu(debugAspectPlanButtonLocal)
+            }
+            debugAspectApplyButtonLocal.setOnClickListener { applySpatialVideoAspectProbe() }
           }
           rootView.findViewById<Button>(R.id.open_2d_button).setOnClickListener {
             ViriViriApplication.appState.playerSession.beginOutputHandoff()
@@ -1163,22 +1175,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
   }
 
-  private fun showSpatialVideoAspectProbeMenu(anchor: View) {
+  private fun showSpatialVideoAspectTargetMenu(anchor: View) {
     PopupMenu(this, anchor).apply {
-      SpatialVideoAspectProbeMode.entries.forEachIndexed { index, mode ->
-        menu.add(0, index, index, mode.label).isChecked = mode == spatialVideoAspectProbeMode
+      SpatialVideoAspectProbeTarget.entries.forEachIndexed { index, target ->
+        menu.add(0, index, index, target.label).isChecked = target == spatialVideoAspectProbeState.pendingTarget
       }
       menu.setGroupCheckable(0, true, true)
-      setOnMenuItemClickListener { item: MenuItem ->
-        val mode = SpatialVideoAspectProbeMode.entries.getOrNull(item.itemId)
+      setOnMenuItemClickListener { item ->
+        val target = SpatialVideoAspectProbeTarget.entries.getOrNull(item.itemId)
             ?: return@setOnMenuItemClickListener false
-        spatialVideoAspectProbeMode = mode
-        lastAspectDiagnostic = null
-        updateSpatialVideoContentQuad(
-            videoWidth = player.videoSize.width,
-            videoHeight = player.videoSize.height,
-            pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
-        )
+        spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.selectTarget(spatialVideoAspectProbeState, target)
         syncSpatialVideoAspectProbeUi()
         true
       }
@@ -1186,20 +1192,52 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
   }
 
+  private fun showSpatialVideoAspectPlanMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      SpatialVideoAspectProbePlan.entries.forEachIndexed { index, plan ->
+        menu.add(0, index, index, plan.label).isChecked = plan == spatialVideoAspectProbeState.pendingPlan
+      }
+      menu.setGroupCheckable(0, true, true)
+      setOnMenuItemClickListener { item ->
+        val plan = SpatialVideoAspectProbePlan.entries.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.selectPlan(spatialVideoAspectProbeState, plan)
+        syncSpatialVideoAspectProbeUi()
+        true
+      }
+      show()
+    }
+  }
+
+  private fun applySpatialVideoAspectProbe() {
+    spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.apply(spatialVideoAspectProbeState)
+    lastAspectDiagnostic = null
+    updateSpatialVideoContentQuad(
+        videoWidth = player.videoSize.width,
+        videoHeight = player.videoSize.height,
+        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
+    )
+  }
+
   private fun syncSpatialVideoAspectProbeUi() {
-    debugAspectProbeButton.thenAccept { it.text = "Aspect probe: ${spatialVideoAspectProbeMode.label}" }
+    val state = spatialVideoAspectProbeState
+    debugAspectTargetButton.thenAccept { it.text = "Target: ${state.pendingTarget.label}" }
+    debugAspectPlanButton.thenAccept { it.text = "Plan: ${state.pendingPlan.label}" }
+    debugAspectApplyButton.thenAccept { it.text = "Apply" }
     val diagnostic = lastAspectDiagnostic
     debugAspectDetail.thenAccept { detail ->
       detail.text =
           if (diagnostic == null) {
-            "No VideoSize geometry yet"
+            "Pending ${state.pendingTarget.label} / ${state.pendingPlan.label}"
           } else {
-            "${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
-                "aspect=${diagnostic.displayAspectRatio} " +
+            "src=${diagnostic.displayAspectRatio} target=${resolvedSpatialVideoAspectRatio(diagnostic)} " +
                 "quad=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight}"
           }
     }
   }
+
+  private fun resolvedSpatialVideoAspectRatio(diagnostic: SpatialVideoAspectDiagnostic): Float =
+      spatialVideoAspectProbeState.appliedTarget.displayAspectRatio ?: diagnostic.displayAspectRatio
 
   private fun updateSpatialVideoContentQuad(
       videoWidth: Int,
@@ -1216,17 +1254,24 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             pixelWidthHeightRatio = pixelWidthHeightRatio,
         )
     if (diagnostic == lastAspectDiagnostic) return
+    val targetAspectRatio = resolvedSpatialVideoAspectRatio(diagnostic)
+    val targetContent =
+        spatialVideoContentQuadForAspect(
+            stageWidth = MR_SCREEN_WIDTH,
+            stageHeight = MR_SCREEN_HEIGHT,
+            displayAspectRatio = targetAspectRatio,
+        )
     val stageHalfWidth = MR_SCREEN_WIDTH / 2f
     val stageHalfHeight = MR_SCREEN_HEIGHT / 2f
     val shadowDepth = 0.1f
     mesh.updateGeometry(
         0,
         floatArrayOf(
-            // Content remains centered and contained in the fixed stage.
-            -diagnostic.contentHalfWidth, -diagnostic.contentHalfHeight, 0f,
-            diagnostic.contentHalfWidth, -diagnostic.contentHalfHeight, 0f,
-            diagnostic.contentHalfWidth, diagnostic.contentHalfHeight, 0f,
-            -diagnostic.contentHalfWidth, diagnostic.contentHalfHeight, 0f,
+            // Content remains centered and contained in the applied target aspect ratio.
+            -targetContent.halfWidth, -targetContent.halfHeight, 0f,
+            targetContent.halfWidth, -targetContent.halfHeight, 0f,
+            targetContent.halfWidth, targetContent.halfHeight, 0f,
+            -targetContent.halfWidth, targetContent.halfHeight, 0f,
             // The shadow keeps the full stage footprint and existing panel input geometry.
             -stageHalfWidth, -stageHalfHeight, shadowDepth,
             stageHalfWidth, -stageHalfHeight, shadowDepth,
@@ -1258,11 +1303,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
         ),
     )
-    when (spatialVideoAspectProbeMode) {
-      SpatialVideoAspectProbeMode.GEOMETRY_ONLY -> Unit
-      SpatialVideoAspectProbeMode.COMMIT_FALSE ->
+    when (spatialVideoAspectProbeState.appliedPlan) {
+      SpatialVideoAspectProbePlan.PLAN_1 -> Unit
+      SpatialVideoAspectProbePlan.PLAN_2 ->
           spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, false)
-      SpatialVideoAspectProbeMode.COMMIT_TRUE ->
+      SpatialVideoAspectProbePlan.PLAN_3 ->
           spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, true)
     }
     lastAspectDiagnostic = diagnostic
@@ -1272,9 +1317,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           "ViriViriAspect",
           "video=${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
               "pixelRatio=${diagnostic.pixelWidthHeightRatio} " +
-              "displayAspect=${diagnostic.displayAspectRatio} " +
-              "quadHalf=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight} " +
-              "probe=${spatialVideoAspectProbeMode.label}",
+              "sourceAspect=${diagnostic.displayAspectRatio} " +
+              "targetAspect=$targetAspectRatio " +
+              "quadHalf=${targetContent.halfWidth}x${targetContent.halfHeight} " +
+              "target=${spatialVideoAspectProbeState.appliedTarget.label} " +
+              "plan=${spatialVideoAspectProbeState.appliedPlan.label}",
       )
     }
   }

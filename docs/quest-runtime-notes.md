@@ -76,7 +76,7 @@ SpatialVideoSampleActivity
 
 - `PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
 
-`mode_panel` 在 Debug APK 中扩大为约 `420dp x 300dp`（空间尺寸 `1.0m x 0.65m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 提供三条手动路径：`Geometry only`、`Commit false`、`Commit true`。选择后会用当前 Media3 `VideoSize` 重放 geometry 更新，并显示 source dimensions、display aspect 和目标 quad half-size。该 probe 复用 `mode_panel`，不增加 video panel、Entity、Player 或 Surface。
+`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 使用显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（Plan 1/2/3），最后点击 `Apply` 才会以目标比例重写当前沉浸式视频的前景 mesh。`Default + Plan 1` 保持 source ratio 和当前已知可见路径。Target/Plan 选择本身不会影响画面；所有 preset 都在固定舞台中 contain，且不改变 Media3 stream、VideoSize、播放器、Surface、panel 或 Entity。该 probe 显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event，Quest 验证后才能决定最终修复方案。
 
 ## Bilibili 推荐与播放
 

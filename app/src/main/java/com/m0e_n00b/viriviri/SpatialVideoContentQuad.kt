@@ -23,11 +23,31 @@ internal fun spatialVideoContentQuad(
   ) {
     return fullStage
   }
+  return spatialVideoContentQuadForAspect(
+      stageWidth = stageWidth,
+      stageHeight = stageHeight,
+      displayAspectRatio = videoWidth.toFloat() * pixelWidthHeightRatio / videoHeight,
+  )
+}
+
+internal fun spatialVideoContentQuadForAspect(
+    stageWidth: Float,
+    stageHeight: Float,
+    displayAspectRatio: Float,
+): SpatialVideoContentQuad {
+  val fullStage = SpatialVideoContentQuad(stageWidth / 2f, stageHeight / 2f)
+  if (
+      stageWidth <= 0f ||
+          stageHeight <= 0f ||
+          !displayAspectRatio.isFinite() ||
+          displayAspectRatio <= 0f
+  ) {
+    return fullStage
+  }
   val stageRatio = stageWidth / stageHeight
-  val videoRatio = videoWidth.toFloat() * pixelWidthHeightRatio / videoHeight
-  return if (videoRatio >= stageRatio) {
-    SpatialVideoContentQuad(fullStage.halfWidth, stageWidth / videoRatio / 2f)
+  return if (displayAspectRatio >= stageRatio) {
+    SpatialVideoContentQuad(fullStage.halfWidth, stageWidth / displayAspectRatio / 2f)
   } else {
-    SpatialVideoContentQuad(stageHeight * videoRatio / 2f, fullStage.halfHeight)
+    SpatialVideoContentQuad(stageHeight * displayAspectRatio / 2f, fullStage.halfHeight)
   }
 }
