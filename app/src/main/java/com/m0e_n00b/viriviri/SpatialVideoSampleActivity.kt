@@ -139,7 +139,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
   private var spatialVideoTriangleMesh: TriangleMesh? = null
-  private var spatialVideoSceneMesh: SceneMesh? = null
+  private var spatialVideoPanelSceneObject: PanelSceneObject? = null
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
@@ -152,6 +152,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var qualityButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var debugAspectTargetButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectPlanButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -294,6 +295,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 error = appState.error,
                 isResolvingPlayback = appState.isResolvingPlayback,
             )
+            syncPlaybackQualityLabel(appState.playbackQuality)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
@@ -618,7 +620,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             val sceneMesh = SceneMesh.fromTriangleMesh(triMesh, false)
             spatialVideoTriangleMesh = triMesh
-            spatialVideoSceneMesh = sceneMesh
             updateSpatialVideoContentQuad(
                 videoWidth = player.videoSize.width,
                 videoHeight = player.videoSize.height,
@@ -707,6 +708,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         }
 
+    spatialVideoPanelSceneObject = panelSceneObject
     attachImmersiveOutput(panelSceneObject)
 
     systemManager
@@ -772,8 +774,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         layoutIdCreator = { R.layout.controls },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.8f, height = 0.25f),
-              display = DpDisplayOptions(width = 275.2f, height = 86f, dpi = 600),
+              shape = QuadShapeOptions(width = 0.8f, height = 0.45f),
+              display = DpDisplayOptions(width = 275.2f, height = 155f, dpi = 600),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
           )
         },
@@ -793,6 +795,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           syncPlaybackVolumeLabel()
           volumeButtonLocal.setOnClickListener { showPlaybackVolumeMenu(volumeButtonLocal) }
           setupHoverAndTouchListeners(volumeButtonLocal)
+          val qualityButtonLocal = rootView.findViewById<Button>(R.id.quality_button)!!
+          qualityButton.complete(qualityButtonLocal)
+          syncPlaybackQualityLabel(ViriViriApplication.appState.state.value.playbackQuality)
+          qualityButtonLocal.setOnClickListener { showPlaybackQualityMenu(qualityButtonLocal) }
+          setupHoverAndTouchListeners(qualityButtonLocal)
           val speedButtonLocal = rootView.findViewById<Button>(R.id.speed_button)!!
           speedButton.complete(speedButtonLocal)
           syncPlaybackSpeedLabel()
@@ -953,7 +960,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         systemManager.findSystem<SceneObjectSystem>()
             .getSceneObject(Entity(R.id.spatialized_video_panel))
             ?.getNow(null) as? PanelSceneObject
-    panel?.let(::attachImmersiveOutput)
+    panel?.let {
+      spatialVideoPanelSceneObject = it
+      attachImmersiveOutput(it)
+    }
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.applyCurrentState()
   }
 
@@ -1158,6 +1168,27 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     volumeButton.thenAccept { it.text = PlaybackVolumeControl.label(player.volume) }
   }
 
+  private fun syncPlaybackQualityLabel(quality: PlaybackQuality) {
+    qualityButton.thenAccept { it.text = "Quality: ${quality.label}" }
+  }
+
+  private fun showPlaybackQualityMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      menu.setGroupCheckable(0, true, true)
+      val selectedQuality = ViriViriApplication.appState.state.value.playbackQuality
+      PlaybackQuality.entries.forEachIndexed { index, quality ->
+        menu.add(0, index, index, quality.label).isChecked = quality == selectedQuality
+      }
+      setOnMenuItemClickListener { item ->
+        val quality = PlaybackQuality.entries.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        ViriViriApplication.appState.selectPlaybackQuality(quality)
+        true
+      }
+      show()
+    }
+  }
+
   private fun showPlaybackVolumeMenu(anchor: View) {
     PopupMenu(this, anchor).apply {
       menu.setGroupCheckable(0, true, true)
@@ -1239,6 +1270,22 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun resolvedSpatialVideoAspectRatio(diagnostic: SpatialVideoAspectDiagnostic): Float =
       spatialVideoAspectProbeState.appliedTarget.displayAspectRatio ?: diagnostic.displayAspectRatio
 
+  /** Reconfigures the existing native panel without creating or rebinding a video output Surface. */
+  private fun reshapeSpatialVideoPanel(content: SpatialVideoContentQuad) {
+    spatialVideoPanelSceneObject?.reshape(
+        MediaPanelSettings(
+                shape = QuadShapeOptions(width = content.halfWidth * 2f, height = content.halfHeight * 2f),
+                display =
+                    PixelDisplayOptions(
+                        width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
+                        height = IMMERSIVE_VIDEO_OUTPUT_HEIGHT,
+                    ),
+                rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None),
+            )
+            .toPanelConfigOptions()
+    )
+  }
+
   private fun updateSpatialVideoContentQuad(
       videoWidth: Int,
       videoHeight: Int,
@@ -1264,7 +1311,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val stageHalfWidth = MR_SCREEN_WIDTH / 2f
     val stageHalfHeight = MR_SCREEN_HEIGHT / 2f
     val shadowDepth = 0.1f
-    mesh.updateGeometry(
+    if (spatialVideoAspectProbeState.appliedPlan == SpatialVideoAspectProbePlan.PLAN_1) {
+      mesh.updateGeometry(
         0,
         floatArrayOf(
             // Content remains centered and contained in the applied target aspect ratio.
@@ -1302,13 +1350,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
             Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
         ),
-    )
+      )
+    }
     when (spatialVideoAspectProbeState.appliedPlan) {
       SpatialVideoAspectProbePlan.PLAN_1 -> Unit
-      SpatialVideoAspectProbePlan.PLAN_2 ->
-          spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, false)
-      SpatialVideoAspectProbePlan.PLAN_3 ->
-          spatialVideoSceneMesh?.updateWithTriangleMesh(mesh, true)
+      SpatialVideoAspectProbePlan.PANEL_RESHAPE -> reshapeSpatialVideoPanel(targetContent)
     }
     lastAspectDiagnostic = diagnostic
     syncSpatialVideoAspectProbeUi()
@@ -1320,6 +1366,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               "sourceAspect=${diagnostic.displayAspectRatio} " +
               "targetAspect=$targetAspectRatio " +
               "quadHalf=${targetContent.halfWidth}x${targetContent.halfHeight} " +
+                "panelShape=${targetContent.halfWidth * 2f}x${targetContent.halfHeight * 2f} " +
               "target=${spatialVideoAspectProbeState.appliedTarget.label} " +
               "plan=${spatialVideoAspectProbeState.appliedPlan.label}",
       )

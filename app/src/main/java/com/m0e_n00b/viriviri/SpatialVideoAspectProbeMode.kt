@@ -13,8 +13,7 @@ internal enum class SpatialVideoAspectProbeTarget(
 
 internal enum class SpatialVideoAspectProbePlan(val label: String) {
   PLAN_1("Plan 1"),
-  PLAN_2("Plan 2"),
-  PLAN_3("Plan 3"),
+  PANEL_RESHAPE("Panel reshape"),
 }
 
 internal data class SpatialVideoAspectProbeState(

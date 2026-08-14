@@ -20,18 +20,18 @@ class SpatialVideoAspectProbeModeTest {
     val pendingPlan =
         SpatialVideoAspectProbeReducer.selectPlan(
             pendingTarget,
-            SpatialVideoAspectProbePlan.PLAN_3,
+            SpatialVideoAspectProbePlan.PANEL_RESHAPE,
         )
 
     assertEquals(SpatialVideoAspectProbeTarget.PORTRAIT_9_16, pendingPlan.pendingTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PLAN_3, pendingPlan.pendingPlan)
+    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, pendingPlan.pendingPlan)
     assertEquals(SpatialVideoAspectProbeTarget.DEFAULT, pendingPlan.appliedTarget)
     assertEquals(SpatialVideoAspectProbePlan.PLAN_1, pendingPlan.appliedPlan)
 
     val applied = SpatialVideoAspectProbeReducer.apply(pendingPlan)
 
     assertEquals(SpatialVideoAspectProbeTarget.PORTRAIT_9_16, applied.appliedTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PLAN_3, applied.appliedPlan)
+    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, applied.appliedPlan)
   }
 
   @Test

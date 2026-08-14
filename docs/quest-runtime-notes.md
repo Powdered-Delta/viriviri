@@ -76,13 +76,13 @@ SpatialVideoSampleActivity
 
 - `PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
 
-`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 使用显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（Plan 1/2/3），最后点击 `Apply` 才会以目标比例重写当前沉浸式视频的前景 mesh。`Default + Plan 1` 保持 source ratio 和当前已知可见路径。Target/Plan 选择本身不会影响画面；所有 preset 都在固定舞台中 contain，且不改变 Media3 stream、VideoSize、播放器、Surface、panel 或 Entity。该 probe 显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event，Quest 验证后才能决定最终修复方案。
+`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 使用显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（`Plan 1` 或 `Panel reshape`），最后点击 `Apply`。`Default + Plan 1` 保持 source ratio 和当前已知可见 mesh 路径。`Panel reshape` 会对同一个 `PanelSceneObject` 调用 Meta SDK 的 `reshape(...)`，仅以目标 contain quad 重配 panel shape，并保留固定 pixel display、同一 player 和同一 SDK-owned Surface。Target/Plan 选择本身不会影响画面；该 probe 不改变 Media3 stream、VideoSize、播放器、Surface、source URL 或 Entity。它显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event；只有 Quest 确认画面可见且比例正确后才能决定最终修复方案。
 
 ## Bilibili 推荐与播放
 
 - 默认沉浸式 selector panel 显示 Bilibili 推荐；2D 和沉浸式 UI 共用 application-scoped recommendation state，因此列表、所选条目和浏览/观看目的地在路由后保持一致。沉浸式 Browse session 有明确闭环：`Back to playback` 取消 Browse，任意明确的视频选择（包括当前视频）也只会一次性返回 Playback；普通列表刷新不会关闭 Browse。Compose panel 仅发 AppState command，Spatial Activity 才将其映射为现有 Playback canvas，不创建播放器或 Surface。
 - selector panel 使用独立的 `SearchInputPanel`，不再只依赖 Horizon OS 系统 IME。默认 `ChineseT9InputMethod` 在应用内提供多击九宫格拼音、离线热门短语排序和 Android ICU `Han-Latin` 单字候选回退；选中候选后才会写入共享查询。`SearchInputMethod`、`OfflinePinyinLexicon` 和 `SearchInputMethodRegistry` 是纯 Kotlin 扩展边界，其他开发者可注册自己的语言键盘和离线词典，不改 Compose 搜索面板、状态层或 Bilibili provider。输入面板包含 `清空输入` 与 `确定搜索`，只有后者才会请求 WBI 签名的视频搜索；系统虚拟键盘保留为图标触发的备用输入。该面板不创建 Spatial entity、播放器或 Surface。共享状态取消前一搜索并以请求序号丢弃过期结果，`Recommendations` 会重新加载推荐 feed。
-- 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
+- 选择推荐后，独立 `BilibiliPlaybackProvider` 依次解析 `cid`、获取 WBI 图像 key、生成签名 playurl 请求，并仅选择 AVC DASH 视频与 DASH 音频。沉浸式 transport 提供 `Quality` 菜单（Auto、360p、480p、720p、1080p）；切换时在同一 player 上重新解析当前 BV，保留当前位置和 `playWhenReady`。选择的档位是公开 playurl 请求偏好，provider 优先选择不高于目标高度的 AVC，目标不可用时回退到最低兼容 AVC；不登录、不绕过访问限制，也不承诺服务端一定提供该高度。网络、API、解析或兼容流失败显示为可恢复错误，用户仍可返回推荐列表。
 - 不发送 Cookie、SESSDATA、access key、用户标识或播放心跳。该公共接口不是稳定 SDK 契约，设备验证时应准备接口变更或限流失败的回退测试。
 - 一个 application-scoped Media3 `ExoPlayer` 是唯一播放会话。2D `TextureView` Surface 由应用创建并释放；Spatial SDK Surface 仅附加/分离，绝不由应用释放。切换路由会保存位置与 play state，并在目标 Surface 附加后恢复。普通同一 Spatial Surface 的重复 callback 是 no-op；但从 2D 返回 immersive 时，一次性 intent signal 会强制把已缓存的 SDK Surface 重附着到同一 player，因为离开路由已清除该 player 的当前输出。
 - 2D 视频输出保留现有 `TextureView` Surface 生命周期，并从 Media3 `VideoSize` 更新 view transform。输出在黑色容器中按 contain 比例居中，产生 letterbox 或 pillarbox，不拉伸或裁切源帧。
@@ -191,7 +191,11 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
   event 显示 `1080x1920 / 0.5625 / 0.253125x0.45` 而画面仍拉伸，问题在 material
   UV 或 raw Spatial Surface compositor，不能再以第二层黑色 mesh 补偿。不要调用
   `SceneMesh.updateWithTriangleMesh(...)`：引入它的 Quest build 保留 stage hit
-  testing 但失去可见视频，已知可见路径仅更新 retained `TriangleMesh`。
+  testing 但失去可见视频。2026-08-14 Quest 验证进一步确认 retained
+  `TriangleMesh.updateGeometry(...)` 虽保持画面可见，但不能带来有效的可见比例变化。
+  所有 `updateWithTriangleMesh` 方案已移除。新的 debug-only `Panel reshape` probe 使用
+  `PanelSceneObject.reshape(PanelConfigOptions)` 重配同一个 video panel；它尚未通过 Quest
+  验证，必须以 `9:16 + Panel reshape` 记录画面可见性、观察比例与 `ViriViriAspect` 日志。
 - reset orientation diagnostics: debug builds log `ViriViriSpatial` only when
   initializing `LOCAL_FLOOR`/view origin, reaching VR ready, and receiving a
   Spatial session state. The app does not write a panel pose/scale/yaw during
