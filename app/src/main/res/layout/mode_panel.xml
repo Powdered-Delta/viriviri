@@ -40,6 +40,13 @@
     android:text="Retry"
     android:visibility="gone"
   />
+  <Button
+    android:id="@+id/display_ratio_button"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:text="Display ratio: Auto"
+  />
   <TextView
     android:id="@+id/debug_build_label"
     android:layout_width="match_parent"

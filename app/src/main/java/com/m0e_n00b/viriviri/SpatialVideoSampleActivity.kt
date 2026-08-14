@@ -153,6 +153,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var qualityButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var displayRatioButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var debugAspectTargetButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectPlanButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -296,6 +297,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 isResolvingPlayback = appState.isResolvingPlayback,
             )
             syncPlaybackQualityLabel(appState.playbackQuality)
+            syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
+            applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
@@ -868,12 +871,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               shape =
                   QuadShapeOptions(
                       width = if (isDebugPanel) 1.0f else 0.7f,
-                      height = if (isDebugPanel) 0.8f else 0.35f,
+                      height = if (isDebugPanel) 0.8f else 0.48f,
                   ),
               display =
                   DpDisplayOptions(
                       width = if (isDebugPanel) 420f else 280f,
-                      height = if (isDebugPanel) 380f else 140f,
+                      height = if (isDebugPanel) 380f else 190f,
                       dpi = 600,
                   ),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
@@ -897,6 +900,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               error = appState.error,
               isResolvingPlayback = appState.isResolvingPlayback,
           )
+          val displayRatioButtonLocal = rootView.findViewById<Button>(R.id.display_ratio_button)
+          displayRatioButton.complete(displayRatioButtonLocal)
+          syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
+          displayRatioButtonLocal.setOnClickListener { showPlaybackDisplayRatioMenu(displayRatioButtonLocal) }
+          setupHoverAndTouchListeners(displayRatioButtonLocal)
           val debugBuildLabel = rootView.findViewById<TextView>(R.id.debug_build_label)
           if (BuildConfig.DEBUG) {
             debugBuildLabel.text = "DEV ${BuildConfig.GIT_SHA}"
@@ -1179,6 +1187,52 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     qualityButton.thenAccept { it.text = quality.label }
   }
 
+  private fun syncPlaybackDisplayRatioLabel(displayRatio: PlaybackDisplayRatio) {
+    displayRatioButton.thenAccept { it.text = "Display ratio: ${displayRatio.label}" }
+  }
+
+  private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
+    val target = SpatialVideoAspectProbeTarget.from(displayRatio)
+    val current = spatialVideoAspectProbeState
+    if (
+        current.pendingTarget == target &&
+            current.pendingPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE &&
+            current.appliedTarget == target &&
+            current.appliedPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE
+    ) return
+    spatialVideoAspectProbeState =
+        current.copy(
+            pendingTarget = target,
+            pendingPlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
+            appliedTarget = target,
+            appliedPlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
+        )
+    lastAspectDiagnostic = null
+    updateSpatialVideoContentQuad(
+        videoWidth = player.videoSize.width,
+        videoHeight = player.videoSize.height,
+        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
+    )
+    syncSpatialVideoAspectProbeUi()
+  }
+
+  private fun showPlaybackDisplayRatioMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      menu.setGroupCheckable(0, true, true)
+      val selectedRatio = ViriViriApplication.appState.state.value.playbackDisplayRatio
+      PlaybackDisplayRatio.entries.forEachIndexed { index, displayRatio ->
+        menu.add(0, index, index, displayRatio.label).isChecked = displayRatio == selectedRatio
+      }
+      setOnMenuItemClickListener { item ->
+        val displayRatio = PlaybackDisplayRatio.entries.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        ViriViriApplication.appState.selectPlaybackDisplayRatio(displayRatio)
+        true
+      }
+      show()
+    }
+  }
+
   private fun showPlaybackQualityMenu(anchor: View) {
     PopupMenu(this, anchor).apply {
       menu.setGroupCheckable(0, true, true)
@@ -1249,6 +1303,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun applySpatialVideoAspectProbe() {
     spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.apply(spatialVideoAspectProbeState)
+    if (spatialVideoAspectProbeState.appliedPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE) {
+      ViriViriApplication.appState.selectPlaybackDisplayRatio(
+          spatialVideoAspectProbeState.appliedTarget.displayRatio
+      )
+      return
+    }
     lastAspectDiagnostic = null
     updateSpatialVideoContentQuad(
         videoWidth = player.videoSize.width,

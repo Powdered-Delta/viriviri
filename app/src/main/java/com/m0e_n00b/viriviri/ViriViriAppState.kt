@@ -48,6 +48,7 @@ data class ViriViriUiState(
     val selected: Recommendation? = null,
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val playbackQuality: PlaybackQuality = PlaybackQuality.AUTO,
+    val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
     val isLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
     val canLoadMore: Boolean = true,
@@ -401,6 +402,12 @@ class ViriViriAppState(
           playWhenReady = playerSession.player.playWhenReady,
       )
     }
+  }
+
+  fun selectPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
+    val current = mutableState.value
+    if (current.playbackDisplayRatio == displayRatio) return
+    mutableState.value = current.copy(playbackDisplayRatio = displayRatio)
   }
 
   private fun startPlaybackResolution(

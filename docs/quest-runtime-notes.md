@@ -76,7 +76,7 @@ SpatialVideoSampleActivity
 
 - `PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
 
-`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。沉浸式视频默认使用 `Default + Panel reshape`：每个 distinct `VideoSize` 都以源显示比例重配同一个 `PanelSceneObject`，从而保持 contain 比例。2026-08-14 Quest 已验证该路径对竖屏视频有效且画面可见。Debug aspect controls 保留显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（`Plan 1` 或 `Panel reshape`），最后点击 `Apply`。`Panel reshape` 会对同一个 `PanelSceneObject` 调用 Meta SDK 的 `reshape(...)`，仅以目标 contain quad 重配 panel shape，并保留固定 pixel display、同一 player 和同一 SDK-owned Surface。Target/Plan 选择本身不会影响画面；该 debug-only override 不改变 Media3 stream、VideoSize、播放器、Surface、source URL 或 Entity，可在未来作为手动强制比例的实现基础。它显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event。
+`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m），以容纳诊断信息和测试入口；Release 为约 `280dp x 190dp`（空间尺寸 `0.7m x 0.48m`），并提供 `Display ratio` 菜单：`Auto`、`16:9`、`4:3`、`1:1` 与 `9:16`。该选择保存在 application-scoped UI state，2D/沉浸式路由共享同一偏好。沉浸式视频默认使用 `Auto + Panel reshape`：每个 distinct `VideoSize` 都以源显示比例重配同一个 `PanelSceneObject`，从而保持 contain 比例。2026-08-14 Quest 已验证该路径对竖屏视频有效且画面可见。所有 release ratio 选择均使用 `Panel reshape`，保留固定 pixel display、同一 player 和同一 SDK-owned Surface。Debug aspect controls 仍保留显式三段式流程：先选 `Target`，再选 `Plan`（`Plan 1` 或 `Panel reshape`），最后点击 `Apply`；这些实验性 plan 不会出现在 release。所有路径不改变 Media3 stream、VideoSize、播放器、Surface、source URL 或 Entity，并记录 bounded `ViriViriAspect` event。
 
 ## Bilibili 推荐与播放
 
