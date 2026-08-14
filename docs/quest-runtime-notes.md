@@ -76,7 +76,7 @@ SpatialVideoSampleActivity
 
 - `PancakeActivity` 标记为 `com.oculus.intent.category.2D`，但不带 `android.intent.category.LAUNCHER`，因此不会成为默认启动入口。它现在是 Compose host，header 保留 `Return to immersive`，并可显示推荐列表或所选视频。2D recommendation route 默认以可滚动列表为主；Search icon 才展开离线九宫格输入台，避免输入控件在 `800dp x 550dp` Horizon OS panel 中挤掉所有推荐内容。
 
-`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。Debug aspect probe 使用显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（`Plan 1` 或 `Panel reshape`），最后点击 `Apply`。`Default + Plan 1` 保持 source ratio 和当前已知可见 mesh 路径。`Panel reshape` 会对同一个 `PanelSceneObject` 调用 Meta SDK 的 `reshape(...)`，仅以目标 contain quad 重配 panel shape，并保留固定 pixel display、同一 player 和同一 SDK-owned Surface。Target/Plan 选择本身不会影响画面；该 probe 不改变 Media3 stream、VideoSize、播放器、Surface、source URL 或 Entity。它显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event；只有 Quest 确认画面可见且比例正确后才能决定最终修复方案。
+`mode_panel` 在 Debug APK 中扩大为约 `420dp x 380dp`（空间尺寸 `1.0m x 0.8m`），以容纳诊断信息和测试入口；Release 保持原 `280dp x 140dp` 尺寸。沉浸式视频默认使用 `Default + Panel reshape`：每个 distinct `VideoSize` 都以源显示比例重配同一个 `PanelSceneObject`，从而保持 contain 比例。2026-08-14 Quest 已验证该路径对竖屏视频有效且画面可见。Debug aspect controls 保留显式三段式流程：先选 `Target`（`Default`、`16:9`、`4:3`、`1:1` 或 `9:16`），再选 `Plan`（`Plan 1` 或 `Panel reshape`），最后点击 `Apply`。`Panel reshape` 会对同一个 `PanelSceneObject` 调用 Meta SDK 的 `reshape(...)`，仅以目标 contain quad 重配 panel shape，并保留固定 pixel display、同一 player 和同一 SDK-owned Surface。Target/Plan 选择本身不会影响画面；该 debug-only override 不改变 Media3 stream、VideoSize、播放器、Surface、source URL 或 Entity，可在未来作为手动强制比例的实现基础。它显示 source/target aspect 与目标 quad 并记录 bounded `ViriViriAspect` event。
 
 ## Bilibili 推荐与播放
 
@@ -193,9 +193,11 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
   `SceneMesh.updateWithTriangleMesh(...)`：引入它的 Quest build 保留 stage hit
   testing 但失去可见视频。2026-08-14 Quest 验证进一步确认 retained
   `TriangleMesh.updateGeometry(...)` 虽保持画面可见，但不能带来有效的可见比例变化。
-  所有 `updateWithTriangleMesh` 方案已移除。新的 debug-only `Panel reshape` probe 使用
-  `PanelSceneObject.reshape(PanelConfigOptions)` 重配同一个 video panel；它尚未通过 Quest
-  验证，必须以 `9:16 + Panel reshape` 记录画面可见性、观察比例与 `ViriViriAspect` 日志。
+  所有 `updateWithTriangleMesh` 方案已移除。2026-08-14 Quest 验证确认
+  `PanelSceneObject.reshape(PanelConfigOptions)` 可在同一个 video panel、同一 player 和同一
+  SDK-owned Surface 上正确应用 `9:16` target 且保持画面可见。该路径现为默认 source-aspect
+  修复。Debug-only `Target` / `Plan` / `Apply` controls 保留，以便后续实现类似 Bilibili Web
+  的手动强制显示比例；当前不在 release UI 暴露该功能。
 - reset orientation diagnostics: debug builds log `ViriViriSpatial` only when
   initializing `LOCAL_FLOOR`/view origin, reaching VR ready, and receiving a
   Spatial session state. The app does not write a panel pose/scale/yaw during

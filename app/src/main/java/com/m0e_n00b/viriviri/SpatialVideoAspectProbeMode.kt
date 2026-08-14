@@ -18,9 +18,9 @@ internal enum class SpatialVideoAspectProbePlan(val label: String) {
 
 internal data class SpatialVideoAspectProbeState(
     val pendingTarget: SpatialVideoAspectProbeTarget = SpatialVideoAspectProbeTarget.DEFAULT,
-    val pendingPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PLAN_1,
+    val pendingPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
     val appliedTarget: SpatialVideoAspectProbeTarget = SpatialVideoAspectProbeTarget.DEFAULT,
-    val appliedPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PLAN_1,
+    val appliedPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
 )
 
 internal object SpatialVideoAspectProbeReducer {

@@ -727,6 +727,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     videoPanelEntity.setComponent(IsdkPanelGrabHandle())
     videoPanelEntity.setComponent(IsdkGrabbable())
     panelSceneObject.updateIsdkComponentProperties(videoPanelEntity)
+
+    // The mesh creator can run before the PanelSceneObject reference is available for reshape.
+    lastAspectDiagnostic = null
+    updateSpatialVideoContentQuad(
+        videoWidth = player.videoSize.width,
+        videoHeight = player.videoSize.height,
+        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
+    )
   }
 
   private fun debugPanelRegistration(): PanelRegistration {
