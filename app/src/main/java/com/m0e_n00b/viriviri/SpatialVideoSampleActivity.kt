@@ -147,6 +147,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
   private var danmakuOverlayEntity: Entity? = null
+  private var stageBackdropEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -367,6 +368,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         selectorPanelRegistration(),
         mrPanelRegistration(),
         modePanelRegistration(),
+        stageBackdropPanelRegistration(),
         danmakuOverlayPanelRegistration(),
     )
         .apply {
@@ -524,6 +526,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      createStageBackdropPanel()
       createDanmakuOverlayPanel()
       immersivePlaybackCanvasHost.applyInitialState()
       // Quiet Watch is valid only after a video exists. Otherwise Browse is the sole entry route.
@@ -841,18 +844,39 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     )
   }
 
+  private fun stageBackdropPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.stage_backdrop_panel,
+          composeViewCreator = { _, context -> ComposeView(context).apply { setContent { StageBackdrop() } } },
+          settingsCreator = { stageOverlayPanelSettings(MR_SCREEN_WIDTH, MR_SCREEN_HEIGHT) },
+      )
+
   private fun danmakuOverlayPanelRegistration(): PanelRegistration =
       ComposeViewPanelRegistration(
           R.id.danmaku_overlay_panel,
           composeViewCreator = { _, context -> ComposeView(context).apply { setContent { DanmakuOverlay() } } },
           settingsCreator = {
-            UIPanelSettings(
-                shape = QuadShapeOptions(width = MR_SCREEN_WIDTH, height = MR_SCREEN_HEIGHT),
-                display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
-                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
-            )
+            stageOverlayPanelSettings(MR_SCREEN_WIDTH, MR_SCREEN_HEIGHT)
           },
       )
+
+  private fun stageOverlayPanelSettings(width: Float, height: Float) =
+      UIPanelSettings(
+          shape = QuadShapeOptions(width = width, height = height),
+          display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
+          style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+      )
+
+  private fun createStageBackdropPanel() {
+    if (stageBackdropEntity != null) return
+    stageBackdropEntity =
+        Entity.createPanelEntity(
+            R.id.stage_backdrop_panel,
+            Transform(Pose(Vector3(0f, 0f, 0.01f))),
+            TransformParent(Entity(R.id.spatialized_video_panel)),
+            Visible(true),
+        )
+  }
 
   private fun createDanmakuOverlayPanel() {
     if (danmakuOverlayEntity != null) return
@@ -1404,25 +1428,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             .toPanelConfigOptions()
     )
     panel.updateIsdkComponentProperties(Entity(R.id.spatialized_video_panel))
-    reshapeDanmakuOverlay(shapeWidth, shapeHeight)
+    reshapeStageOverlay(Entity(R.id.stage_backdrop_panel), shapeWidth, shapeHeight)
+    reshapeStageOverlay(Entity(R.id.danmaku_overlay_panel), shapeWidth, shapeHeight)
     if (BuildConfig.DEBUG) {
       Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
     }
   }
 
-  private fun reshapeDanmakuOverlay(width: Float, height: Float) {
+  private fun reshapeStageOverlay(entity: Entity, width: Float, height: Float) {
     val overlay =
         systemManager.findSystem<SceneObjectSystem>()
-            .getSceneObject(Entity(R.id.danmaku_overlay_panel))
+            .getSceneObject(entity)
             ?.getNow(null) as? PanelSceneObject
         ?: return
     overlay.reshape(
-        UIPanelSettings(
-                shape = QuadShapeOptions(width = width, height = height),
-                display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
-                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
-            )
-            .toPanelConfigOptions()
+        stageOverlayPanelSettings(width, height).toPanelConfigOptions()
     )
   }
 

@@ -23,6 +23,13 @@ private const val FIXED_DURATION_MS = 4_000L
 private const val LANE_COUNT = 6
 
 @Composable
+internal fun StageBackdrop() {
+  Canvas(modifier = Modifier.fillMaxSize()) {
+    drawRect(Color.Black.copy(alpha = 0.58f))
+  }
+}
+
+@Composable
 internal fun DanmakuOverlay() {
   val appState by ViriViriApplication.appState.state.collectAsState()
   var positionMs by remember { mutableLongStateOf(0L) }
