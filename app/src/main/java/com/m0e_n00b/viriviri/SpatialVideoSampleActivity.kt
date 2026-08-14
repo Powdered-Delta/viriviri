@@ -685,13 +685,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  val canvasBeforeAction =
-                      if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.state.canvas else null
                   dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
-                  if (canvasBeforeAction == PlaybackCanvas.PLAYBACK) {
-                    togglePlay()
-                  } else {
-                    showTransportOverlay()
+                  when (ImmersiveTransportOverlayPolicy.primaryAction()) {
+                    ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
                   }
                 }
 

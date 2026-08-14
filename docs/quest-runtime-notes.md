@@ -175,6 +175,9 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
 - 输出切换修复：同一个 Media3 player 切换 Surface 时不能再显式 `seekTo` 已记录的
   position。DASH seek 会回退到此前关键帧或分段开头；保持播放器自然推进、只替换
   输出 Surface，避免切换后重复播放当前片段。
+- 沉浸式 stage 交互：点击可见视频区域只负责进入 Playback canvas 并呼出/reset
+  transport controls，绝不直接修改 `playWhenReady`。播放/暂停只能通过 controls 中明确的
+  play/pause icon 执行；该规则避免竖屏内容或缩小 hit target 下的意外暂停。
 - MR 布局修复：`setMrMode()` 只切换 passthrough 环境、抓取能力和 locomotion，不能
   重写视频或控制 panel 的 pose / scale。三块顶层 panel 及控制条使用同一套初始
   相对布局，避免透视和非透视模式间的尺寸、位置和转向基准漂移。

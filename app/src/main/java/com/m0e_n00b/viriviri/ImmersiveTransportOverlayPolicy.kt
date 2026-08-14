@@ -2,7 +2,6 @@ package com.m0e_n00b.viriviri
 
 internal enum class ImmersiveTransportPrimaryAction {
   REVEAL_TRANSPORT,
-  TOGGLE_PLAY_INTENT,
 }
 
 internal data class ImmersiveTransportOverlayState(
@@ -13,10 +12,6 @@ internal data class ImmersiveTransportOverlayState(
 internal object ImmersiveTransportOverlayPolicy {
   fun shouldScheduleIdleFade(isActuallyPlaying: Boolean): Boolean = isActuallyPlaying
 
-  fun primaryAction(state: ImmersiveTransportOverlayState): ImmersiveTransportPrimaryAction =
-      if (state.visible) {
-        ImmersiveTransportPrimaryAction.TOGGLE_PLAY_INTENT
-      } else {
-        ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT
-      }
+  fun primaryAction(): ImmersiveTransportPrimaryAction =
+      ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT
 }
