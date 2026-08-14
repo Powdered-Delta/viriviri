@@ -526,6 +526,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       createVideoPanel()
       createDanmakuOverlayPanel()
       immersivePlaybackCanvasHost.applyInitialState()
+      // Quiet Watch is valid only after a video exists. Otherwise Browse is the sole entry route.
+      if (ViriViriApplication.appState.state.value.selected == null) {
+        dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
+      }
       setMrMode(scene.isSystemPassthroughEnabled())
       isFirstReadyDone = true
     }
