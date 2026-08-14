@@ -7,4 +7,5 @@
   <item type="id" name="debug_panel" />
   <item type="id" name="mode_panel" />
   <item type="id" name="wrist_debug_panel" />
+  <item type="id" name="danmaku_overlay_panel" />
 </resources>

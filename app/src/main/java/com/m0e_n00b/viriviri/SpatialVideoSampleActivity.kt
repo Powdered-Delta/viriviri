@@ -33,6 +33,7 @@ import android.widget.Button
 import android.widget.PopupMenu
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.ActivityCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -54,6 +55,8 @@ import androidx.media3.exoplayer.metadata.MetadataOutput
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import com.meta.spatial.castinputforward.CastInputForwardFeature
+import com.meta.spatial.compose.ComposeFeature
+import com.meta.spatial.compose.ComposeViewPanelRegistration
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
@@ -143,6 +146,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
+  private var danmakuOverlayEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -245,7 +249,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       }
 
   override fun registerFeatures(): List<SpatialFeature> {
-    val features = mutableListOf<SpatialFeature>(VRFeature(this))
+    val features = mutableListOf<SpatialFeature>(VRFeature(this), ComposeFeature())
     if (BuildConfig.DEBUG) {
       features.add(CastInputForwardFeature(this))
       features.add(HotReloadFeature(this))
@@ -363,6 +367,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         selectorPanelRegistration(),
         mrPanelRegistration(),
         modePanelRegistration(),
+        danmakuOverlayPanelRegistration(),
     )
         .apply {
           if (BuildConfig.DEBUG) add(wristDebugPanelRegistration())
@@ -519,6 +524,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      createDanmakuOverlayPanel()
       immersivePlaybackCanvasHost.applyInitialState()
       setMrMode(scene.isSystemPassthroughEnabled())
       isFirstReadyDone = true
@@ -829,6 +835,30 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           applyTransportOverlayVisibility(transportOverlayState.visible)
         },
     )
+  }
+
+  private fun danmakuOverlayPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.danmaku_overlay_panel,
+          composeViewCreator = { _, context -> ComposeView(context).apply { setContent { DanmakuOverlay() } } },
+          settingsCreator = {
+            UIPanelSettings(
+                shape = QuadShapeOptions(width = MR_SCREEN_WIDTH, height = MR_SCREEN_HEIGHT),
+                display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
+                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+            )
+          },
+      )
+
+  private fun createDanmakuOverlayPanel() {
+    if (danmakuOverlayEntity != null) return
+    danmakuOverlayEntity =
+        Entity.createPanelEntity(
+            R.id.danmaku_overlay_panel,
+            Transform(Pose(Vector3(0f, 0f, -0.01f))),
+            TransformParent(Entity(R.id.spatialized_video_panel)),
+            Visible(true),
+        )
   }
 
   private fun wristDebugPanelRegistration(): PanelRegistration {
@@ -1370,9 +1400,26 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             .toPanelConfigOptions()
     )
     panel.updateIsdkComponentProperties(Entity(R.id.spatialized_video_panel))
+    reshapeDanmakuOverlay(shapeWidth, shapeHeight)
     if (BuildConfig.DEBUG) {
       Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
     }
+  }
+
+  private fun reshapeDanmakuOverlay(width: Float, height: Float) {
+    val overlay =
+        systemManager.findSystem<SceneObjectSystem>()
+            .getSceneObject(Entity(R.id.danmaku_overlay_panel))
+            ?.getNow(null) as? PanelSceneObject
+        ?: return
+    overlay.reshape(
+        UIPanelSettings(
+                shape = QuadShapeOptions(width = width, height = height),
+                display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
+                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+            )
+            .toPanelConfigOptions()
+    )
   }
 
   private fun updateSpatialVideoContentQuad(
