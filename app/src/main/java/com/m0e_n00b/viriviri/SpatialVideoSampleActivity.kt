@@ -1277,11 +1277,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun resolvedSpatialVideoAspectRatio(diagnostic: SpatialVideoAspectDiagnostic): Float =
       spatialVideoAspectProbeState.appliedTarget.displayAspectRatio ?: diagnostic.displayAspectRatio
 
-  /** Reconfigures the existing native panel without creating or rebinding a video output Surface. */
+  /** Reconfigures the existing native panel and refreshes its matching ISDK hit dimensions. */
   private fun reshapeSpatialVideoPanel(content: SpatialVideoContentQuad) {
-    spatialVideoPanelSceneObject?.reshape(
+    val panel = spatialVideoPanelSceneObject ?: return
+    val shapeWidth = content.halfWidth * 2f
+    val shapeHeight = content.halfHeight * 2f
+    panel.reshape(
         MediaPanelSettings(
-                shape = QuadShapeOptions(width = content.halfWidth * 2f, height = content.halfHeight * 2f),
+                shape = QuadShapeOptions(width = shapeWidth, height = shapeHeight),
                 display =
                     PixelDisplayOptions(
                         width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
@@ -1291,6 +1294,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             .toPanelConfigOptions()
     )
+    panel.updateIsdkComponentProperties(Entity(R.id.spatialized_video_panel))
+    if (BuildConfig.DEBUG) {
+      Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
+    }
   }
 
   private fun updateSpatialVideoContentQuad(
