@@ -7,14 +7,10 @@ import org.junit.Test
 
 class ImmersiveTransportOverlayPolicyTest {
   @Test
-  fun primaryStageClickRevealsHiddenTransportBeforeTogglingPlayback() {
+  fun primaryStageClickAlwaysRevealsTransport() {
     assertEquals(
         ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT,
-        ImmersiveTransportOverlayPolicy.primaryAction(ImmersiveTransportOverlayState(visible = false)),
-    )
-    assertEquals(
-        ImmersiveTransportPrimaryAction.TOGGLE_PLAY_INTENT,
-        ImmersiveTransportOverlayPolicy.primaryAction(ImmersiveTransportOverlayState(visible = true)),
+        ImmersiveTransportOverlayPolicy.primaryAction(),
     )
   }
 

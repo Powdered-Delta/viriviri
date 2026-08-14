@@ -6,5 +6,7 @@ internal object PlaybackVolumeControl {
   fun normalizedForDisplay(volume: Float): Float =
       supportedVolumes.firstOrNull { it == volume } ?: 1f
 
-  fun label(volume: Float): String = "Vol ${(normalizedForDisplay(volume) * 100).toInt()}%"
+  fun label(volume: Float): String = "Vol ${compactLabel(volume)}"
+
+  fun compactLabel(volume: Float): String = "${(normalizedForDisplay(volume) * 100).toInt()}%"
 }

@@ -33,6 +33,7 @@ import android.widget.Button
 import android.widget.PopupMenu
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.ActivityCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -54,6 +55,8 @@ import androidx.media3.exoplayer.metadata.MetadataOutput
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import com.meta.spatial.castinputforward.CastInputForwardFeature
+import com.meta.spatial.compose.ComposeFeature
+import com.meta.spatial.compose.ComposeViewPanelRegistration
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
@@ -143,6 +146,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
+  private var danmakuOverlayEntity: Entity? = null
+  private var stageBackdropEntity: Entity? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -153,6 +158,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var qualityButton: CompletableFuture<Button> = CompletableFuture<Button>()
+  var displayRatioButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var debugAspectTargetButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var debugAspectPlanButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -185,6 +191,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var browseCommandObserver: Job? = null
   private var shouldReattachImmersiveOutput = false
   private lateinit var immersiveMediaStageHost: ImmersiveMediaStageHost<Surface>
+  private lateinit var immersiveWorkbenchHost: ImmersiveWorkbenchHost
   private val immersiveStagePlayerListener =
       object : Player.Listener {
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
@@ -243,7 +250,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       }
 
   override fun registerFeatures(): List<SpatialFeature> {
-    val features = mutableListOf<SpatialFeature>(VRFeature(this))
+    val features = mutableListOf<SpatialFeature>(VRFeature(this), ComposeFeature())
     if (BuildConfig.DEBUG) {
       features.add(CastInputForwardFeature(this))
       features.add(HotReloadFeature(this))
@@ -277,6 +284,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             reattachVideoOutput = ViriViriApplication.appState.playerSession::reattachImmersiveSurface,
         )
     spatialPanelVisibilityController = SpatialPanelVisibilityController(canvasHandler)
+    immersiveWorkbenchHost = ImmersiveWorkbenchHost(::applyWorkbenchModules)
     immersivePlaybackCanvasHost =
         ImmersivePlaybackCanvasHost(applyVisibleSlots = ::applyPlaybackCanvasSlots)
     player.addListener(immersiveStagePlayerListener)
@@ -296,6 +304,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 isResolvingPlayback = appState.isResolvingPlayback,
             )
             syncPlaybackQualityLabel(appState.playbackQuality)
+            syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
+            applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
@@ -358,6 +368,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         selectorPanelRegistration(),
         mrPanelRegistration(),
         modePanelRegistration(),
+        stageBackdropPanelRegistration(),
+        danmakuOverlayPanelRegistration(),
     )
         .apply {
           if (BuildConfig.DEBUG) add(wristDebugPanelRegistration())
@@ -486,8 +498,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           .setComponents(
               listOf(
                   Panel(R.id.mr_panel),
-                  Transform(Pose(Vector3(0.0f, -0.6f, -0.1f))),
-                  TransformParent(Entity(R.id.video_selector_panel)),
+                  Transform(Pose(Vector3(0.0f, 0.72f, -0.12f), Quaternion(8f, 0f, 0f))),
+                  TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
       Entity(R.id.mode_panel)
@@ -514,7 +526,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      createStageBackdropPanel()
+      createDanmakuOverlayPanel()
       immersivePlaybackCanvasHost.applyInitialState()
+      // Quiet Watch is valid only after a video exists. Otherwise Browse is the sole entry route.
+      if (ViriViriApplication.appState.state.value.selected == null) {
+        dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
+      }
       setMrMode(scene.isSystemPassthroughEnabled())
       isFirstReadyDone = true
     }
@@ -682,13 +700,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  val canvasBeforeAction =
-                      if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.state.canvas else null
-                  dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
-                  if (canvasBeforeAction == PlaybackCanvas.PLAYBACK) {
-                    togglePlay()
+                  if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
+                    dispatchPlaybackCanvas(PlaybackCanvasEvent.IdleTimeout)
+                    animateControllerVisibility(false)
                   } else {
-                    showTransportOverlay()
+                    dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
+                    when (ImmersiveTransportOverlayPolicy.primaryAction()) {
+                      ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
+                    }
                   }
                 }
 
@@ -782,8 +801,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         layoutIdCreator = { R.layout.controls },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.8f, height = 0.45f),
-              display = DpDisplayOptions(width = 275.2f, height = 155f, dpi = 600),
+              shape = QuadShapeOptions(width = 1.32f, height = 0.38f),
+              display = DpDisplayOptions(width = 460f, height = 132f, dpi = 600),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
           )
         },
@@ -825,10 +844,56 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           forwardButton.setOnClickListener { ViriViriApplication.appState.selectAdjacentRecommendation(1) }
           setupHoverAndTouchListeners(forwardButton)
           controllerView = rootView
-          setupHoverAndTouchListeners(controllerView)
           applyTransportOverlayVisibility(transportOverlayState.visible)
         },
     )
+  }
+
+  private fun stageBackdropPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.stage_backdrop_panel,
+          composeViewCreator = { _, context -> ComposeView(context).apply { setContent { StageBackdrop() } } },
+          settingsCreator = { stageOverlayPanelSettings(MR_SCREEN_WIDTH, MR_SCREEN_HEIGHT) },
+      )
+
+  private fun danmakuOverlayPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.danmaku_overlay_panel,
+          composeViewCreator = { _, context -> ComposeView(context).apply { setContent { DanmakuOverlay() } } },
+          settingsCreator = {
+            stageOverlayPanelSettings(MR_SCREEN_WIDTH, MR_SCREEN_HEIGHT)
+          },
+      )
+
+  private fun stageOverlayPanelSettings(width: Float, height: Float) =
+      UIPanelSettings(
+          shape = QuadShapeOptions(width = width, height = height),
+          display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
+          input = PanelInputOptions(0),
+          style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+      )
+
+  private fun createStageBackdropPanel() {
+    if (stageBackdropEntity != null) return
+    stageBackdropEntity =
+        Entity.createPanelEntity(
+            R.id.stage_backdrop_panel,
+            Transform(Pose(Vector3(0f, 0f, 0.01f))),
+            TransformParent(Entity(R.id.spatialized_video_panel)),
+            // Disabled until a uniform Spatial material replaces compositor-dithered UI alpha.
+            Visible(false),
+        )
+  }
+
+  private fun createDanmakuOverlayPanel() {
+    if (danmakuOverlayEntity != null) return
+    danmakuOverlayEntity =
+        Entity.createPanelEntity(
+            R.id.danmaku_overlay_panel,
+            Transform(Pose(Vector3(0f, 0f, -0.01f))),
+            TransformParent(Entity(R.id.spatialized_video_panel)),
+            Visible(true),
+        )
   }
 
   private fun wristDebugPanelRegistration(): PanelRegistration {
@@ -869,12 +934,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               shape =
                   QuadShapeOptions(
                       width = if (isDebugPanel) 1.0f else 0.7f,
-                      height = if (isDebugPanel) 0.8f else 0.35f,
+                      height = if (isDebugPanel) 0.8f else 0.48f,
                   ),
               display =
                   DpDisplayOptions(
                       width = if (isDebugPanel) 420f else 280f,
-                      height = if (isDebugPanel) 380f else 140f,
+                      height = if (isDebugPanel) 380f else 190f,
                       dpi = 600,
                   ),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
@@ -898,6 +963,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               error = appState.error,
               isResolvingPlayback = appState.isResolvingPlayback,
           )
+          val displayRatioButtonLocal = rootView.findViewById<Button>(R.id.display_ratio_button)
+          displayRatioButton.complete(displayRatioButtonLocal)
+          syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
+          displayRatioButtonLocal.setOnClickListener { showPlaybackDisplayRatioMenu(displayRatioButtonLocal) }
+          setupHoverAndTouchListeners(displayRatioButtonLocal)
           val debugBuildLabel = rootView.findViewById<TextView>(R.id.debug_build_label)
           if (BuildConfig.DEBUG) {
             debugBuildLabel.text = "DEV ${BuildConfig.GIT_SHA}"
@@ -1105,7 +1175,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.dispatch(event)
   }
 
-  private fun openBrowseCanvas() {
+  fun openBrowseCanvas() {
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.returnToRecommendations()
@@ -1113,17 +1183,34 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
+    if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.applyCanvasSlots(visibleSlots)
+  }
+
+  private fun applyWorkbenchModules(visibleModules: Set<WorkbenchModule>) {
     if (!::spatialPanelVisibilityController.isInitialized) return
-    val slotEntities =
+    val moduleEntities =
         mapOf(
-            PanelSlot.TRANSPORT to Entity(R.id.controls_id),
-            PanelSlot.SYSTEM_TOOLBAR to Entity(R.id.mode_panel),
-            PanelSlot.BROWSE to Entity(R.id.video_selector_panel),
+            WorkbenchModule.NAVIGATION to Entity(R.id.mr_panel),
+            WorkbenchModule.TRANSPORT to Entity(R.id.controls_id),
+            WorkbenchModule.CONTENT_LIST to Entity(R.id.video_selector_panel),
+            WorkbenchModule.VIDEO_CONTEXT to Entity(R.id.mode_panel),
         )
-    slotEntities.forEach { (slot, entity) ->
-      spatialPanelVisibilityController.setVisible(slot, entity, slot in visibleSlots)
+    moduleEntities.forEach { (module, entity) ->
+      spatialPanelVisibilityController.setVisible(
+          module.toPanelSlot(),
+          entity,
+          module in visibleModules,
+      )
     }
   }
+
+  private fun WorkbenchModule.toPanelSlot(): PanelSlot =
+      when (this) {
+        WorkbenchModule.TRANSPORT, WorkbenchModule.SHORTS_ACTIONS -> PanelSlot.TRANSPORT
+        WorkbenchModule.CONTENT_LIST -> PanelSlot.BROWSE
+        WorkbenchModule.VIDEO_CONTEXT -> PanelSlot.CONTEXT
+        WorkbenchModule.NAVIGATION, WorkbenchModule.PLAYBACK_CONFIG -> PanelSlot.SYSTEM_TOOLBAR
+      }
 
   fun togglePlay() {
     scene.playSound(audio, 1f)
@@ -1173,11 +1260,57 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun syncPlaybackVolumeLabel() {
-    volumeButton.thenAccept { it.text = PlaybackVolumeControl.label(player.volume) }
+    volumeButton.thenAccept { it.text = PlaybackVolumeControl.compactLabel(player.volume) }
   }
 
   private fun syncPlaybackQualityLabel(quality: PlaybackQuality) {
-    qualityButton.thenAccept { it.text = "Quality: ${quality.label}" }
+    qualityButton.thenAccept { it.text = quality.label }
+  }
+
+  private fun syncPlaybackDisplayRatioLabel(displayRatio: PlaybackDisplayRatio) {
+    displayRatioButton.thenAccept { it.text = "Display ratio: ${displayRatio.label}" }
+  }
+
+  private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
+    val target = SpatialVideoAspectProbeTarget.from(displayRatio)
+    val current = spatialVideoAspectProbeState
+    if (
+        current.pendingTarget == target &&
+            current.pendingPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE &&
+            current.appliedTarget == target &&
+            current.appliedPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE
+    ) return
+    spatialVideoAspectProbeState =
+        current.copy(
+            pendingTarget = target,
+            pendingPlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
+            appliedTarget = target,
+            appliedPlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
+        )
+    lastAspectDiagnostic = null
+    updateSpatialVideoContentQuad(
+        videoWidth = player.videoSize.width,
+        videoHeight = player.videoSize.height,
+        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
+    )
+    syncSpatialVideoAspectProbeUi()
+  }
+
+  private fun showPlaybackDisplayRatioMenu(anchor: View) {
+    PopupMenu(this, anchor).apply {
+      menu.setGroupCheckable(0, true, true)
+      val selectedRatio = ViriViriApplication.appState.state.value.playbackDisplayRatio
+      PlaybackDisplayRatio.entries.forEachIndexed { index, displayRatio ->
+        menu.add(0, index, index, displayRatio.label).isChecked = displayRatio == selectedRatio
+      }
+      setOnMenuItemClickListener { item ->
+        val displayRatio = PlaybackDisplayRatio.entries.getOrNull(item.itemId)
+            ?: return@setOnMenuItemClickListener false
+        ViriViriApplication.appState.selectPlaybackDisplayRatio(displayRatio)
+        true
+      }
+      show()
+    }
   }
 
   private fun showPlaybackQualityMenu(anchor: View) {
@@ -1250,6 +1383,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun applySpatialVideoAspectProbe() {
     spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.apply(spatialVideoAspectProbeState)
+    if (spatialVideoAspectProbeState.appliedPlan == SpatialVideoAspectProbePlan.PANEL_RESHAPE) {
+      ViriViriApplication.appState.selectPlaybackDisplayRatio(
+          spatialVideoAspectProbeState.appliedTarget.displayRatio
+      )
+      return
+    }
     lastAspectDiagnostic = null
     updateSpatialVideoContentQuad(
         videoWidth = player.videoSize.width,
@@ -1278,11 +1417,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun resolvedSpatialVideoAspectRatio(diagnostic: SpatialVideoAspectDiagnostic): Float =
       spatialVideoAspectProbeState.appliedTarget.displayAspectRatio ?: diagnostic.displayAspectRatio
 
-  /** Reconfigures the existing native panel without creating or rebinding a video output Surface. */
+  /** Reconfigures the existing native panel and refreshes its matching ISDK hit dimensions. */
   private fun reshapeSpatialVideoPanel(content: SpatialVideoContentQuad) {
-    spatialVideoPanelSceneObject?.reshape(
+    val panel = spatialVideoPanelSceneObject ?: return
+    val shapeWidth = content.halfWidth * 2f
+    val shapeHeight = content.halfHeight * 2f
+    panel.reshape(
         MediaPanelSettings(
-                shape = QuadShapeOptions(width = content.halfWidth * 2f, height = content.halfHeight * 2f),
+                shape = QuadShapeOptions(width = shapeWidth, height = shapeHeight),
                 display =
                     PixelDisplayOptions(
                         width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
@@ -1291,6 +1433,23 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None),
             )
             .toPanelConfigOptions()
+    )
+    panel.updateIsdkComponentProperties(Entity(R.id.spatialized_video_panel))
+    reshapeStageOverlay(Entity(R.id.stage_backdrop_panel), shapeWidth, shapeHeight)
+    reshapeStageOverlay(Entity(R.id.danmaku_overlay_panel), shapeWidth, shapeHeight)
+    if (BuildConfig.DEBUG) {
+      Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
+    }
+  }
+
+  private fun reshapeStageOverlay(entity: Entity, width: Float, height: Float) {
+    val overlay =
+        systemManager.findSystem<SceneObjectSystem>()
+            .getSceneObject(entity)
+            ?.getNow(null) as? PanelSceneObject
+        ?: return
+    overlay.reshape(
+        stageOverlayPanelSettings(width, height).toPanelConfigOptions()
     )
   }
 
@@ -1424,8 +1583,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     isPlaying = state.isActuallyPlaying
     playPauseButton.thenAccept { button ->
       button.setCompoundDrawablesWithIntrinsicBounds(
-          if (state.showPauseIcon) R.drawable.pause else R.drawable.play,
           0,
+          if (state.showPauseIcon) R.drawable.pause else R.drawable.play,
           0,
           0,
       )
@@ -1479,8 +1638,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.6f, height = 0.2f),
-              display = DpDisplayOptions(width = 165.12f, height = 55.04f, dpi = 400),
+              shape = QuadShapeOptions(width = 1.24f, height = 0.17f),
+              display = DpDisplayOptions(width = 520f, height = 72f, dpi = 600),
           )
         },
     )

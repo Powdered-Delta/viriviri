@@ -2,13 +2,22 @@ package com.m0e_n00b.viriviri
 
 internal enum class SpatialVideoAspectProbeTarget(
     val label: String,
-    val displayAspectRatio: Float?,
+    val displayRatio: PlaybackDisplayRatio,
 ) {
-  DEFAULT("Default", null),
-  WIDESCREEN_16_9("16:9", 16f / 9f),
-  STANDARD_4_3("4:3", 4f / 3f),
-  SQUARE_1_1("1:1", 1f),
-  PORTRAIT_9_16("9:16", 9f / 16f),
+  DEFAULT("Default", PlaybackDisplayRatio.AUTO),
+  WIDESCREEN_16_9("16:9", PlaybackDisplayRatio.WIDESCREEN_16_9),
+  STANDARD_4_3("4:3", PlaybackDisplayRatio.STANDARD_4_3),
+  SQUARE_1_1("1:1", PlaybackDisplayRatio.SQUARE_1_1),
+  PORTRAIT_9_16("9:16", PlaybackDisplayRatio.PORTRAIT_9_16),
+  ;
+
+  val displayAspectRatio: Float?
+    get() = displayRatio.displayAspectRatio
+
+  companion object {
+    fun from(displayRatio: PlaybackDisplayRatio): SpatialVideoAspectProbeTarget =
+        entries.first { it.displayRatio == displayRatio }
+  }
 }
 
 internal enum class SpatialVideoAspectProbePlan(val label: String) {

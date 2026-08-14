@@ -1,6 +1,7 @@
 package com.m0e_n00b.viriviri
 
 import android.content.Context
+import android.util.Log
 import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import com.m0e_n00b.spatialworkbench.core.DanmakuEvent
 import com.m0e_n00b.spatialworkbench.core.TransientMessage
 import com.m0e_n00b.spatialworkbench.core.TransientMessageEvent
 import com.m0e_n00b.spatialworkbench.core.TransientMessageReducer
@@ -48,6 +50,9 @@ data class ViriViriUiState(
     val selected: Recommendation? = null,
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val playbackQuality: PlaybackQuality = PlaybackQuality.AUTO,
+    val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
+    val danmakuEvents: List<DanmakuEvent> = emptyList(),
+    val isLoadingDanmaku: Boolean = false,
     val isLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
     val canLoadMore: Boolean = true,
@@ -139,6 +144,8 @@ class ViriViriAppState(
   private var playbackRequestId = 0L
   private var transientMessageId = 0L
   private var playbackResolutionJob: Job? = null
+  private var danmakuLoadJob: Job? = null
+  private var danmakuRequestId = 0L
   private var listJob: Job? = null
   private var nextPageJob: Job? = null
   private val searchRequestTracker = SearchRequestTracker()
@@ -403,6 +410,12 @@ class ViriViriAppState(
     }
   }
 
+  fun selectPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
+    val current = mutableState.value
+    if (current.playbackDisplayRatio == displayRatio) return
+    mutableState.value = current.copy(playbackDisplayRatio = displayRatio)
+  }
+
   private fun startPlaybackResolution(
       recommendation: Recommendation,
       quality: PlaybackQuality = mutableState.value.playbackQuality,
@@ -410,7 +423,15 @@ class ViriViriAppState(
       playWhenReady: Boolean = true,
   ) {
     playbackResolutionJob?.cancel()
-    mutableState.value = mutableState.value.copy(isResolvingPlayback = true, error = null)
+    danmakuLoadJob?.cancel()
+    val danmakuRequestId = ++danmakuRequestId
+    mutableState.value =
+        mutableState.value.copy(
+            isResolvingPlayback = true,
+            isLoadingDanmaku = true,
+            danmakuEvents = emptyList(),
+            error = null,
+        )
     val requestId = ++playbackRequestId
     playbackResolutionJob =
         scope.launch {
@@ -424,6 +445,7 @@ class ViriViriAppState(
             if (requestId == playbackRequestId) {
               playerSession.setMediaSource(source, startPositionMs, playWhenReady)
               mutableState.value = mutableState.value.copy(isResolvingPlayback = false)
+              loadDanmaku(recommendation, danmakuRequestId)
             }
           } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
             if (requestId == playbackRequestId) {
@@ -448,6 +470,21 @@ class ViriViriAppState(
                   )
             }
           }
+        }
+  }
+
+  private fun loadDanmaku(recommendation: Recommendation, requestId: Long) {
+    danmakuLoadJob =
+        scope.launch {
+          val events = runCatching { withContext(Dispatchers.IO) { provider.loadDanmaku(recommendation.videoId) } }
+          if (requestId != danmakuRequestId) return@launch
+          events.onSuccess { Log.i("ViriViriDanmaku", "loaded ${it.size} events for ${recommendation.videoId}") }
+              .onFailure { Log.w("ViriViriDanmaku", "unable to load ${recommendation.videoId}", it) }
+          mutableState.value =
+              mutableState.value.copy(
+                  danmakuEvents = events.getOrElse { emptyList() },
+                  isLoadingDanmaku = false,
+              )
         }
   }
 
