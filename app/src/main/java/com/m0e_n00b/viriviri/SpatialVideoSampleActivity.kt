@@ -782,8 +782,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         layoutIdCreator = { R.layout.controls },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.8f, height = 0.45f),
-              display = DpDisplayOptions(width = 275.2f, height = 155f, dpi = 600),
+              shape = QuadShapeOptions(width = 1.32f, height = 0.45f),
+              display = DpDisplayOptions(width = 460f, height = 155f, dpi = 600),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
           )
         },
@@ -1173,11 +1173,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun syncPlaybackVolumeLabel() {
-    volumeButton.thenAccept { it.text = PlaybackVolumeControl.label(player.volume) }
+    volumeButton.thenAccept { it.text = PlaybackVolumeControl.compactLabel(player.volume) }
   }
 
   private fun syncPlaybackQualityLabel(quality: PlaybackQuality) {
-    qualityButton.thenAccept { it.text = "Quality: ${quality.label}" }
+    qualityButton.thenAccept { it.text = quality.label }
   }
 
   private fun showPlaybackQualityMenu(anchor: View) {
@@ -1424,8 +1424,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     isPlaying = state.isActuallyPlaying
     playPauseButton.thenAccept { button ->
       button.setCompoundDrawablesWithIntrinsicBounds(
-          if (state.showPauseIcon) R.drawable.pause else R.drawable.play,
           0,
+          if (state.showPauseIcon) R.drawable.pause else R.drawable.play,
           0,
           0,
       )

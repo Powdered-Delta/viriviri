@@ -1,61 +1,123 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:app="http://schemas.android.com/apk/res-auto"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  android:orientation="vertical"
   android:background="@drawable/layout_bg"
   android:clipToOutline="true"
+  android:orientation="vertical"
   android:padding="8dp"
 >
   <LinearLayout
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="48dp"
     android:gravity="center"
     android:orientation="horizontal"
   >
     <Button
       android:id="@+id/browse_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="Browse"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:layout_marginEnd="4dp"
       android:background="@android:color/transparent"
+      android:contentDescription="Browse"
+      android:drawableTop="@drawable/ic_browse"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:tooltipText="Browse"
     />
     <Button
       android:id="@+id/back_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:drawableStart="@drawable/back"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:layout_marginEnd="4dp"
       android:background="@android:color/transparent"
-    />
-    <Button
-      android:id="@+id/volume_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="Vol 100%"
-      android:background="@android:color/transparent"
-    />
-    <Button
-      android:id="@+id/speed_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:text="1x"
-      android:background="@android:color/transparent"
+      android:contentDescription="Previous video"
+      android:drawableTop="@drawable/back"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:tooltipText="Previous video"
     />
     <Button
       android:id="@+id/play_pause_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:drawableStart="@drawable/play"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:layout_marginEnd="4dp"
       android:background="@android:color/transparent"
+      android:contentDescription="Play or pause"
+      android:drawableTop="@drawable/play"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:tooltipText="Play or pause"
     />
     <Button
       android:id="@+id/forward_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:drawableStart="@drawable/forward"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
       android:background="@android:color/transparent"
+      android:contentDescription="Next video"
+      android:drawableTop="@drawable/forward"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:tooltipText="Next video"
+    />
+    <Space
+      android:layout_width="12dp"
+      android:layout_height="1dp"
+    />
+    <Button
+      android:id="@+id/volume_button"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:layout_marginEnd="4dp"
+      android:background="@android:color/transparent"
+      android:contentDescription="Volume"
+      android:drawablePadding="2dp"
+      android:drawableTop="@drawable/ic_volume"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:text="100%"
+      android:textColor="@android:color/white"
+      android:textSize="10sp"
+      android:tooltipText="Volume"
+    />
+    <Button
+      android:id="@+id/quality_button"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:layout_marginEnd="4dp"
+      android:background="@android:color/transparent"
+      android:contentDescription="Playback quality"
+      android:drawablePadding="2dp"
+      android:drawableTop="@drawable/ic_quality"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:text="Auto"
+      android:textColor="@android:color/white"
+      android:textSize="10sp"
+      android:tooltipText="Playback quality"
+    />
+    <Button
+      android:id="@+id/speed_button"
+      android:layout_width="56dp"
+      android:layout_height="48dp"
+      android:background="@android:color/transparent"
+      android:contentDescription="Playback speed"
+      android:drawablePadding="2dp"
+      android:drawableTop="@drawable/ic_speed"
+      android:gravity="center"
+      android:minHeight="0dp"
+      android:minWidth="0dp"
+      android:text="1x"
+      android:textColor="@android:color/white"
+      android:textSize="10sp"
+      android:tooltipText="Playback speed"
     />
   </LinearLayout>
   <LinearLayout
@@ -74,12 +136,12 @@
       android:textSize="10sp"
     />
     <SeekBar
-      style="@style/Widget.AppCompat.SeekBar"
       android:id="@+id/seek_bar"
+      style="@style/Widget.AppCompat.SeekBar"
       android:layout_width="0dp"
       android:layout_height="wrap_content"
+      android:layout_marginHorizontal="8dp"
       android:layout_weight="1"
-      android:layout_marginHorizontal="6dp"
     />
     <TextView
       android:id="@+id/duration_time"
@@ -88,23 +150,6 @@
       android:text="--:--"
       android:textColor="@android:color/white"
       android:textSize="10sp"
-    />
-  </LinearLayout>
-  <LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="4dp"
-    android:gravity="center"
-    android:orientation="horizontal"
-  >
-    <Button
-      android:id="@+id/quality_button"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:minHeight="32dp"
-      android:minWidth="0dp"
-      android:text="Quality: Auto"
-      android:background="@android:color/transparent"
     />
   </LinearLayout>
 </LinearLayout>

@@ -17,4 +17,11 @@ class PlaybackVolumeControlTest {
     assertEquals("Vol 100%", PlaybackVolumeControl.label(0.6f))
     assertEquals("Vol 100%", PlaybackVolumeControl.label(Float.NaN))
   }
+
+  @Test
+  fun compactLabelRetainsTheNormalizedPercentWithoutTheToolbarIconName() {
+    assertEquals("0%", PlaybackVolumeControl.compactLabel(0f))
+    assertEquals("50%", PlaybackVolumeControl.compactLabel(0.5f))
+    assertEquals("100%", PlaybackVolumeControl.compactLabel(Float.NaN))
+  }
 }
