@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Defines Bilibili provider ownership, AVC/MPEG-4 selection, shared AppState resolution, anonymous access limits, and one-player playback continuity."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Defines existing transport panel ownership and prohibits extra Spatial panels/entities/video outputs for controls."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Defines the one-player/one-Surface contract and route-safe behavior while re-resolving the current source."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Requires UI controls to dispatch host actions without owning protocol or media resources."}

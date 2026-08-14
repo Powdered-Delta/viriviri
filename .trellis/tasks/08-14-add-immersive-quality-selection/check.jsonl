@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/bilibili-recommendation-playback.md","reason":"Review qn preference, deterministic AVC fallback, latest-request-only AppState resolution, and public-access restrictions."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Review quality control placement in existing transport panel without new Spatial resources."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Review position/play-intent preservation and no-new-output ownership during quality re-resolution."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Review host callback and control layout behavior."}

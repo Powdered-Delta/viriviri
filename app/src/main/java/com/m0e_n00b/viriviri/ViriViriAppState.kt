@@ -47,6 +47,7 @@ data class ViriViriUiState(
     val recommendations: List<Recommendation> = emptyList(),
     val selected: Recommendation? = null,
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
+    val playbackQuality: PlaybackQuality = PlaybackQuality.AUTO,
     val isLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
     val canLoadMore: Boolean = true,
@@ -82,10 +83,14 @@ class PlayerSession(context: Context) {
     player.setVideoScalingMode(IMMERSIVE_VIDEO_SCALING_MODE)
   }
 
-  fun setMediaSource(source: MediaSource) {
-    player.setMediaSource(source)
+  fun setMediaSource(
+      source: MediaSource,
+      startPositionMs: Long = 0L,
+      playWhenReady: Boolean = true,
+  ) {
+    player.setMediaSource(source, startPositionMs.coerceAtLeast(0L))
     player.prepare()
-    player.playWhenReady = true
+    player.playWhenReady = playWhenReady
   }
 
   fun setMediaItem(item: MediaItem) {
@@ -384,7 +389,26 @@ class ViriViriAppState(
     startPlaybackResolution(selected)
   }
 
-  private fun startPlaybackResolution(recommendation: Recommendation) {
+  fun selectPlaybackQuality(quality: PlaybackQuality) {
+    val current = mutableState.value
+    if (current.playbackQuality == quality) return
+    mutableState.value = current.copy(playbackQuality = quality)
+    current.selected?.let { selected ->
+      startPlaybackResolution(
+          recommendation = selected,
+          quality = quality,
+          startPositionMs = playerSession.player.currentPosition.coerceAtLeast(0L),
+          playWhenReady = playerSession.player.playWhenReady,
+      )
+    }
+  }
+
+  private fun startPlaybackResolution(
+      recommendation: Recommendation,
+      quality: PlaybackQuality = mutableState.value.playbackQuality,
+      startPositionMs: Long = 0L,
+      playWhenReady: Boolean = true,
+  ) {
     playbackResolutionJob?.cancel()
     mutableState.value = mutableState.value.copy(isResolvingPlayback = true, error = null)
     val requestId = ++playbackRequestId
@@ -393,10 +417,12 @@ class ViriViriAppState(
           try {
             val source =
                 withTimeout(PLAYBACK_RESOLUTION_TIMEOUT_MS) {
-                  withContext(Dispatchers.IO) { provider.createMediaSource(recommendation.videoId) }
+                  withContext(Dispatchers.IO) {
+                    provider.createMediaSource(recommendation.videoId, quality)
+                  }
                 }
             if (requestId == playbackRequestId) {
-              playerSession.setMediaSource(source)
+              playerSession.setMediaSource(source, startPositionMs, playWhenReady)
               mutableState.value = mutableState.value.copy(isResolvingPlayback = false)
             }
           } catch (error: kotlinx.coroutines.TimeoutCancellationException) {

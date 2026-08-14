@@ -216,7 +216,7 @@ class BilibiliPlaybackProvider(
     return mapVideoSearchResults(response)
   }
 
-  fun createMediaSource(videoId: String): MediaSource {
+  fun createMediaSource(videoId: String, quality: PlaybackQuality = PlaybackQuality.AUTO): MediaSource {
     val detail = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
     requireSuccess(detail)
     val cid = detail.optJSONObject("data")?.optLong("cid") ?: 0L
@@ -228,7 +228,13 @@ class BilibiliPlaybackProvider(
     val mixinKey = BilibiliWbi.mixinKey(wbi.optString("img_url"), wbi.optString("sub_url"))
         ?: throw PlaybackProviderException("Bilibili returned invalid WBI signing data")
     val query = BilibiliWbi.sign(
-        mapOf("bvid" to videoId, "cid" to cid.toString(), "fnval" to "16", "fourk" to "1", "qn" to "80"),
+        mapOf(
+            "bvid" to videoId,
+            "cid" to cid.toString(),
+            "fnval" to "16",
+            "fourk" to "1",
+            "qn" to quality.qn.toString(),
+        ),
         mixinKey,
         clockSeconds(),
     )
@@ -243,7 +249,7 @@ class BilibiliPlaybackProvider(
     requireSuccess(playUrl)
     val dash = playUrl.optJSONObject("data")?.optJSONObject("dash")
         ?: throw PlaybackProviderException("Bilibili did not provide DASH streams")
-    val video = selectAvcVideo(dash.optJSONArray("video"))
+    val video = selectAvcVideo(dash.optJSONArray("video"), quality)
         ?: throw PlaybackProviderException("No compatible AVC DASH video stream is available")
     val audio = selectAudio(dash.optJSONArray("audio"))
         ?: throw PlaybackProviderException("No DASH audio stream is available")
@@ -267,10 +273,19 @@ class BilibiliPlaybackProvider(
     return MediaItem.Builder().setUri(Uri.parse(url)).setMimeType(mimeType).build()
   }
 
-  private fun selectAvcVideo(streams: JSONArray?): JSONObject? = streams?.let { list ->
-    (0 until list.length()).mapNotNull(list::optJSONObject).firstOrNull {
-      it.optString("codecs").contains("avc", ignoreCase = true)
-    }
+  private fun selectAvcVideo(streams: JSONArray?, quality: PlaybackQuality): JSONObject? = streams?.let { list ->
+    val candidates =
+        (0 until list.length()).mapNotNull { index ->
+          list.optJSONObject(index)?.let { stream ->
+            DashVideoStream(
+                codecs = stream.optString("codecs"),
+                height = stream.optInt("height"),
+                id = stream.optInt("id"),
+            ) to stream
+          }
+        }
+    val selected = selectAvcVideoStream(candidates.map { it.first }, quality) ?: return null
+    candidates.firstOrNull { it.first == selected }?.second
   }
 
   private fun selectAudio(streams: JSONArray?): JSONObject? = streams?.let { list ->
