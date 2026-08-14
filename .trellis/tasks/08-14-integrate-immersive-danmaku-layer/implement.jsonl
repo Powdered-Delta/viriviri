@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "Preserve one player and one active video output Surface while adding a non-video overlay."}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Use a documented dynamic Spatial Compose panel without intercepting video input."}
+{"file": ".trellis/tasks/archive/2026-08/08-14-08-14-validate-panel-reshape-aspect/prd.md", "reason": "Sync dynamic overlay dimensions with the validated panel reshape path."}

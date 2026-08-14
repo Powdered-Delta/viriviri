@@ -217,10 +217,7 @@ class BilibiliPlaybackProvider(
   }
 
   fun createMediaSource(videoId: String, quality: PlaybackQuality = PlaybackQuality.AUTO): MediaSource {
-    val detail = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
-    requireSuccess(detail)
-    val cid = detail.optJSONObject("data")?.optLong("cid") ?: 0L
-    if (cid <= 0L) throw PlaybackProviderException("Bilibili did not provide a playable video part")
+    val cid = resolveContentId(videoId)
     val nav = getJson("$apiBaseUrl/x/web-interface/nav")
     // Anonymous nav responses use code -101 but still expose the public WBI key material.
     val wbi = nav.optJSONObject("data")?.optJSONObject("wbi_img")
@@ -267,6 +264,16 @@ class BilibiliPlaybackProvider(
     )
   }
 
+  fun loadDanmaku(videoId: String) =
+      parseBilibiliDanmakuXml(getText("$apiBaseUrl/x/v1/dm/list.so?oid=${resolveContentId(videoId)}"))
+
+  private fun resolveContentId(videoId: String): Long {
+    val detail = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
+    requireSuccess(detail)
+    return detail.optJSONObject("data")?.optLong("cid")?.takeIf { it > 0L }
+        ?: throw PlaybackProviderException("Bilibili did not provide a playable video part")
+  }
+
   private fun dashItem(stream: JSONObject, mimeType: String): MediaItem {
     val url = stream.optString("base_url").ifBlank { stream.optString("baseUrl") }
     if (url.isBlank()) throw PlaybackProviderException("Bilibili returned a DASH stream without a URL")
@@ -311,6 +318,25 @@ class BilibiliPlaybackProvider(
     } catch (error: Exception) {
       if (error is PlaybackProviderException) throw error
       throw PlaybackProviderException("Unable to contact Bilibili", error)
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  private fun getText(url: String): String {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    try {
+      connection.connectTimeout = NETWORK_TIMEOUT_MS
+      connection.readTimeout = NETWORK_TIMEOUT_MS
+      connection.requestMethod = "GET"
+      connection.setRequestProperty("User-Agent", USER_AGENT)
+      if (connection.responseCode !in 200..299) {
+        throw PlaybackProviderException("Bilibili danmaku request failed with HTTP ${connection.responseCode}")
+      }
+      return connection.inputStream.bufferedReader().use { it.readText() }
+    } catch (error: Exception) {
+      if (error is PlaybackProviderException) throw error
+      throw PlaybackProviderException("Unable to load Bilibili danmaku", error)
     } finally {
       connection.disconnect()
     }
