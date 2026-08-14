@@ -22,6 +22,18 @@ class ImmersiveWorkbenchStateTest {
   }
 
   @Test
+  fun shortsControlsKeepNavigationAtTheTopAndUseShortsActions() {
+    val shorts =
+        ImmersiveWorkbenchReducer.reduce(ImmersiveWorkbenchState(), WorkbenchEvent.OpenShortsControls)
+
+    assertEquals(WorkbenchPresentation.SHORTS, shorts.presentation)
+    assertEquals(
+        setOf(WorkbenchModule.NAVIGATION, WorkbenchModule.SHORTS_ACTIONS),
+        ImmersiveWorkbenchReducer.modules(shorts),
+    )
+  }
+
+  @Test
   fun dismissClearsTheEntireWorkbenchWithoutChangingPlayerState() {
     val visible =
         ImmersiveWorkbenchReducer.reduce(

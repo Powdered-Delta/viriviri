@@ -491,8 +491,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           .setComponents(
               listOf(
                   Panel(R.id.mr_panel),
-                  Transform(Pose(Vector3(0.0f, -0.6f, -0.1f))),
-                  TransformParent(Entity(R.id.video_selector_panel)),
+                  Transform(Pose(Vector3(0.0f, 0.72f, -0.12f), Quaternion(8f, 0f, 0f))),
+                  TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
       Entity(R.id.mode_panel)
@@ -1110,7 +1110,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.dispatch(event)
   }
 
-  private fun openBrowseCanvas() {
+  fun openBrowseCanvas() {
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.returnToRecommendations()
@@ -1125,6 +1125,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     if (!::spatialPanelVisibilityController.isInitialized) return
     val moduleEntities =
         mapOf(
+            WorkbenchModule.NAVIGATION to Entity(R.id.mr_panel),
             WorkbenchModule.TRANSPORT to Entity(R.id.controls_id),
             WorkbenchModule.CONTENT_LIST to Entity(R.id.video_selector_panel),
             WorkbenchModule.VIDEO_CONTEXT to Entity(R.id.mode_panel),
@@ -1140,7 +1141,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun WorkbenchModule.toPanelSlot(): PanelSlot =
       when (this) {
-        WorkbenchModule.TRANSPORT -> PanelSlot.TRANSPORT
+        WorkbenchModule.TRANSPORT, WorkbenchModule.SHORTS_ACTIONS -> PanelSlot.TRANSPORT
         WorkbenchModule.CONTENT_LIST -> PanelSlot.BROWSE
         WorkbenchModule.VIDEO_CONTEXT -> PanelSlot.CONTEXT
         WorkbenchModule.NAVIGATION, WorkbenchModule.PLAYBACK_CONFIG -> PanelSlot.SYSTEM_TOOLBAR
@@ -1559,8 +1560,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.6f, height = 0.2f),
-              display = DpDisplayOptions(width = 165.12f, height = 55.04f, dpi = 400),
+              shape = QuadShapeOptions(width = 1.24f, height = 0.17f),
+              display = DpDisplayOptions(width = 520f, height = 72f, dpi = 600),
           )
         },
     )
