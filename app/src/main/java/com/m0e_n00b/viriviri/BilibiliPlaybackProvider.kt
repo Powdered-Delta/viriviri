@@ -7,10 +7,14 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.net.URL
 import java.security.MessageDigest
+import java.util.zip.GZIPInputStream
+import java.util.zip.Inflater
+import java.util.zip.InflaterInputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import com.m0e_n00b.spatialworkbench.core.ContentAccess
@@ -333,13 +337,29 @@ class BilibiliPlaybackProvider(
       if (connection.responseCode !in 200..299) {
         throw PlaybackProviderException("Bilibili danmaku request failed with HTTP ${connection.responseCode}")
       }
-      return connection.inputStream.bufferedReader().use { it.readText() }
+      return decodeResponseBody(connection.inputStream.readBytes(), connection.contentEncoding)
     } catch (error: Exception) {
       if (error is PlaybackProviderException) throw error
       throw PlaybackProviderException("Unable to load Bilibili danmaku", error)
     } finally {
       connection.disconnect()
     }
+  }
+
+  private fun decodeResponseBody(body: ByteArray, contentEncoding: String?): String {
+    val decoded =
+        when (contentEncoding?.lowercase()) {
+          "gzip" -> GZIPInputStream(ByteArrayInputStream(body)).use { it.readBytes() }
+          "deflate" ->
+              runCatching {
+                    InflaterInputStream(ByteArrayInputStream(body)).use { it.readBytes() }
+                  }
+                  .getOrElse {
+                    InflaterInputStream(ByteArrayInputStream(body), Inflater(true)).use { it.readBytes() }
+                  }
+          else -> body
+        }
+    return decoded.toString(Charsets.UTF_8)
   }
 
   private fun requireSuccess(response: JSONObject) {
