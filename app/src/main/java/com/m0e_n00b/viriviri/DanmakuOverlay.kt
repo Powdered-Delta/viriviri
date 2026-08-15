@@ -38,9 +38,10 @@ internal fun DanmakuOverlay() {
   LaunchedEffect(Unit) {
     while (true) {
       positionMs = ViriViriApplication.appState.playerSession.player.currentPosition
-      delay(33L)
+      delay(16L)
     }
   }
+  val scheduledEvents = remember(appState.danmakuEvents) { appState.danmakuEvents.sortedBy { it.startMs } }
   val fillPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = DANMAKU_TEXT_SIZE_PX } }
   val outlinePaint = remember {
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -51,15 +52,13 @@ internal fun DanmakuOverlay() {
     }
   }
   Canvas(modifier = Modifier.fillMaxSize()) {
-    val active = appState.danmakuEvents.filter { event ->
-      val duration = if (event.laneFamily == DanmakuLaneFamily.SCROLLING) SCROLL_DURATION_MS else FIXED_DURATION_MS
-      positionMs in event.startMs..(event.startMs + duration)
-    }
     drawIntoCanvas { canvas ->
-      active.forEach { event ->
+      for (event in scheduledEvents) {
+        if (event.startMs > positionMs) break
+        val duration = if (event.laneFamily == DanmakuLaneFamily.SCROLLING) SCROLL_DURATION_MS else FIXED_DURATION_MS
+        if (positionMs > event.startMs + duration) continue
         val lane = (event.id.hashCode() and Int.MAX_VALUE) % LANE_COUNT
         val y = (lane + 1) * size.height / (LANE_COUNT + 1)
-        val duration = if (event.laneFamily == DanmakuLaneFamily.SCROLLING) SCROLL_DURATION_MS else FIXED_DURATION_MS
         val elapsed = (positionMs - event.startMs).coerceIn(0L, duration).toFloat() / duration
         val textWidth = fillPaint.measureText(event.text)
         val x = when (event.laneFamily) {
