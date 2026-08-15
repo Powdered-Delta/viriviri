@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ViriViri Workbench UX Prototype</title>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.468.0/font/lucide.css">
+  <style>
+    :root {
+      --ink: #f8ead7;
+      --muted: #c9ac91;
+      --scene: #281a14;
+      --surface: #36251d;
+      --surface-strong: #4a3327;
+      --surface-soft: rgba(51, 35, 27, .92);
+      --border: #785948;
+      --accent: #d39a63;
+      --accent-ink: #2c180d;
+      --danger: #e68173;
+      --charge: #cf81a3;
+      --reaction-like: #f09382;
+      --reaction-like-surface: rgba(145, 60, 53, .4);
+      --reaction-coin: #efc47f;
+      --reaction-coin-surface: rgba(120, 79, 32, .4);
+      --reaction-favorite: #8cc9a0;
+      --reaction-favorite-surface: rgba(54, 105, 68, .4);
+      --scrim: rgba(16, 8, 4, .48);
+      --controls-scrim: rgba(16, 8, 4, .60);
+      --keyboard-shadow: rgba(0, 0, 0, .44);
+      --rail-width: clamp(184px, 17vw, 248px);
+      --right-width: clamp(176px, 16vw, 230px);
+      --stage-width: min(48vw, 760px);
+      --stage-height: min(27vw, 428px);
+      --topbar-height: 38px;
+      --content-nav-height: 32px;
+      --top-stack-height: 122px;
+      --gap: 12px;
+      --transport-lane: min(9vw, 142px);
+      --radius: 7px;
+      font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
+    }
+
+    /* UX: theme IDs mirror the future Spatial scenes; Web previews their visual language without simulating scene loading. */
+    .prototype[data-theme="waffle"] {
+      --ink: #3b281c;
+      --muted: #705645;
+      --scene: #f2debe;
+      --surface: #f8ebd3;
+      --surface-strong: #ead0a9;
+      --surface-soft: rgba(248, 235, 211, .94);
+      --border: #b99570;
+      --accent: #7b4d2b;
+      --accent-ink: #fffaf2;
+      --danger: #ad514a;
+      --reaction-like: #a7433e;
+      --reaction-like-surface: rgba(201, 113, 101, .24);
+      --reaction-coin: #8a5b19;
+      --reaction-coin-surface: rgba(202, 158, 81, .26);
+      --reaction-favorite: #376f54;
+      --reaction-favorite-surface: rgba(104, 160, 120, .24);
+      --scrim: rgba(58, 37, 22, .24);
+      --controls-scrim: rgba(58, 37, 22, .34);
+      --keyboard-shadow: rgba(76, 48, 28, .28);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
+    .prototype[data-theme="waffle"] .scene { background: #f2debe; }
+    .prototype[data-theme="waffle"] .scene-floor { border-color: #d2ad80; }
+    .prototype[data-theme="waffle"] .scene-marker { border-color: #af8056; }
+    .prototype[data-theme="waffle"] .media-stage { background: #e6bd90; border-color: #a9784d; box-shadow: 0 18px 64px rgba(76, 48, 28, .23); }
+    .prototype[data-theme="waffle"] .mode-pill { background: rgba(248, 235, 211, .94); }
+    /* UX: matcha uses #77DD77 for primary focus and active controls while retaining subdued surfaces for long viewing sessions. */
+    .prototype[data-theme="matcha"] {
+      --ink: #d5f7d5;
+      --muted: #96c996;
+      --scene: #0e160e;
+      --surface: #152015;
+      --surface-strong: #223122;
+      --surface-soft: rgba(17, 29, 17, .94);
+      --border: #487548;
+      --accent: #77DD77;
+      --accent-ink: #102010;
+      --danger: #f28b82;
+      --charge: #d7a7e5;
+      --reaction-like: #ff9b90;
+      --reaction-like-surface: rgba(145, 60, 53, .4);
+      --reaction-coin: #d9ef83;
+      --reaction-coin-surface: rgba(104, 126, 47, .4);
+      --reaction-favorite: #7adfd1;
+      --reaction-favorite-surface: rgba(42, 117, 107, .4);
+      --scrim: rgba(0, 8, 0, .5);
+      --controls-scrim: rgba(0, 8, 0, .62);
+      --keyboard-shadow: rgba(0, 8, 0, .54);
+    }
+    .prototype[data-theme="matcha"] .scene { background: #0e160e; }
+    .prototype[data-theme="matcha"] .scene-floor { border-color: #284a28; }
+    .prototype[data-theme="matcha"] .scene-marker { border-color: #5b9d5b; }
+    .prototype[data-theme="matcha"] .media-stage { background: #0c130c; border-color: #548e54; box-shadow: 0 18px 64px rgba(0, 0, 0, .54); }
+    .prototype[data-theme="matcha"] .mode-pill { background: rgba(17, 29, 17, .94); }
+    button, input { font: inherit; }
+    button { color: inherit; border: 0; cursor: pointer; }
+    /* UX: the theme root owns the inherited foreground color so selecting light or dark changes all default text and button labels together. */
+    .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); color: var(--ink); }
+    .scene { position: absolute; inset: 0; background: var(--scene); }
+    .scene-floor { position: absolute; left: 10%; right: 10%; bottom: -16%; height: 58%; border: 1px solid var(--border); transform: perspective(620px) rotateX(58deg); transform-origin: bottom; opacity: .68; }
+    .scene-marker { position: absolute; width: 20px; height: 20px; border: 1px solid var(--border); border-radius: 50%; opacity: .45; }
+    .scene-marker.one { left: 13%; top: 24%; }
+    .scene-marker.two { right: 15%; top: 30%; }
+
+    /* UX: MediaStage shares the Workbench center grid cell with the operation stack, preventing edge drift when left and right rails have different widths. */
+    .media-stage {
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--scene);
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 64px rgba(0, 0, 0, .42);
+    }
+    .media-stage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stage-scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity .16s ease; }
+    .stage-title { position: absolute; left: 14px; bottom: 12px; font-size: 14px; text-shadow: 0 1px 3px #000; }
+    .stage-status { position: absolute; top: 12px; right: 12px; color: var(--muted); font-size: 12px; text-shadow: 0 1px 3px #000; }
+    .stage-dismiss { position: absolute; inset: 0; background: transparent; }
+
+    .danmaku-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .danmaku { position: absolute; padding: 2px 5px; color: #fff; font-size: 15px; font-weight: 700; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; white-space: nowrap; }
+    .danmaku.a { top: 18%; left: 13%; }
+    .danmaku.b { top: 37%; right: 8%; color: #f8d26b; }
+    .danmaku.c { top: 58%; left: 29%; color: #a9e2ff; }
+
+    .workbench {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--rail-width) + var(--stage-width) + var(--right-width) + var(--gap) + var(--gap));
+      height: calc(var(--top-stack-height) + var(--stage-height) + var(--gap));
+      display: grid;
+      grid-template-columns: var(--rail-width) var(--stage-width) var(--right-width);
+      grid-template-rows: var(--top-stack-height) var(--stage-height);
+      gap: var(--gap);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .workbench > * { pointer-events: auto; }
+
+    /* UX: the operation stack shares MediaStage's exact center-column width, so their left and right edges remain aligned across viewports. */
+    .top-stack {
+      grid-column: 2;
+      grid-row: 1;
+      width: 100%;
+      justify-self: center;
+      display: grid;
+      grid-template-rows: var(--topbar-height) var(--topbar-height) var(--content-nav-height);
+      gap: 6px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .system-bar, .global-navigation, .content-navigation {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+    .system-bar { position: relative; }
+    .content-navigation { justify-self: center; min-width: 0; }
+    /* UX: the Home navigation is centered around its four stable tabs instead of occupying speculative empty slot width. */
+    .content-navigation-tabs { width: fit-content; max-width: 100%; }
+    .content-navigation-search { width: min(100%, 500px); gap: 5px; padding: 0 5px; }
+    .brand { height: 32px; padding: 0 8px 0 0; background: transparent; color: var(--accent); font-weight: 750; }
+    .spacer { flex: 1; }
+    .icon-button, .text-button, .tab-button, .category-button {
+      min-width: 32px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 8px;
+      border-radius: 5px;
+      background: transparent;
+    }
+    .icon-button { padding: 0; }
+    .icon-button i { font-size: 17px; }
+    .text-button, .tab-button, .category-button { font-size: 12px; }
+    .icon-button:hover, .text-button:hover, .tab-button:hover, .category-button:hover { background: var(--surface-strong); }
+    .active { color: var(--accent-ink); background: var(--accent) !important; }
+    .content-navigation .text-button { height: 24px; }
+    .category-strip { display: flex; gap: 4px; }
+    .category-button:disabled { color: var(--muted); cursor: not-allowed; opacity: .48; }
+    /* UX: Search keeps submit, clear, text, system-IME, and voice controls in one stable header row. */
+    .search-query { position: relative; min-width: 0; flex: 1; }
+    .search-field { min-width: 0; width: 100%; height: 24px; padding: 0 29px 0 7px; color: var(--ink); border: 1px solid var(--border); border-radius: 4px; background: #171815; }
+    .search-clear { position: absolute; top: 1px; right: 1px; width: 22px; min-width: 22px; height: 22px; }
+
+    .rail {
+      grid-row: 2;
+      z-index: 2;
+      height: var(--stage-height);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      opacity: 0;
+      transform: translateX(-14px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .browse-rail, .detail-rail { grid-column: 1; }
+    .right-rail { grid-column: 3; transform: translateX(14px); }
+    .rail-header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .rail-title { font-size: 14px; font-weight: 700; }
+    .rail-tabs { display: flex; gap: 5px; padding: 6px; border-bottom: 1px solid var(--border); }
+    .rail-scroll { height: calc(var(--stage-height) - 96px); overflow: auto; padding: 8px; }
+    .detail-rail .rail-header, .right-rail .rail-header { display: none; }
+    /* UX: left detail has no header at all; its body starts at the panel's top edge. */
+    .detail-rail { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 54px; }
+    .detail-rail .rail-scroll { grid-row: 1; height: auto; min-height: 0; overflow: auto; }
+    .detail-footer { grid-row: 2; display: flex; align-items: center; padding: 6px 8px; border-top: 1px solid var(--border); }
+    .detail-footer .comment-action { border-bottom: 0; }
+    .right-rail .rail-scroll { height: calc(var(--stage-height) - 42px); }
+    /* UX: open comments are a full-height opaque reading mode that rises from the rail's bottom edge with its own fixed header. */
+    .comments-drawer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; height: 0; display: grid; grid-template-rows: 42px minmax(0, 1fr); overflow: hidden; opacity: 0; pointer-events: none; background: #1a1b17; transition: height .22s ease, opacity .16s ease; }
+    .comments-drawer.open { height: 100%; opacity: 1; pointer-events: auto; box-shadow: inset 0 1px 0 rgba(229,189,98,.28); }
+    /* UX: the complete comments header is the collapse hit target, with its mode label left and affordance right. */
+    .comments-header { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 5px 8px 5px 11px; border-bottom: 1px solid rgba(98,100,89,.62); background: #20211c; text-align: left; }
+    .comments-header:hover { background: #292a24; }
+    .comments-title { font-size: 13px; font-weight: 750; }
+    .comments-collapse-icon { width: 30px; height: 30px; display: grid; place-items: center; }
+    .comments-drawer-body { min-height: 0; overflow: auto; padding: 9px 9px 10px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .comments-drawer-body::-webkit-scrollbar { width: 6px; }
+    .comments-drawer-body::-webkit-scrollbar-track { background: transparent; }
+    .comments-drawer-body::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--border); }
+    .comments-drawer.open .comments-drawer-body { scrollbar-gutter: stable; }
+    .comment-row { padding: 10px; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: #22231e; }
+    .comment-row + .comment-row { margin-top: 8px; }
+    .comment-author { color: var(--accent); font-size: 12px; font-weight: 700; }
+    .comment-text { margin-top: 5px; font-size: 13px; line-height: 1.48; }
+    /* UX: each comment keeps Reply on the left and compact reactions on the right for repeated-row scanning. */
+    .comment-actions { display: flex; align-items: center; gap: 5px; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(98,100,89,.38); }
+    .comment-reply { min-width: 0; height: 24px; padding: 0 4px; color: var(--muted); font-size: 12px; background: transparent; }
+    .comment-actions .spacer { min-width: 0; }
+    .comment-actions .icon-button { width: 26px; min-width: 26px; height: 24px; }
+    .reply-composer { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 6px; margin-top: 8px; }
+    .reply-field { min-width: 0; width: 100%; height: 30px; padding: 0 7px; color: var(--ink); border: 1px solid var(--border); border-radius: 4px; background: #11120f; }
+    .detail-section, .source-row, .browse-row { border-bottom: 1px solid rgba(98,100,89,.58); }
+    .detail-section { padding: 11px 4px; }
+    .detail-title { font-size: 14px; font-weight: 750; line-height: 1.4; }
+    .detail-metrics { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .detail-value { font-size: 13px; line-height: 1.45; }
+    /* UX: video reactions use only familiar icons and counts in stable equal-width hit targets below the metrics. */
+    .video-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
+    /* UX: each activated reaction keeps a distinct semantic color while its tokenized surface follows the selected light or dark theme. */
+    .video-action { min-width: 0; height: 40px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); text-align: left; }
+    .video-action:hover { border-color: var(--accent); background: var(--surface-strong); }
+    .video-action.active.video-action-like { color: var(--reaction-like); border-color: var(--reaction-like); background: var(--reaction-like-surface) !important; }
+    .video-action.active.video-action-coin { color: var(--reaction-coin); border-color: var(--reaction-coin); background: var(--reaction-coin-surface) !important; }
+    .video-action.active.video-action-favorite { color: var(--reaction-favorite); border-color: var(--reaction-favorite); background: var(--reaction-favorite-surface) !important; }
+    .video-action.active:hover { filter: brightness(.96); }
+    .video-action i { font-size: 17px; }
+    .video-action-value { overflow: hidden; font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+    .creator-card, .comment-action { width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 2px; border-bottom: 1px solid rgba(98,100,89,.58); text-align: left; background: transparent; }
+    .creator-card:hover, .comment-action:hover { background: var(--surface-strong); }
+    .detail-rail [data-action] { position: relative; z-index: 3; pointer-events: auto; }
+    .creator-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 800; }
+    .creator-copy { min-width: 0; }
+    .creator-name { display: block; font-size: 13px; font-weight: 700; }
+    .creator-meta { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .source-row, .browse-row { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 7px; text-align: left; background: transparent; }
+    .source-row:hover, .browse-row:hover { background: var(--surface-strong); }
+    .row-index { width: 18px; color: var(--accent); font-size: 12px; }
+    .row-copy { min-width: 0; }
+    .row-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+    .row-sub { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    /* UX: the list workspace stays above MediaStage when visible, while a hidden workspace cannot own center hit tests or displace the dismissal target. */
+    .list-workspace {
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      z-index: 1;
+      height: var(--stage-height);
+      min-width: 0;
+      background: transparent;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .16s ease;
+    }
+    .workspace-header { min-height: 40px; display: flex; align-items: center; gap: 7px; padding: 0 4px; border-bottom: 1px solid rgba(245,242,233,.44); }
+    .workspace-title { font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px #000; }
+    .workspace-scroll { height: calc(100% - 40px); overflow: auto; padding: 9px 4px 82px; }
+    .search-workspace { display: grid; align-content: start; gap: 14px; }
+    /* UX: keyboard-open Search retains the normal vertical history-then-recommendation scan, with compact rows above the lowered input area. */
+    .search-workspace-keyboard { gap: 8px; padding-bottom: 0; }
+    .search-workspace-keyboard .search-section { min-width: 0; gap: 4px; }
+    .search-workspace-keyboard .search-section-heading { height: 24px; min-height: 24px; }
+    .search-workspace-keyboard .search-section-heading .icon-button { width: 24px; min-width: 24px; height: 24px; }
+    .search-workspace-keyboard .search-tag-list, .search-workspace-keyboard .search-keyword-grid { gap: 4px; padding: 5px; }
+    .search-workspace-keyboard .search-tag-label, .search-workspace-keyboard .search-keyword { height: 24px; }
+    .search-workspace-keyboard .search-tag-delete { width: 24px; min-width: 24px; height: 24px; }
+    .search-workspace-keyboard .search-history-more { height: 20px; }
+    .search-section { display: grid; gap: 6px; }
+    .search-section-title { color: var(--muted); font-size: 12px; font-weight: 700; }
+    /* UX: history and recommendation tags use restrained local opacity so they group touch targets without hiding MediaStage. */
+    .search-section-heading { display: flex; align-items: center; min-height: 28px; gap: 6px; }
+    .search-section-heading .search-section-title { flex: 1; }
+    .search-tag-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid rgba(98,100,89,.48); border-radius: 5px; background: rgba(25,26,22,.56); }
+    .search-tag { min-width: 0; display: inline-flex; align-items: center; max-width: 100%; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: rgba(47,49,41,.72); }
+    .search-tag-label { min-width: 0; max-width: 180px; height: 28px; overflow: hidden; padding: 0 7px; color: var(--ink); background: transparent; text-align: left; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+    .search-tag-delete { width: 26px; min-width: 26px; height: 26px; color: var(--muted); background: transparent; }
+    .search-tag-delete:hover { color: var(--ink); background: var(--surface-strong); }
+    .search-history-more { justify-self: start; color: var(--muted); font-size: 11px; }
+    .search-keyword-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid rgba(98,100,89,.48); border-radius: 5px; background: rgba(25,26,22,.56); }
+    .search-keyword { min-width: 0; max-width: 100%; height: 30px; justify-content: flex-start; padding: 0 8px; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: rgba(47,49,41,.72); white-space: nowrap; text-overflow: ellipsis; }
+    /* UX: Home and category browsing scan the central list in three columns before responsive constraints reduce density. */
+    .video-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .video-grid.list { grid-template-columns: 1fr; }
+    /* UX: single-column browsing reserves a fixed left 16:9 thumbnail so title, author, and metrics scan as one right-side text column. */
+    .video-grid.list .video-card { min-height: 94px; display: grid; grid-template-columns: clamp(108px, 24%, 176px) minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 10px; align-items: start; }
+    .video-grid.list .cover { grid-row: 1 / span 3; width: 100%; align-self: stretch; }
+    .video-grid.list .video-title { min-height: 0; margin: 1px 0 4px; }
+    .video-grid.list .video-author { align-self: start; }
+    .video-grid.list .video-metrics { align-self: end; margin-top: 8px; }
+    .video-card { padding: 8px; border: 1px solid rgba(245,242,233,.55); border-radius: var(--radius); background: rgba(25, 26, 22, .64); text-align: left; }
+    .video-card:hover { border-color: var(--accent); background: rgba(41, 43, 35, .88); }
+    .cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #3e4138; }
+    .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .charge-badge { position: absolute; top: 6px; left: 6px; padding: 3px 6px; background: var(--charge); color: #fff; font-size: 11px; font-weight: 700; }
+    .duration-badge { position: absolute; right: 6px; bottom: 6px; padding: 3px 5px; background: rgba(10, 11, 9, .82); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .video-title { min-height: 35px; margin: 7px 0 3px; font-size: 13px; line-height: 1.35; }
+    .video-author { overflow: hidden; color: var(--muted); white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+    .video-metrics { display: flex; gap: 9px; margin-top: 7px; color: var(--muted); font-size: 11px; }
+
+    /* UX: Transport remains operable over the workbench without its own framed panel, leaving MediaStage as the dominant surface. */
+    .transport-overlay {
+      position: absolute;
+      left: calc(var(--rail-width) + var(--gap));
+      top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) - var(--transport-lane));
+      width: var(--stage-width);
+      height: var(--transport-lane);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .16s ease, transform .16s ease, top .16s ease, height .16s ease;
+    }
+    .timeline { position: relative; width: 100%; height: 4px; background: #5d5f55; }
+    .timeline::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 38%; background: var(--accent); }
+    .transport-row { display: flex; align-items: center; gap: 5px; }
+    .transport-time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* UX: the 26-key console remains in MediaStage's lower area above Transport; reduced vertical density preserves the normal vertical Search content hierarchy above it. */
+    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 120px minmax(0, 1fr) 68px; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-soft); box-shadow: 0 12px 38px var(--keyboard-shadow); }
+    .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 3px; }
+    /* UX: the numeric zone keeps common arithmetic operators beside digits instead of forcing a separate calculator mode. */
+    .keyboard-number-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .keyboard-main { position: relative; min-width: 0; min-height: 143px; display: grid; grid-template-rows: 50px 1fr; gap: 4px; }
+    /* UX: the entire input console uses the active theme palette, rather than mixing themed labels with a fixed dark keyboard shell. */
+    /* UX: candidate words use one clipped row with a right-side expander; expanding fixes the composition layer over the keyboard main area and scrolls plain candidate text. */
+    .keyboard-composition { position: relative; z-index: 3; min-width: 0; display: grid; grid-template-rows: 20px 20px; gap: 2px; padding: 3px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--scene); }
+    .keyboard-composition.candidates-expanded { position: absolute; inset: 0; z-index: 4; grid-template-rows: 20px minmax(0, 1fr); overflow: hidden; }
+    .keyboard-preedit { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+    .keyboard-candidate-row { min-width: 0; min-height: 0; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 20px; align-items: start; gap: 3px; }
+    .keyboard-candidates { min-width: 0; display: flex; align-items: center; gap: 3px; overflow: hidden; }
+    .keyboard-composition.candidates-expanded .keyboard-candidate-row { height: 100%; }
+    .keyboard-candidates.expanded { min-height: 0; height: 100%; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px 8px; padding: 1px 0; overflow-y: auto; overscroll-behavior: contain; }
+    .keyboard-candidate { flex: 0 0 auto; min-width: 0; height: 20px; overflow: hidden; padding: 0 4px; border: 0; border-radius: 0; background: transparent; color: var(--ink); text-align: left; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+    .keyboard-candidate.active { color: var(--accent); background: transparent !important; }
+    .keyboard-candidate:hover { color: var(--accent); background: transparent; }
+    .keyboard-candidate-expand { grid-column: 2; grid-row: 1; position: relative; z-index: 1; width: 20px; min-width: 20px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: var(--muted); }
+    .keyboard-candidate-expand:hover { border-color: var(--accent); color: var(--ink); background: var(--surface-strong); }
+    .keyboard-letter-grid { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 3px; }
+    .keyboard-letter-row { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
+    .keyboard-letter-row.row-1 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
+    .keyboard-letter-row.row-2 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
+    /* UX: Shift and symbol mode stay with ZXC; the bottom row centers space between common punctuation and language controls. */
+    .keyboard-bottom-row { display: grid; grid-template-columns: 1.1fr .55fr .55fr minmax(0, 3fr) .55fr .55fr .55fr; gap: 3px; margin: 0 3%; }
+    .keyboard-space { min-width: 0; }
+    .keyboard-actions { grid-template-rows: repeat(4, minmax(0, 1fr)); }
+    .keyboard-key { min-width: 0; min-height: 20px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--ink); font-size: 11px; }
+    .keyboard-key:hover { border-color: var(--accent); background: var(--surface-strong); }
+    .keyboard-key.wide { grid-column: span 2; }
+    .transport-value-button { min-width: 46px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+    .grab-handle { padding: 0 5px; color: var(--muted); font-size: 17px; }
+
+    .popover, .transport-menu {
+      position: absolute;
+      z-index: 5;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      box-shadow: 0 12px 44px rgba(0,0,0,.36);
+    }
+    /* UX: playback settings and option menus are owned by transport and open above it instead of aligning with the right rail. */
+    .settings-popover { right: 8px; bottom: calc(100% + 8px); top: auto; width: 218px; padding: 10px; }
+    /* UX: the theme chooser is a short anchored menu; swatches identify the eventual Spatial scenes without adding a second navigation flow. */
+    .theme-popover { top: calc(100% + 8px); right: 42px; width: 148px; padding: 6px; }
+    .theme-option { width: 100%; justify-content: flex-start; gap: 8px; padding: 0 7px; }
+    .theme-swatch { width: 14px; height: 14px; flex: 0 0 14px; border: 1px solid rgba(0,0,0,.28); border-radius: 3px; background: var(--theme-swatch); }
+    .theme-option.active { color: var(--accent-ink); background: var(--accent); }
+    .transport-menu { right: 58px; bottom: calc(100% + 8px); width: 188px; padding: 7px; }
+    .transport-menu-title { padding: 2px 5px 7px; color: var(--muted); font-size: 11px; }
+    .transport-menu-options { display: grid; gap: 3px; }
+    .transport-menu-options.speed { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .transport-option { width: 100%; min-height: 30px; justify-content: flex-start; padding: 0 7px; font-size: 12px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; border-bottom: 1px solid rgba(98,100,89,.58); font-size: 12px; }
+    .setting-row:last-child { border-bottom: 0; }
+    .toggle { width: 34px; height: 18px; padding: 2px; border-radius: 9px; background: #595b51; }
+    .toggle::after { content: ""; display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform .14s ease; }
+    .toggle.on { background: var(--accent); }
+    .toggle.on::after { transform: translateX(16px); background: var(--accent-ink); }
+    /* UX: account and global settings reuse the center list scroller, keeping persistent destinations in the same touch-page hierarchy as search and video lists. */
+    .account-summary { display: flex; align-items: center; gap: 12px; padding: 7px 0 14px; border-bottom: 1px solid rgba(98,100,89,.58); }
+    .account-avatar { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+    .account-name, .account-sub { display: block; }
+    .account-name { font-size: 18px; font-weight: 750; }
+    .account-sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .account-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+    .account-stat { padding: 10px; border: 1px solid var(--border); border-radius: 5px; background: rgba(32,33,28,.72); text-align: left; }
+    .account-stat strong, .account-stat span { display: block; }
+    .account-stat span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .workspace-group { display: grid; gap: 5px; margin-top: 14px; }
+    .workspace-group-title { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .workspace-row { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; background: rgba(32,33,28,.72); text-align: left; }
+    .workspace-row:hover, .workspace-row.active { border-color: var(--accent); background: var(--surface-strong); }
+    .workspace-row i { color: var(--accent); font-size: 16px; }
+    .workspace-row-copy { min-width: 0; }
+    .workspace-row-title, .workspace-row-sub { display: block; }
+    .workspace-row-title { font-size: 13px; font-weight: 700; }
+    .workspace-row-sub { margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    .mode-pill { position: fixed; left: 14px; bottom: 12px; z-index: 9; padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; background: rgba(17,18,15,.92); color: var(--muted); font-size: 12px; }
+    .mode-pill strong { color: var(--accent); }
+
+    .prototype[data-canvas="controls"] .stage-scrim,
+    .prototype[data-canvas="browse"] .stage-scrim,
+    .prototype[data-canvas="context"] .stage-scrim,
+    .prototype[data-canvas="workspace"] .stage-scrim,
+    .prototype[data-canvas="focus"] .stage-scrim { opacity: 1; }
+    /* UX: controls needs a slightly deeper MediaStage layer so active workbench tools remain legible without darkening other canvases. */
+    .prototype[data-canvas="controls"] .stage-scrim { background: var(--controls-scrim); }
+    .prototype[data-canvas="controls"] .top-stack,
+    .prototype[data-canvas="browse"] .top-stack,
+    .prototype[data-canvas="context"] .top-stack,
+    .prototype[data-canvas="workspace"] .top-stack,
+    .prototype[data-canvas="focus"] .top-stack,
+    .prototype[data-canvas="controls"] .transport-overlay,
+    .prototype[data-canvas="browse"] .transport-overlay,
+    .prototype[data-canvas="context"] .transport-overlay,
+    .prototype[data-canvas="workspace"] .transport-overlay,
+    .prototype[data-canvas="focus"] .transport-overlay { opacity: 1; transform: none; }
+    .prototype[data-canvas="browse"] .browse-rail { opacity: 1; transform: none; }
+    /* UX: Home and category tabs reveal the center list within the active canvas without replacing its existing side-panel composition. */
+    .prototype[data-canvas="browse"] .list-workspace,
+    .prototype[data-canvas="controls"][data-route="home"] .list-workspace,
+    .prototype[data-canvas="context"][data-route="home"] .list-workspace,
+    .prototype[data-route="account"] .list-workspace,
+    .prototype[data-route="settings"] .list-workspace,
+    /* UX: Search replaces only center content; its route preserves the active canvas and side-panel composition. */
+    .prototype[data-canvas="controls"][data-route="search"] .list-workspace,
+    .prototype[data-canvas="context"][data-route="search"] .list-workspace,
+    .prototype[data-canvas="browse"][data-route="search"] .list-workspace { opacity: 1; pointer-events: auto; }
+    .prototype[data-canvas="controls"] .detail-rail,
+    .prototype[data-canvas="context"] .detail-rail,
+    .prototype[data-canvas="workspace"] .detail-rail,
+    .prototype[data-canvas="focus"] .detail-rail { opacity: 1; transform: none; }
+    .prototype[data-canvas="controls"] .right-rail,
+    .prototype[data-canvas="context"] .right-rail,
+    .prototype[data-canvas="workspace"] .right-rail,
+    .prototype[data-canvas="focus"] .right-rail { opacity: 1; transform: none; }
+    /* UX: visible workspace content preserves its own controls and scroll input instead of falling through to MediaStage. */
+    .prototype[data-canvas="workspace"] .list-workspace,
+    .prototype[data-canvas="focus"] .list-workspace { opacity: 1; pointer-events: auto; }
+    /* UX: any visible center list uses its full reading area, so Transport yields below MediaStage as a shorter operation strip. */
+    .prototype[data-canvas="browse"] .transport-overlay,
+    .prototype[data-canvas="workspace"] .transport-overlay,
+    .prototype[data-canvas="focus"] .transport-overlay,
+    .prototype[data-canvas="controls"][data-route="home"] .transport-overlay,
+    .prototype[data-canvas="context"][data-route="home"] .transport-overlay,
+    .prototype[data-route="search"] .transport-overlay,
+    .prototype[data-route="account"] .transport-overlay,
+    .prototype[data-route="settings"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); height: 64px; }
+    /* UX: Focus keeps MediaStage as a right-aligned preview inside the shared center grid instead of turning it into a second movable panel. */
+    .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); justify-self: end; align-self: start; top: 25%; transform: none; }
+    .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
+    .prototype[data-canvas="focus"] .stage-status { display: none; }
+
+  </style>
+</head>
+<body>
+  <main class="prototype" id="app" data-canvas="watch"></main>
+
+  <script>
+    const app = document.getElementById('app');
+    const icons = name => `<i class="icon icon-${name}"></i>`;
+    const videos = [
+      { title: '穿过城市的夜航', author: '折叠宇宙', views: '播放 18.6万', likes: 12000, coins: 3864, favorites: 7421, duration: '32:18', charge: true, image: 'photo-1493225457124-a3eb161ffa5f' },
+      { title: '雨天街景采样计划', author: '胶片观察员', views: '播放 9.4万', likes: 6821, coins: 2198, favorites: 4105, duration: '18:46', charge: false, image: 'photo-1481277542470-605612bd2d61' },
+      { title: '声音如何塑造空间', author: '立体声实验室', views: '播放 6.2万', likes: 4102, coins: 1675, favorites: 2960, duration: '24:05', charge: false, image: 'photo-1478720568477-152d9b164e26' },
+      { title: '山脊线上的日落', author: '漫游指南', views: '播放 31.8万', likes: 28000, coins: 8210, favorites: 16000, duration: '41:12', charge: true, image: 'photo-1500530855697-b586d89ba3ee' },
+      { title: '深海的蓝色频率', author: '深度频道', views: '播放 4.7万', likes: 2890, coins: 986, favorites: 1832, duration: '16:22', charge: false, image: 'photo-1519608487953-e999c86e7455' },
+      { title: '小城放映厅', author: '故事收集者', views: '播放 12.3万', likes: 9534, coins: 3028, favorites: 6184, duration: '27:50', charge: false, image: 'photo-1489599849927-2ee91cede3ba' }
+    ];
+    const categories = [{ label: '直播', unavailable: true }, { label: '推荐' }, { label: '热门' }, { label: '追番' }];
+    const state = {
+      canvas: 'watch',
+      route: 'playback',
+      selected: 0,
+      // UX: video-level reaction state is scoped per video so navigation and rerenders preserve visible selections and counts.
+      videoActions: videos.map(video => ({ liked: false, coinsAdded: 0, favorited: false, likeCount: video.likes, coinCount: video.coins, favoriteCount: video.favorites })),
+      listMode: 'grid',
+      category: '推荐',
+      sourceTab: '选集',
+      // UX: account and global settings retain their origin so Back returns to the same touch-page context and scroll state.
+      centerReturn: [],
+      accountSection: '我的收藏',
+      settingsSection: '账户',
+      settingsOpen: false,
+      // UX: theme IDs are shared with the future Spatial scenes; the browser previews their colors and exposes the selected scene marker only.
+      theme: 'coffee',
+      themeOpen: false,
+      // UX: transport option state and its one visible menu persist across rerenders without leaving the current playback canvas.
+      transportMenu: null,
+      subtitleTrack: '中文（自动）',
+      quality: '1080P',
+      playbackRate: '1.0x',
+      autoplay: true,
+      displayRatio: '自动',
+      danmaku: true,
+      // UX: Search retains the originating canvas and route so opening or closing it never rewrites the surrounding panel composition.
+      searchReturn: null,
+      playbackReturn: null,
+      searchQuery: '',
+      // UX: history has a bounded local sample and expands in place so the empty-search page remains compact by default.
+      searchHistory: ['沉浸式影像', '夜间城市声场', '空间音频', 'VR 旅行', '电影配乐', '独立动画', '自然风光', '城市纪录片'],
+      searchHistoryExpanded: false,
+      hotSearches: ['VR 旅行', '电影配乐', '城市纪录片', '声音设计', '独立动画', '自然风光'],
+      searchScrollPosition: 0,
+      // UX: the browser keyboard preview is visible only for the active Search canvas and does not model text conversion or platform input.
+      searchKeyboardOpen: false,
+      keyboardLanguage: 'zh',
+      keyboardMode: 'letters',
+      keyboardUppercase: false,
+      // UX: candidate overflow stays collapsed until the user explicitly expands it from the row's right edge.
+      keyboardCandidatesExpanded: false,
+      // UX: drawer and per-comment state persist while the Workbench remains open.
+      commentsOpen: false,
+      replyTarget: null,
+      commentReactions: [{ liked: false, disliked: false }, { liked: false, disliked: false }, { liked: false, disliked: false }],
+      focusKind: 'creator'
+    };
+    const canvasLabels = { watch: 'Quiet Watch', controls: 'Playback Canvas', browse: 'Browse Canvas', context: 'Current Video Context', workspace: 'Video List Workspace', focus: 'Focus Workspace' };
+    const themes = {
+      waffle: { label: '华夫饼', swatch: '#f2debe', spatialScene: 'waffle' },
+      coffee: { label: '咖啡', swatch: '#281a14', spatialScene: 'coffee' },
+      matcha: { label: '抹茶', swatch: '#77DD77', spatialScene: 'matcha' }
+    };
+    function compactCount(value) {
+      if (value >= 10000) return `${(value / 10000).toFixed(1).replace('.0', '')}万`;
+      return String(value);
+    }
+
+    function ThemePopover() {
+      if (!state.themeOpen) return '';
+      return `<aside class="popover theme-popover" aria-label="主题选择">${Object.entries(themes).map(([value, theme]) => `<button class="text-button theme-option ${state.theme === value ? 'active' : ''}" data-action="select-theme" data-value="${value}"><span class="theme-swatch" style="--theme-swatch:${theme.swatch}"></span>${theme.label}</button>`).join('')}</aside>`;
+    }
+    function SystemBar() {
+      const theme = themes[state.theme];
+      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${theme.label}">${icons('palette')}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
+    }
+    function GlobalNavigation() {
+      return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="open-account" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="open-global-settings" title="Settings">${icons('settings-2')}</button></nav>`;
+    }
+    function ContentNavigationSlot() {
+      const isSubroute = ['workspace', 'context', 'focus'].includes(state.canvas);
+      const isCenterRoute = ['account', 'settings'].includes(state.route);
+      // UX: Search is a route within the current canvas, so it always owns the slot before any subroute tab can replace it.
+      if (state.route === 'search') return `<nav class="content-navigation content-navigation-search"><button class="icon-button" data-action="browse-search" title="搜索">${icons('search')}</button><div class="search-query"><input class="search-field" value="${state.searchQuery}" placeholder="搜索" readonly data-action="open-search-keyboard" aria-label="搜索查询">${state.searchQuery ? `<button class="icon-button search-clear" data-action="clear-search" title="清空">${icons('x')}</button>` : ''}</div><button class="icon-button" data-action="request-system-ime" title="唤起系统输入法">${icons('keyboard')}</button><button class="icon-button" data-action="voice-search" title="语音输入">${icons('mic')}</button></nav>`;
+      // UX: center pages and canvas subroutes share one Back tab, preserving a consistent touch-page return affordance.
+      if (isCenterRoute || isSubroute) return `<nav class="content-navigation content-navigation-tabs"><button class="category-button" data-action="back" title="返回">${icons('arrow-left')}返回</button></nav>`;
+      // UX: Home exposes only its confirmed four tabs; unavailable live content stays visible but cannot imply an operable destination.
+      if (state.route === 'home') return `<nav class="content-navigation content-navigation-tabs"><div class="category-strip">${categories.map(category => `<button class="category-button ${state.category === category.label ? 'active' : ''}" ${category.unavailable ? 'disabled title="直播暂不可用"' : `data-action="category" data-value="${category.label}"`}>${category.label}</button>`).join('')}</div></nav>`;
+      return `<nav class="content-navigation content-navigation-tabs"><button class="category-button active" data-action="open-workspace" title="Open source-aware video list">${icons('list-video')}视频列表</button></nav>`;
+    }
+    function TopStack() { return `<section class="top-stack">${SystemBar()}${GlobalNavigation()}${ContentNavigationSlot()}</section>`; }
+
+    function DanmakuLayer() {
+      if (!state.danmaku) return '';
+      return `<div class="danmaku-layer" aria-hidden="true"><span class="danmaku a">这个镜头好舒服</span><span class="danmaku b">声音设计太细了</span><span class="danmaku c">收藏了，晚上再看</span></div>`;
+    }
+    function MediaStage() {
+      const video = videos[state.selected];
+      return `<section class="media-stage" data-action="stage" aria-label="Media stage"><img src="https://images.unsplash.com/${video.image}?auto=format&fit=crop&w=1500&q=82" alt="${video.title}"><div class="stage-scrim"></div>${DanmakuLayer()}<button class="stage-dismiss" data-action="stage" title="Open or dismiss controls"></button><span class="stage-title">${video.title}</span><span class="stage-status">点击幕布</span></section>`;
+    }
+
+    function BrowseRail() {
+      return `<aside class="rail browse-rail dismiss-region" aria-label="Browse rail"><div class="rail-header"><span class="rail-title">发现</span><button class="icon-button" data-action="watch" title="Close browse">${icons('x')}</button></div><div class="rail-tabs"><button class="tab-button active">${state.category}</button><button class="tab-button" data-action="search">搜索</button><button class="tab-button" data-action="home">分类</button></div><div class="rail-scroll">${videos.map((video, index) => `<button class="browse-row" data-action="select-video" data-value="${index}"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${video.title}</span><span class="row-sub">${video.author} · ${video.views}</span></span></button>`).join('')}</div></aside>`;
+    }
+    // UX: a comment's action row always reserves the left for reply and the right for reactions.
+    function CommentRow(comment, index) {
+      const reaction = state.commentReactions[index];
+      const composer = state.replyTarget === index ? `<div class="reply-composer"><input class="reply-field" aria-label="Reply to ${comment.author}" placeholder="回复 ${comment.author}"><button class="icon-button" data-action="submit-reply" title="Send reply">${icons('send')}</button></div>` : '';
+      return `<article class="comment-row"><span class="comment-author">${comment.author}</span><div class="comment-text">${comment.text}</div><div class="comment-actions"><button class="comment-reply" data-action="reply-comment" data-value="${index}">回复</button><span class="spacer"></span><button class="icon-button ${reaction.disliked ? 'active' : ''}" data-action="comment-dislike" data-value="${index}" title="Dislike comment">${icons('thumbs-down')}</button><button class="icon-button ${reaction.liked ? 'active' : ''}" data-action="comment-like" data-value="${index}" title="Like comment">${icons('thumbs-up')}</button></div>${composer}</article>`;
+    }
+    function DetailRail() {
+      const video = videos[state.selected];
+      const actionState = state.videoActions[state.selected];
+      const comments = [
+        { author: '空间散步者', text: '镜头运动和声音设计都很有沉浸感。' },
+        { author: '晚风放映室', text: '这个段落的光线变化很喜欢。' },
+        { author: '声音采样员', text: '已收藏，晚上戴耳机再看一次。' }
+      ];
+      // UX: comments replace the complete detail rail; their full-width header labels the mode and acts as the collapse control.
+      const drawer = `<section class="comments-drawer ${state.commentsOpen ? 'open' : ''}" aria-label="Comments drawer"><button class="comments-header" data-action="comments" title="收起评论"><span class="comments-title">评论</span><span class="comments-collapse-icon" aria-hidden="true">${icons('chevron-down')}</span></button><div class="comments-drawer-body">${comments.map(CommentRow).join('')}</div></section>`;
+      // UX: title, metrics, and video reactions form one reading section before creator and description content.
+      return `<aside class="rail detail-rail dismiss-region" aria-label="Current video details"><div class="rail-scroll"><div class="detail-section"><div class="detail-title">${video.title}</div><div class="detail-metrics">${video.views} · ${video.duration}</div><div class="video-actions" aria-label="Video reactions"><button class="video-action video-action-like ${actionState.liked ? 'active' : ''}" data-action="video-like" aria-label="点赞，${compactCount(actionState.likeCount)}" aria-pressed="${actionState.liked}" title="${actionState.liked ? '取消点赞' : '点赞'}">${icons('thumbs-up')}<span class="video-action-value">${compactCount(actionState.likeCount)}</span></button><button class="video-action video-action-coin ${actionState.coinsAdded > 0 ? 'active' : ''}" data-action="video-coin" aria-label="投币，${compactCount(actionState.coinCount)}" aria-pressed="${actionState.coinsAdded > 0}" title="${actionState.coinsAdded >= 2 ? '已达到投币上限' : actionState.coinsAdded === 1 ? '已投1枚，再投1枚' : '投币'}">${icons('coins')}<span class="video-action-value">${compactCount(actionState.coinCount)}</span></button><button class="video-action video-action-favorite ${actionState.favorited ? 'active' : ''}" data-action="video-favorite" aria-label="收藏，${compactCount(actionState.favoriteCount)}" aria-pressed="${actionState.favorited}" title="${actionState.favorited ? '取消收藏' : '收藏'}">${icons('star')}<span class="video-action-value">${compactCount(actionState.favoriteCount)}</span></button></div></div><button class="creator-card" data-action="focus" title="View creator uploads"><span class="creator-avatar">宇</span><span class="creator-copy"><span class="creator-name">${video.author}</span><span class="creator-meta">查看全部投稿 ${icons('chevron-right')}</span></span></button><div class="detail-section" aria-label="简介"><div class="detail-value">从夜间城市声场出发，记录光线、移动与空间感知。</div></div></div><footer class="detail-footer"><button class="comment-action" data-action="comments"><span>${icons('messages-square')}</span><span class="creator-copy"><span class="creator-name">评论</span><span class="creator-meta">展开评论 3</span></span></button></footer>${drawer}</aside>`;
+    }
+    function SourceRail() {
+      const label = state.sourceTab === '选集' ? '当前播放' : state.sourceTab === '合集' ? '同合集内容' : '相关内容';
+      return `<aside class="rail right-rail dismiss-region" aria-label="Source-aware content"><div class="rail-tabs">${['选集', '合集', '相关', '弹幕'].map(tab => `<button class="tab-button ${state.sourceTab === tab ? 'active' : ''}" data-action="source-tab" data-value="${tab}">${tab}</button>`).join('')}</div><div class="rail-scroll">${state.sourceTab === '弹幕' ? DanmakuList() : videos.slice(0, 5).map((video, index) => `<button class="source-row" data-action="select-video" data-value="${index}"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${video.title}</span><span class="row-sub">${index === state.selected ? '当前播放' : label}</span></span></button>`).join('')}</div></aside>`;
+    }
+    function DanmakuList() {
+      return ['这个镜头好舒服', '声音设计太细了', '收藏了，晚上再看', '夜景氛围很棒', '字幕位置很舒服'].map((text, index) => `<div class="source-row"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${text}</span><span class="row-sub">00:${12 + index * 7}</span></span></div>`).join('');
+    }
+    function SearchWorkspace() {
+      const hasQuery = state.searchQuery.length > 0;
+      const historyLimit = 4;
+      const visibleHistory = state.searchHistory.slice(0, state.searchHistoryExpanded ? historyLimit * 2 : historyLimit);
+      const history = visibleHistory.map(entry => `<span class="search-tag"><button class="search-tag-label" data-action="select-search-entry" data-value="${entry}" title="搜索 ${entry}">${icons('history')} ${entry}</button><button class="search-tag-delete" data-action="remove-search-history" data-value="${entry}" title="删除 ${entry}">${icons('x')}</button></span>`).join('');
+      const hot = state.hotSearches.map(entry => `<button class="text-button search-keyword" data-action="select-search-entry" data-value="${entry}">${entry}</button>`).join('');
+      const historyMore = state.searchHistory.length > historyLimit ? `<button class="text-button search-history-more" data-action="toggle-search-history">${state.searchHistoryExpanded ? `${icons('chevron-up')}收起` : `${icons('chevron-down')}更多`}</button>` : '';
+      // UX: Search content follows touch-page hierarchy: empty queries show removable history tags and refreshable recommendations, committed queries show reusable result cards.
+      const body = hasQuery
+        ? `<section class="search-section"><span class="search-section-title">搜索结果</span><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></section>`
+        : `<section class="search-section"><div class="search-section-heading"><span class="search-section-title">搜索历史</span></div><div class="search-tag-list">${history || '<span class="row-sub">暂无搜索历史</span>'}</div>${historyMore}</section><section class="search-section"><div class="search-section-heading"><span class="search-section-title">推荐搜索</span><button class="icon-button" data-action="refresh-hot-searches" title="刷新推荐搜索">${icons('refresh-cw')}</button></div><div class="search-keyword-grid">${hot}</div></section>`;
+      return `<section class="list-workspace dismiss-region" aria-label="Search content workspace"><header class="workspace-header"><span class="workspace-title">搜索</span><span class="spacer"></span>${hasQuery ? `<button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="切换列表布局">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button>` : ''}</header><div class="workspace-scroll search-workspace ${state.searchKeyboardOpen && !hasQuery ? 'search-workspace-keyboard' : ''}">${body}</div></section>`;
+    }
+    function AccountWorkspace() {
+      const sections = [
+        { label: '我的收藏', icon: 'heart', detail: '128 个已收藏视频' },
+        { label: '观看历史', icon: 'clock-3', detail: '72 条最近观看记录' },
+        { label: '稍后再看', icon: 'bookmark', detail: '46 个待观看视频' }
+      ];
+      // UX: account destinations stay selectable in-page so the persistent profile surface does not become a transient modal.
+      return `<section class="list-workspace dismiss-region" aria-label="Account workspace"><header class="workspace-header"><span class="workspace-title">个人资料</span></header><div class="workspace-scroll"><section class="account-summary"><span class="account-avatar">V</span><span><span class="account-name">Viri 用户</span><span class="account-sub">登录以同步收藏、历史与订阅</span></span></section><div class="account-stats"><button class="account-stat" data-action="account-section" data-value="我的收藏"><strong>128</strong><span>收藏</span></button><button class="account-stat" data-action="account-section" data-value="稍后再看"><strong>46</strong><span>稍后再看</span></button><button class="account-stat" data-action="account-section" data-value="观看历史"><strong>72</strong><span>历史记录</span></button></div><section class="workspace-group"><span class="workspace-group-title">内容库</span>${sections.map(section => `<button class="workspace-row ${state.accountSection === section.label ? 'active' : ''}" data-action="account-section" data-value="${section.label}">${icons(section.icon)}<span class="workspace-row-copy"><span class="workspace-row-title">${section.label}</span><span class="workspace-row-sub">${section.detail}</span></span><span class="spacer"></span>${icons('chevron-right')}</button>`).join('')}</section><section class="workspace-group"><span class="workspace-group-title">账户</span><button class="workspace-row" data-action="open-global-settings">${icons('settings-2')}<span class="workspace-row-copy"><span class="workspace-row-title">账户设置</span><span class="workspace-row-sub">同步、隐私与偏好</span></span><span class="spacer"></span>${icons('chevron-right')}</button></section></div></section>`;
+    }
+    function SettingsWorkspace() {
+      const sections = [
+        { label: '账户', icon: 'circle-user-round', detail: '登录、同步与隐私' },
+        { label: '显示与输入', icon: 'monitor', detail: '面板、手势与输入方式' },
+        { label: '通知', icon: 'bell', detail: '互动与更新提醒' }
+      ];
+      // UX: global settings are a center page, while only playback-scoped controls remain in the Transport popover.
+      return `<section class="list-workspace dismiss-region" aria-label="Global settings workspace"><header class="workspace-header"><span class="workspace-title">设置</span></header><div class="workspace-scroll"><section class="workspace-group"><span class="workspace-group-title">全局偏好</span>${sections.map(section => `<button class="workspace-row ${state.settingsSection === section.label ? 'active' : ''}" data-action="settings-section" data-value="${section.label}">${icons(section.icon)}<span class="workspace-row-copy"><span class="workspace-row-title">${section.label}</span><span class="workspace-row-sub">${section.detail}</span></span><span class="spacer"></span>${icons('chevron-right')}</button>`).join('')}</section><section class="workspace-group"><span class="workspace-group-title">当前播放</span><button class="workspace-row" data-action="playback-settings">${icons('sliders-horizontal')}<span class="workspace-row-copy"><span class="workspace-row-title">播放设置</span><span class="workspace-row-sub">自动连播、显示比例与弹幕</span></span><span class="spacer"></span>${icons('chevron-right')}</button></section></div></section>`;
+    }
+    function ListWorkspace() {
+      if (state.route === 'search') return SearchWorkspace();
+      if (state.route === 'account') return AccountWorkspace();
+      if (state.route === 'settings') return SettingsWorkspace();
+      // UX: Workspace titles do not repeat Back; the top content-navigation slot is the one return affordance for every subroute.
+      return `<section class="list-workspace dismiss-region" aria-label="Transparent video list workspace"><header class="workspace-header"><span class="workspace-title">${state.canvas === 'focus' ? '创作者投稿' : '视频列表'}</span><span class="spacer"></span><button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="Switch list layout">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button></header><div class="workspace-scroll"><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></div></section>`;
+    }
+    function VideoCard(video, index) {
+      const actionState = state.videoActions[index];
+      return `<button class="video-card" data-action="select-video" data-value="${index}"><div class="cover"><img src="https://images.unsplash.com/${video.image}?auto=format&fit=crop&w=720&q=78" alt="${video.title}">${video.charge ? '<span class="charge-badge">充电</span>' : ''}<span class="duration-badge">${video.duration}</span></div><div class="video-title">${video.title}</div><div class="video-author">${video.author}</div><div class="video-metrics"><span>${video.views}</span><span>${icons('heart')} ${compactCount(actionState.likeCount)}</span></div></button>`;
+    }
+    function TransportOverlay() {
+      const subtitlesOn = state.subtitleTrack !== '关闭';
+      // UX: subtitle, quality, and speed remain direct transport controls; each opens one compact PiliPlus-style option menu.
+      return `<footer class="transport-overlay" aria-label="Transport controls"><div class="timeline"></div><div class="transport-row"><button class="icon-button" title="Volume">${icons('volume-2')}</button><button class="icon-button transport-compact-hide" title="Previous">${icons('skip-back')}</button><button class="icon-button transport-compact-hide" title="Replay">${icons('rotate-ccw')}</button><button class="icon-button active" title="Pause">${icons('pause')}</button><button class="icon-button transport-compact-hide" title="Forward">${icons('rotate-cw')}</button><button class="icon-button transport-compact-hide" title="Next">${icons('skip-forward')}</button><span class="spacer"></span><span class="transport-time">12:34 / 32:18</span><button class="icon-button ${subtitlesOn ? 'active' : ''}" data-action="transport-menu" data-value="subtitles" title="字幕：${state.subtitleTrack}">${icons('captions')}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="quality" title="清晰度">${state.quality}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="speed" title="倍速">${state.playbackRate}</button><button class="icon-button" data-action="playback-settings" title="Playback settings">${icons('sliders-horizontal')}</button><span class="grab-handle" title="Workbench grab handle">${icons('grip-horizontal')}</span></div>${TransportMenu()}${SettingsPopover()}</footer>`;
+    }
+    function TransportMenu() {
+      if (!state.transportMenu) return '';
+      const menus = {
+        subtitles: { title: '字幕', action: 'set-subtitle', current: state.subtitleTrack, options: ['关闭', '中文（自动）', 'English'] },
+        quality: { title: '清晰度', action: 'set-quality', current: state.quality, options: ['自动', '1080P', '720P', '480P'] },
+        speed: { title: '倍速', action: 'set-playback-speed', current: state.playbackRate, options: ['0.5x', '0.75x', '1.0x', '1.25x', '1.5x', '1.75x', '2.0x', '3.0x'] }
+      };
+      const menu = menus[state.transportMenu];
+      return `<aside class="transport-menu" aria-label="${menu.title}选项"><div class="transport-menu-title">${menu.title}</div><div class="transport-menu-options ${state.transportMenu}">${menu.options.map(option => `<button class="text-button transport-option ${menu.current === option ? 'active' : ''}" data-action="${menu.action}" data-value="${option}">${option}</button>`).join('')}</div></aside>`;
+    }
+    // UX: settings excludes subtitle, quality, and speed because those options already have direct transport controls.
+    function SettingsPopover() {
+      if (!state.settingsOpen) return '';
+      return `<aside class="popover settings-popover" aria-label="Playback settings"><div class="setting-row"><span>自动连播</span><button class="toggle ${state.autoplay ? 'on' : ''}" data-action="toggle-autoplay" title="自动连播"></button></div><div class="setting-row"><span>显示比例</span><button class="text-button" data-action="cycle-display-ratio">${state.displayRatio}</button></div><div class="setting-row"><span>弹幕</span><button class="toggle ${state.danmaku ? 'on' : ''}" data-action="toggle-danmaku" title="Toggle danmaku"></button></div></aside>`;
+    }
+    function SearchKeyboard() {
+      if (state.route !== 'search' || !state.searchKeyboardOpen) return '';
+      const letterRows = state.keyboardMode === 'symbols'
+        ? ['~!@#$%^&*', '()_+-=[]{', '};:,.?/']
+        : ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].map(row => state.keyboardUppercase ? row : row.toLowerCase());
+      const zxcRow = letterRows[2].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('');
+      const candidateValues = state.keyboardLanguage === 'zh'
+        ? ['你好', '你', '拟好', '泥号', '呢', '尼', '拟', '逆', '妮', '倪', '年', '内', '你们', '你好呀', '你呢', '你的', '你们好', '你好吗', '你好啊', '你在', '你要', '你想', '你看', '你说', '你会', '你能', '你家', '你去', '你来', '你们的', '你知道', '你觉得', '你可以', '你应该', '你这个', '你那个', '你为什么', '你怎么', '你现在', '你在哪', '你在哪里', '你什么时候', '你已经', '你还是', '你还有', '你真的', '你就是', '你不是', '你好么', '你好吧', '你说呢', '你想要', '你想看', '你想去', '你能来', '你会吗', '你家里', '你们呢', '你们好啊']
+        : ['hello', 'help', 'held', 'helmet', 'hero', 'here', 'he', 'hi', 'hey'];
+      const candidateItems = candidateValues.map((candidate, index) => `<button class="keyboard-candidate ${index === 0 ? 'active' : ''}" data-action="keyboard-preview">${candidate}</button>`).join('');
+      const candidateRow = `<div class="keyboard-candidate-row"><div class="keyboard-candidates ${state.keyboardCandidatesExpanded ? 'expanded' : ''}">${candidateItems}</div><button class="keyboard-candidate-expand" data-action="toggle-keyboard-candidates" aria-expanded="${state.keyboardCandidatesExpanded}" title="${state.keyboardCandidatesExpanded ? '收起候选词' : '展开候选词'}">${icons(state.keyboardCandidatesExpanded ? 'chevron-up' : 'chevron-down')}</button></div>`;
+      // UX: Shift and symbol mode belong to the ZXC row; common punctuation stays beside the centered space key for touch typing.
+      return `<section class="search-keyboard dismiss-region" aria-label="26键中英文输入法预览"><div class="keyboard-number-grid">${['1', '2', '3', '+', '4', '5', '6', '−', '7', '8', '9', '×', '0', '.', '=', '/'].map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-main"><div class="keyboard-composition ${state.keyboardCandidatesExpanded ? 'candidates-expanded' : ''}"><span class="keyboard-preedit">${state.keyboardLanguage === 'zh' ? 'nihao' : 'hello'}</span>${candidateRow}</div><div class="keyboard-letter-grid"><div class="keyboard-letter-row row-0">${letterRows[0].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-1">${letterRows[1].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-2"><button class="keyboard-key ${state.keyboardUppercase ? 'active' : ''}" data-action="toggle-keyboard-case" title="切换大小写">${icons('arrow-up')}</button>${zxcRow}<button class="keyboard-key ${state.keyboardMode === 'symbols' ? 'active' : ''}" data-action="toggle-keyboard-mode" title="切换符号键盘">${state.keyboardMode === 'symbols' ? 'ABC' : '符号'}</button></div><div class="keyboard-bottom-row"><button class="keyboard-key ${state.keyboardLanguage === 'en' ? 'active' : ''}" data-action="toggle-keyboard-language" title="切换中英文">中/英</button><button class="keyboard-key" data-action="keyboard-preview" title="逗号">,</button><button class="keyboard-key" data-action="keyboard-preview" title="句号">.</button><button class="keyboard-key keyboard-space" data-action="keyboard-preview" title="空格">空格</button><button class="keyboard-key" data-action="keyboard-preview" title="感叹号">!</button><button class="keyboard-key" data-action="keyboard-preview" title="问号">?</button><button class="keyboard-key" data-action="keyboard-preview" title="拼音分词符">'</button></div></div></div><div class="keyboard-actions"><button class="keyboard-key" data-action="keyboard-preview" title="删除">${icons('delete')}</button><button class="keyboard-key" data-action="voice-search" title="语音输入">${icons('mic')}</button><button class="keyboard-key" data-action="keyboard-preview" title="确认">${icons('corner-down-left')}</button><button class="keyboard-key" data-action="dismiss-search-keyboard" title="收起键盘">${icons('chevron-down')}</button></div></section>`;
+    }
+    function render() {
+      app.dataset.canvas = state.canvas;
+      app.dataset.route = state.route;
+      app.dataset.theme = state.theme;
+      app.dataset.spatialScene = themes[state.theme].spatialScene;
+      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div><section class="workbench">${TopStack()}${MediaStage()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section><div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
+      const searchWorkspace = app.querySelector('.search-workspace');
+      if (searchWorkspace) searchWorkspace.scrollTop = state.searchScrollPosition;
+    }
+    function restoreSnapshot(snapshot) {
+      state.canvas = snapshot.canvas;
+      state.route = snapshot.route;
+      state.category = snapshot.category;
+      state.listMode = snapshot.listMode;
+      state.searchQuery = snapshot.searchQuery;
+      state.searchScrollPosition = snapshot.searchScrollPosition;
+      state.settingsOpen = false;
+      state.themeOpen = false;
+      state.transportMenu = null;
+      state.searchKeyboardOpen = false;
+      render();
+    }
+    function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.themeOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
+    // UX: persistent center destinations retain a short route stack, so Back returns through the same pages a touch user just visited.
+    function openCenterRoute(route) {
+      if (state.route === route) return;
+      state.centerReturn.push({ canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition });
+      state.route = route;
+      state.settingsOpen = false;
+      state.themeOpen = false;
+      state.transportMenu = null;
+      state.searchKeyboardOpen = false;
+      render();
+    }
+    // UX: one comment cannot be both liked and disliked at the same time.
+    function toggleCommentReaction(index, reactionKind) {
+      const previous = state.commentReactions[index];
+      const enabled = !previous[reactionKind];
+      state.commentReactions[index] = reactionKind === 'liked'
+        ? { liked: enabled, disliked: false }
+        : { liked: false, disliked: enabled };
+    }
+    function dispatch(action, value) {
+      switch (action) {
+        case 'stage': setCanvas(state.canvas === 'watch' ? 'controls' : 'watch'); break;
+        case 'watch': setCanvas('watch'); break;
+        // UX: Home restores the user's last category and list mode without replacing the active canvas or its side panels.
+        case 'home': state.route = 'home'; state.searchReturn = null; state.centerReturn = []; state.themeOpen = false; state.searchKeyboardOpen = false; render(); break;
+        // UX: entering Search snapshots the origin but never swaps the active canvas or its side panels.
+        case 'search': if (state.route !== 'search') state.searchReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; state.route = 'search'; state.themeOpen = false; state.searchKeyboardOpen = false; render(); break;
+        case 'browse-search': state.searchKeyboardOpen = false; render(); break;
+        case 'open-search-keyboard': state.searchKeyboardOpen = true; render(); break;
+        case 'dismiss-search-keyboard': state.searchKeyboardOpen = false; render(); break;
+        case 'clear-search': state.searchQuery = ''; state.searchScrollPosition = 0; render(); break;
+        case 'select-search-entry': state.searchQuery = value; state.searchKeyboardOpen = false; state.searchScrollPosition = 0; render(); break;
+        case 'remove-search-history': state.searchHistory = state.searchHistory.filter(entry => entry !== value); render(); break;
+        case 'toggle-search-history': state.searchHistoryExpanded = !state.searchHistoryExpanded; render(); break;
+        case 'refresh-hot-searches': state.hotSearches = [...state.hotSearches.slice(3), ...state.hotSearches.slice(0, 3)]; render(); break;
+        // UX: the prototype shows system-IME and voice placement without simulating platform focus or speech results.
+        case 'request-system-ime': state.searchKeyboardOpen = false; render(); break;
+        case 'voice-search': break;
+        case 'keyboard-preview': break;
+        case 'toggle-keyboard-case': state.keyboardUppercase = !state.keyboardUppercase; render(); break;
+        case 'toggle-keyboard-language': state.keyboardLanguage = state.keyboardLanguage === 'zh' ? 'en' : 'zh'; state.keyboardUppercase = false; state.keyboardCandidatesExpanded = false; render(); break;
+        // UX: the candidate expander reveals overflow locally over the keys, preserving the first-row candidate scan and all surrounding layout.
+        case 'toggle-keyboard-candidates': state.keyboardCandidatesExpanded = !state.keyboardCandidatesExpanded; render(); break;
+        case 'toggle-keyboard-mode': state.keyboardMode = state.keyboardMode === 'symbols' ? 'letters' : 'symbols'; render(); break;
+        // UX: playback's video-list tab returns to the exact Search origin after a result starts playback.
+        case 'open-workspace': if (state.playbackReturn?.route === 'search') { const snapshot = state.playbackReturn; state.playbackReturn = null; restoreSnapshot(snapshot); } else setCanvas('workspace', 'playback'); break;
+        case 'back': if (['account', 'settings'].includes(state.route) && state.centerReturn.length) { const snapshot = state.centerReturn.pop(); restoreSnapshot(snapshot); } else if (state.route === 'search' && state.searchReturn) { const snapshot = state.searchReturn; state.searchReturn = null; restoreSnapshot(snapshot); } else setCanvas('controls', 'playback'); break;
+        case 'focus': setCanvas('focus', 'focus'); break;
+        case 'open-account': openCenterRoute('account'); break;
+        case 'open-global-settings': openCenterRoute('settings'); break;
+        case 'account-section': state.accountSection = value; render(); break;
+        case 'settings-section': state.settingsSection = value; render(); break;
+        // UX: playback settings and direct option menus are mutually exclusive surfaces anchored to transport.
+        case 'playback-settings': state.settingsOpen = !state.settingsOpen; state.themeOpen = false; state.transportMenu = null; render(); break;
+        case 'transport-menu': state.transportMenu = state.transportMenu === value ? null : value; state.settingsOpen = false; state.themeOpen = false; render(); break;
+        case 'set-subtitle': state.subtitleTrack = value; state.transportMenu = null; render(); break;
+        case 'set-quality': state.quality = value; state.transportMenu = null; render(); break;
+        case 'set-playback-speed': state.playbackRate = value; state.transportMenu = null; render(); break;
+        case 'toggle-autoplay': state.autoplay = !state.autoplay; render(); break;
+        case 'cycle-display-ratio': { const ratios = ['自动', '16:9', '4:3']; state.displayRatio = ratios[(ratios.indexOf(state.displayRatio) + 1) % ratios.length]; render(); break; }
+        // UX: the two Web themes apply immediately and the menu closes after one direct choice.
+        case 'toggle-theme': state.themeOpen = !state.themeOpen; state.settingsOpen = false; state.transportMenu = null; render(); break;
+        case 'select-theme': state.theme = value; state.themeOpen = false; render(); break;
+        case 'toggle-danmaku': state.danmaku = !state.danmaku; render(); break;
+        case 'toggle-list': state.listMode = state.listMode === 'grid' ? 'list' : 'grid'; render(); break;
+        // UX: selecting a Search result enters playback but stores the result page so the video-list tab can return to it.
+        case 'select-video': if (state.route === 'search') state.playbackReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; else state.playbackReturn = null; state.selected = Number(value); setCanvas('controls', 'playback'); break;
+        // UX: category selection preserves the active canvas and reuses its visible center list rather than changing side-panel composition.
+        case 'category': state.category = value; render(); break;
+        case 'source-tab': state.sourceTab = value; render(); break;
+        // UX: Like and Favorite toggle their public counts, while Coin only accumulates to PiliPlus's normal two-coin ceiling.
+        case 'video-like': { const item = state.videoActions[state.selected]; item.liked = !item.liked; item.likeCount += item.liked ? 1 : -1; render(); break; }
+        case 'video-coin': { const item = state.videoActions[state.selected]; if (item.coinsAdded < 2) { item.coinsAdded += 1; item.coinCount += 1; } render(); break; }
+        case 'video-favorite': { const item = state.videoActions[state.selected]; item.favorited = !item.favorited; item.favoriteCount += item.favorited ? 1 : -1; render(); break; }
+        // UX: closing the drawer also exits any inline reply composer.
+        case 'comments': state.commentsOpen = !state.commentsOpen; if (!state.commentsOpen) state.replyTarget = null; render(); break;
+        case 'reply-comment': state.replyTarget = state.replyTarget === Number(value) ? null : Number(value); render(); break;
+        case 'submit-reply': state.replyTarget = null; render(); break;
+        case 'comment-like': toggleCommentReaction(Number(value), 'liked'); render(); break;
+        case 'comment-dislike': toggleCommentReaction(Number(value), 'disliked'); render(); break;
+        default: break;
+      }
+    }
+    app.addEventListener('scroll', event => {
+      if (state.route === 'search' && event.target.matches('.search-workspace')) state.searchScrollPosition = event.target.scrollTop;
+    }, true);
+    app.addEventListener('click', event => {
+      const action = event.target.closest('[data-action]');
+      if (action) { event.stopPropagation(); dispatch(action.dataset.action, action.dataset.value); return; }
+      // UX: panel body clicks are never canvas-dismiss clicks; only scene/canvas whitespace dismisses.
+      const preservesInteraction = event.target.closest('input, .settings-popover, .top-stack, .rail, .list-workspace, .transport-overlay, .search-keyboard');
+      if (!preservesInteraction && state.canvas !== 'watch') setCanvas('watch');
+    });
+    render();
+  </script>
+</body>
+</html>
