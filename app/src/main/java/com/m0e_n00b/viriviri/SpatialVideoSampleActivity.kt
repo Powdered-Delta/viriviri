@@ -864,6 +864,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       UIPanelSettings(
           shape = QuadShapeOptions(width = width, height = height),
           display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 800),
+          input = PanelInputOptions(0),
           style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
       )
 

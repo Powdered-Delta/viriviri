@@ -1,6 +1,7 @@
 package com.m0e_n00b.viriviri
 
 import android.content.Context
+import android.util.Log
 import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
@@ -477,6 +478,8 @@ class ViriViriAppState(
         scope.launch {
           val events = runCatching { withContext(Dispatchers.IO) { provider.loadDanmaku(recommendation.videoId) } }
           if (requestId != danmakuRequestId) return@launch
+          events.onSuccess { Log.i("ViriViriDanmaku", "loaded ${it.size} events for ${recommendation.videoId}") }
+              .onFailure { Log.w("ViriViriDanmaku", "unable to load ${recommendation.videoId}", it) }
           mutableState.value =
               mutableState.value.copy(
                   danmakuEvents = events.getOrElse { emptyList() },
