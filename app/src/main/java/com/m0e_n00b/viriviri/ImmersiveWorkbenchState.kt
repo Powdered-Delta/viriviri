@@ -43,7 +43,13 @@ internal sealed interface WorkbenchEvent {
 internal object ImmersiveWorkbenchReducer {
   fun reduce(state: ImmersiveWorkbenchState, event: WorkbenchEvent): ImmersiveWorkbenchState =
       when (event) {
-        WorkbenchEvent.RevealTransport -> state.copy(visible = true, presentation = WorkbenchPresentation.NORMAL)
+        WorkbenchEvent.RevealTransport ->
+            state.copy(
+                visible = true,
+                presentation = WorkbenchPresentation.NORMAL,
+                content = WorkbenchContent.NONE,
+                isPlaybackConfigVisible = false,
+            )
         WorkbenchEvent.OpenShortsControls -> state.copy(visible = true, presentation = WorkbenchPresentation.SHORTS)
         WorkbenchEvent.OpenBrowse -> state.copy(visible = true, content = WorkbenchContent.BROWSE)
         WorkbenchEvent.OpenVideoContext ->

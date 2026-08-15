@@ -700,9 +700,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     hitInfo: HitInfo,
                     sourceOfInput: Entity,
                 ) {
-                  dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
-                  when (ImmersiveTransportOverlayPolicy.primaryAction()) {
-                    ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
+                  if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
+                    dispatchPlaybackCanvas(PlaybackCanvasEvent.IdleTimeout)
+                    animateControllerVisibility(false)
+                  } else {
+                    dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
+                    when (ImmersiveTransportOverlayPolicy.primaryAction()) {
+                      ImmersiveTransportPrimaryAction.REVEAL_TRANSPORT -> showTransportOverlay()
+                    }
                   }
                 }
 
@@ -875,7 +880,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             R.id.stage_backdrop_panel,
             Transform(Pose(Vector3(0f, 0f, 0.01f))),
             TransformParent(Entity(R.id.spatialized_video_panel)),
-            Visible(true),
+            // Disabled until a uniform Spatial material replaces compositor-dithered UI alpha.
+            Visible(false),
         )
   }
 
