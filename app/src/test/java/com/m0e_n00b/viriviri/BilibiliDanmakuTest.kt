@@ -30,6 +30,14 @@ class BilibiliDanmakuTest {
   }
 
   @Test
+  fun parserRejectsDtdBeforeInvokingAndroidXmlParser() {
+    assertEquals(
+        emptyList<Any>(),
+        parseBilibiliDanmakuXml("<!DOCTYPE i [<!ENTITY x 'unsafe'>]><i><d p=\"1,1\">&x;</d></i>"),
+    )
+  }
+
+  @Test
   fun parserSkipsMalformedOrEmptyEntries() {
     val events =
         parseBilibiliDanmakuXml(

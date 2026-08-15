@@ -8,10 +8,10 @@ import javax.xml.parsers.DocumentBuilderFactory
 import org.xml.sax.InputSource
 
 internal fun parseBilibiliDanmakuXml(xml: String): List<DanmakuEvent> {
-  val factory = DocumentBuilderFactory.newInstance().apply {
-    isNamespaceAware = false
-    setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-  }
+  // Android's Harmony parser does not implement the usual JAXP disallow-doctype feature.
+  // Reject DTD-bearing documents before parsing instead of relying on that unsupported feature.
+  if (DOCTYPE_PATTERN.containsMatchIn(xml)) return emptyList()
+  val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = false }
   val comments = factory.newDocumentBuilder().parse(InputSource(StringReader(xml))).getElementsByTagName("d")
   return buildList {
     for (index in 0 until comments.length) {
@@ -38,3 +38,5 @@ internal fun parseBilibiliDanmakuXml(xml: String): List<DanmakuEvent> {
     }
   }
 }
+
+private val DOCTYPE_PATTERN = Regex("<!DOCTYPE", RegexOption.IGNORE_CASE)
