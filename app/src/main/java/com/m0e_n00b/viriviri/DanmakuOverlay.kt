@@ -20,7 +20,8 @@ import kotlinx.coroutines.delay
 
 private const val SCROLL_DURATION_MS = 6_000L
 private const val FIXED_DURATION_MS = 4_000L
-private const val LANE_COUNT = 6
+private const val SCROLLING_LANE_COUNT = 12
+private const val FIXED_LANE_COUNT = 3
 private const val DANMAKU_TEXT_SIZE_PX = 152f
 private const val DANMAKU_OUTLINE_WIDTH_PX = 16f
 
@@ -42,6 +43,7 @@ internal fun DanmakuOverlay() {
     }
   }
   val scheduledEvents = remember(appState.danmakuEvents) { appState.danmakuEvents.sortedBy { it.startMs } }
+  val laneAssignments = remember(appState.danmakuEvents) { scheduleDanmakuLanes(appState.danmakuEvents) }
   val fillPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = DANMAKU_TEXT_SIZE_PX } }
   val outlinePaint = remember {
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -57,8 +59,8 @@ internal fun DanmakuOverlay() {
         if (event.startMs > positionMs) break
         val duration = if (event.laneFamily == DanmakuLaneFamily.SCROLLING) SCROLL_DURATION_MS else FIXED_DURATION_MS
         if (positionMs > event.startMs + duration) continue
-        val lane = (event.id.hashCode() and Int.MAX_VALUE) % LANE_COUNT
-        val y = (lane + 1) * size.height / (LANE_COUNT + 1)
+        val assignment = laneAssignments.getValue(event.id)
+        val y = (assignment.scrollingLane + 1) * size.height / (SCROLLING_LANE_COUNT + 1)
         val elapsed = (positionMs - event.startMs).coerceIn(0L, duration).toFloat() / duration
         val textWidth = fillPaint.measureText(event.text)
         val x = when (event.laneFamily) {
@@ -66,8 +68,10 @@ internal fun DanmakuOverlay() {
           DanmakuLaneFamily.TOP_FIXED, DanmakuLaneFamily.BOTTOM_FIXED -> (size.width - textWidth) / 2f
         }
         val fixedY = when (event.laneFamily) {
-          DanmakuLaneFamily.TOP_FIXED -> size.height * 0.12f
-          DanmakuLaneFamily.BOTTOM_FIXED -> size.height * 0.88f
+          DanmakuLaneFamily.TOP_FIXED ->
+              (assignment.fixedLane + 1) * size.height * 0.24f / (FIXED_LANE_COUNT + 1)
+          DanmakuLaneFamily.BOTTOM_FIXED ->
+              size.height * (0.76f + (assignment.fixedLane + 1) * 0.24f / (FIXED_LANE_COUNT + 1))
           DanmakuLaneFamily.SCROLLING -> y
         }
         canvas.nativeCanvas.drawText(event.text, x, fixedY, outlinePaint)
