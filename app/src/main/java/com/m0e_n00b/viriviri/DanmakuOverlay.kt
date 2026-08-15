@@ -21,6 +21,8 @@ import kotlinx.coroutines.delay
 private const val SCROLL_DURATION_MS = 6_000L
 private const val FIXED_DURATION_MS = 4_000L
 private const val LANE_COUNT = 6
+private const val DANMAKU_TEXT_SIZE_PX = 152f
+private const val DANMAKU_OUTLINE_WIDTH_PX = 16f
 
 @Composable
 internal fun StageBackdrop() {
@@ -39,12 +41,12 @@ internal fun DanmakuOverlay() {
       delay(33L)
     }
   }
-  val fillPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 38f } }
+  val fillPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = DANMAKU_TEXT_SIZE_PX } }
   val outlinePaint = remember {
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      textSize = 38f
+      textSize = DANMAKU_TEXT_SIZE_PX
       style = Paint.Style.STROKE
-      strokeWidth = 4f
+      strokeWidth = DANMAKU_OUTLINE_WIDTH_PX
       color = android.graphics.Color.BLACK
     }
   }
