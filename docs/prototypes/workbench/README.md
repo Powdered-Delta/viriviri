@@ -101,12 +101,12 @@ as removable, wrapping tags with a bounded local sample and an expand control;
 recommendation tags wrap and have a refresh action. Both groups use restrained
 local translucency so the tags remain legible without obscuring MediaStage. The
 browser prototype shows
-an application-owned 26-key Chinese/English console below MediaStage and in
-front of Transport when the field is selected, so history and recommendations
-remain visible in the center workspace. Its preview puts Shift and symbol mode
-on the ZXC row, keeps `中/英`, comma, period, a wide centered space key,
-exclamation, question, and the Pinyin delimiter `'` on the bottom row, and
-widens the numeric zone with `+`, `−`, `×`, `÷`, and `=`. It validates console placement and hit
+an application-owned 26-key Chinese/English console in MediaStage's lower
+area and in front of Transport when the field is selected. Empty-search history
+and recommendations compact into two columns above it. Its preview puts Shift
+and symbol mode on the ZXC row, keeps `中/英`, comma, period, a wide centered
+space key, exclamation, question, and the Pinyin delimiter `'` on the bottom
+row, and widens the numeric zone with `+`, `−`, `×`, `/`, and `=`. It validates console placement and hit
 ownership only; it does not model Pinyin conversion, text entry, system-IME
 focus, voice capture, requests, or player changes.
 
