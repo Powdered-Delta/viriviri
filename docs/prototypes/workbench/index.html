@@ -39,7 +39,7 @@
       font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
     }
 
-    /* UX: Web validates only the two readable display themes; light uses a low-glare warm palette while the headset-only immersive environment remains outside this browser control. */
+    /* UX: Web offers light, dark, and terminal display themes; the terminal palette is visual only and does not simulate the headset's immersive environment. */
     .prototype[data-theme="light"] {
       --ink: #3b281c;
       --muted: #705645;
@@ -66,6 +66,32 @@
     .prototype[data-theme="light"] .scene-marker { border-color: #af8056; }
     .prototype[data-theme="light"] .media-stage { background: #e6bd90; border-color: #a9784d; box-shadow: 0 18px 64px rgba(76, 48, 28, .23); }
     .prototype[data-theme="light"] .mode-pill { background: rgba(248, 235, 211, .94); }
+    /* UX: terminal mode uses #77DD77 for primary focus and active controls while retaining subdued surfaces for long viewing sessions. */
+    .prototype[data-theme="terminal"] {
+      --ink: #d5f7d5;
+      --muted: #96c996;
+      --scene: #0e160e;
+      --surface: #152015;
+      --surface-strong: #223122;
+      --surface-soft: rgba(17, 29, 17, .94);
+      --border: #487548;
+      --accent: #77DD77;
+      --accent-ink: #102010;
+      --danger: #f28b82;
+      --charge: #d7a7e5;
+      --reaction-like: #ff9b90;
+      --reaction-like-surface: rgba(145, 60, 53, .4);
+      --reaction-coin: #d9ef83;
+      --reaction-coin-surface: rgba(104, 126, 47, .4);
+      --reaction-favorite: #7adfd1;
+      --reaction-favorite-surface: rgba(42, 117, 107, .4);
+      --scrim: rgba(0, 8, 0, .5);
+    }
+    .prototype[data-theme="terminal"] .scene { background: #0e160e; }
+    .prototype[data-theme="terminal"] .scene-floor { border-color: #284a28; }
+    .prototype[data-theme="terminal"] .scene-marker { border-color: #5b9d5b; }
+    .prototype[data-theme="terminal"] .media-stage { background: #0c130c; border-color: #548e54; box-shadow: 0 18px 64px rgba(0, 0, 0, .54); }
+    .prototype[data-theme="terminal"] .mode-pill { background: rgba(17, 29, 17, .94); }
     button, input { font: inherit; }
     button { color: inherit; border: 0; cursor: pointer; }
     /* UX: the theme root owns the inherited foreground color so selecting light or dark changes all default text and button labels together. */
@@ -530,12 +556,12 @@
 
     function ThemePopover() {
       if (!state.themeOpen) return '';
-      const options = [{ value: 'light', label: '亮色', icon: 'sun-medium' }, { value: 'dark', label: '暗色', icon: 'moon' }];
+      const options = [{ value: 'light', label: '亮色', icon: 'sun-medium' }, { value: 'dark', label: '暗色', icon: 'moon' }, { value: 'terminal', label: '终端', icon: 'terminal' }];
       return `<aside class="popover theme-popover" aria-label="主题选择">${options.map(option => `<button class="text-button theme-option ${state.theme === option.value ? 'active' : ''}" data-action="select-theme" data-value="${option.value}">${icons(option.icon)}${option.label}</button>`).join('')}</aside>`;
     }
     function SystemBar() {
-      const themeIcon = state.theme === 'light' ? 'sun-medium' : 'moon';
-      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${state.theme === 'light' ? '亮色' : '暗色'}">${icons(themeIcon)}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
+      const theme = { light: { label: '亮色', icon: 'sun-medium' }, dark: { label: '暗色', icon: 'moon' }, terminal: { label: '终端', icon: 'terminal' } }[state.theme];
+      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${theme.label}">${icons(theme.icon)}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
     }
     function GlobalNavigation() {
       return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="open-account" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="open-global-settings" title="Settings">${icons('settings-2')}</button></nav>`;
