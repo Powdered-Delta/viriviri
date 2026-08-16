@@ -75,12 +75,20 @@ the active canvas or its left/right rail composition. The centered list workspac
 becomes visible for Home and every category selection, so the navigation never
 appears without corresponding content.
 
+Search is a content route, not a canvas transition. Opening it records the
+current canvas, route, Home category, list layout, query, and search scroll
+position; it keeps the surrounding left/right rails intact. Back restores that
+snapshot. Selecting a result enters normal playback but records Search as the
+video-list return target.
+
 Search uses the slot's constrained field mode: search action, clear action within
-the query field, system-IME request, and voice request. The browser prototype
-shows an application-owned 26-key Chinese/English console in front of Transport
-when the field is selected. It validates console placement and hit ownership
-only; it does not model Pinyin conversion, text entry, system-IME focus, voice
-capture, requests, or player changes.
+the query field when text exists, system-IME request, and voice request. Empty
+queries show local search history and recommendation keywords in the center
+workspace; committed sample keywords show reusable result cards. The browser
+prototype shows an application-owned 26-key Chinese/English console in front of
+Transport when the field is selected. It validates console placement and hit
+ownership only; it does not model Pinyin conversion, text entry, system-IME
+focus, voice capture, requests, or player changes.
 
 ### MediaStage and Workbench Canvases
 
@@ -90,14 +98,15 @@ The prototype models these canvas states:
 | --- | --- | --- |
 | `watch` | Quiet Watch | MediaStage only; Workbench modules are hidden. |
 | `controls` | Normal playback controls | Top stack, left detail rail, MediaStage, right source rail, front transport. |
-| `browse` | Discovery/Search | Browse rail, route-specific content navigation, and visible center list workspace. |
+| `browse` | Discovery | Browse rail, route-specific content navigation, and visible center list workspace. |
 | `context` | Current video context | Context-oriented navigation/content state. |
 | `workspace` | Explicit video list | Transparent center list workspace over the existing MediaStage. |
 | `focus` | Creator-focused listing | Center list workspace with MediaStage as PiP. |
 
 The center list workspace is transparent. Its cards and controls can have local
 surfaces for legibility, but the workspace itself is not a global opaque
-backdrop.
+backdrop. Search can replace that center content inside any active non-watch
+canvas; it does not imply a transition to `browse`.
 
 ### Normal Playback Layout
 
@@ -285,6 +294,8 @@ replaced or removed when their associated behavior changes:
 - Home and category navigation preserve their last tab, list layout, active
   canvas, and side-panel composition while keeping the center list visible in
   three desktop columns.
+- Search retains its origin snapshot and replaces only the center content with
+  local history, recommendations, or result cards; it never rewrites side rails.
 - Search header controls stay in one stable row, while its 26-key preview is the
   topmost application-owned browser input layer in front of Transport.
 - Compact transport preserves subtitle, quality, speed, and settings before

@@ -223,6 +223,14 @@
     .workspace-header { min-height: 40px; display: flex; align-items: center; gap: 7px; padding: 0 4px; border-bottom: 1px solid rgba(245,242,233,.44); }
     .workspace-title { font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px #000; }
     .workspace-scroll { height: calc(100% - 40px); overflow: auto; padding: 9px 4px 82px; }
+    .search-workspace { display: grid; align-content: start; gap: 14px; }
+    .search-section { display: grid; gap: 6px; }
+    .search-section-title { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .search-history-row { width: 100%; min-height: 36px; display: grid; grid-template-columns: 24px minmax(0, 1fr) 28px; align-items: center; gap: 5px; padding: 0 5px; border-bottom: 1px solid rgba(245,242,233,.24); background: transparent; text-align: left; }
+    .search-history-row:hover { background: var(--surface-strong); }
+    .search-history-label { min-width: 0; overflow: hidden; padding: 0; color: inherit; background: transparent; text-align: left; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+    .search-keyword-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+    .search-keyword { min-width: 0; height: 32px; overflow: hidden; justify-content: flex-start; border: 1px solid rgba(98,100,89,.68); white-space: nowrap; text-overflow: ellipsis; }
     /* UX: Home and category browsing scan the central list in three columns before responsive constraints reduce density. */
     .video-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .video-grid.list { grid-template-columns: 1fr; }
@@ -336,7 +344,11 @@
     /* UX: Home and category tabs reveal the center list within the active canvas without replacing its existing side-panel composition. */
     .prototype[data-canvas="browse"] .list-workspace,
     .prototype[data-canvas="controls"][data-route="home"] .list-workspace,
-    .prototype[data-canvas="context"][data-route="home"] .list-workspace { opacity: 1; pointer-events: auto; }
+    .prototype[data-canvas="context"][data-route="home"] .list-workspace,
+    /* UX: Search replaces only center content; its route preserves the active canvas and side-panel composition. */
+    .prototype[data-canvas="controls"][data-route="search"] .list-workspace,
+    .prototype[data-canvas="context"][data-route="search"] .list-workspace,
+    .prototype[data-canvas="browse"][data-route="search"] .list-workspace { opacity: 1; pointer-events: auto; }
     .prototype[data-canvas="controls"] .detail-rail,
     .prototype[data-canvas="context"] .detail-rail,
     .prototype[data-canvas="workspace"] .detail-rail,
@@ -412,8 +424,14 @@
       autoplay: true,
       displayRatio: '自动',
       danmaku: true,
+      // UX: Search retains the originating canvas and route so opening or closing it never rewrites the surrounding panel composition.
+      searchReturn: null,
+      playbackReturn: null,
+      searchQuery: '',
+      searchHistory: ['沉浸式影像', '夜间城市声场', '空间音频'],
+      hotSearches: ['VR 旅行', '电影配乐', '城市纪录片', '声音设计', '独立动画', '自然风光'],
+      searchScrollPosition: 0,
       // UX: the browser keyboard preview is visible only for the active Search canvas and does not model text conversion or platform input.
-      searchQuery: '空间影像',
       searchKeyboardOpen: false,
       // UX: drawer and per-comment state persist while the Workbench remains open.
       commentsOpen: false,
@@ -435,11 +453,12 @@
     }
     function ContentNavigationSlot() {
       const isSubroute = ['workspace', 'context', 'focus'].includes(state.canvas);
+      // UX: Search is a route within the current canvas, so it always owns the slot before any subroute tab can replace it.
+      if (state.route === 'search') return `<nav class="content-navigation content-navigation-search"><button class="icon-button" data-action="browse-search" title="搜索">${icons('search')}</button><div class="search-query"><input class="search-field" value="${state.searchQuery}" placeholder="搜索" readonly data-action="open-search-keyboard" aria-label="搜索查询">${state.searchQuery ? `<button class="icon-button search-clear" data-action="clear-search" title="清空">${icons('x')}</button>` : ''}</div><button class="icon-button" data-action="request-system-ime" title="唤起系统输入法">${icons('keyboard')}</button><button class="icon-button" data-action="voice-search" title="语音输入">${icons('mic')}</button></nav>`;
       // UX: every non-search route keeps one tab-shaped navigation surface; subroutes replace the selected tab with a single Back tab.
       if (isSubroute) return `<nav class="content-navigation content-navigation-tabs"><button class="category-button" data-action="back" title="返回">${icons('arrow-left')}返回</button></nav>`;
       // UX: Home exposes only its confirmed four tabs; unavailable live content stays visible but cannot imply an operable destination.
       if (state.route === 'home') return `<nav class="content-navigation content-navigation-tabs"><div class="category-strip">${categories.map(category => `<button class="category-button ${state.category === category.label ? 'active' : ''}" ${category.unavailable ? 'disabled title="直播暂不可用"' : `data-action="category" data-value="${category.label}"`}>${category.label}</button>`).join('')}</div></nav>`;
-      if (state.route === 'search') return `<nav class="content-navigation content-navigation-search"><button class="icon-button" data-action="browse-search" title="搜索">${icons('search')}</button><div class="search-query"><input class="search-field" value="${state.searchQuery}" placeholder="搜索" readonly data-action="open-search-keyboard" aria-label="搜索查询"><button class="icon-button search-clear" data-action="clear-search" title="清空">${icons('x')}</button></div><button class="icon-button" data-action="request-system-ime" title="唤起系统输入法">${icons('keyboard')}</button><button class="icon-button" data-action="voice-search" title="语音输入">${icons('mic')}</button></nav>`;
       return `<nav class="content-navigation content-navigation-tabs"><button class="category-button active" data-action="open-workspace" title="Open source-aware video list">${icons('list-video')}视频列表</button></nav>`;
     }
     function TopStack() { return `<section class="top-stack">${SystemBar()}${GlobalNavigation()}${ContentNavigationSlot()}</section>`; }
@@ -482,7 +501,18 @@
     function DanmakuList() {
       return ['这个镜头好舒服', '声音设计太细了', '收藏了，晚上再看', '夜景氛围很棒', '字幕位置很舒服'].map((text, index) => `<div class="source-row"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${text}</span><span class="row-sub">00:${12 + index * 7}</span></span></div>`).join('');
     }
+    function SearchWorkspace() {
+      const hasQuery = state.searchQuery.length > 0;
+      const history = state.searchHistory.map(entry => `<div class="search-history-row"><button class="icon-button" data-action="select-search-entry" data-value="${entry}" title="搜索 ${entry}">${icons('history')}</button><button class="search-history-label" data-action="select-search-entry" data-value="${entry}">${entry}</button><button class="icon-button" data-action="remove-search-history" data-value="${entry}" title="删除 ${entry}">${icons('x')}</button></div>`).join('');
+      const hot = state.hotSearches.map(entry => `<button class="text-button search-keyword" data-action="select-search-entry" data-value="${entry}">${entry}</button>`).join('');
+      // UX: Search content follows touch-page hierarchy: empty queries show history and recommendations, committed queries show reusable result cards.
+      const body = hasQuery
+        ? `<section class="search-section"><span class="search-section-title">搜索结果</span><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></section>`
+        : `<section class="search-section"><span class="search-section-title">搜索历史</span>${history || '<span class="row-sub">暂无搜索历史</span>'}</section><section class="search-section"><span class="search-section-title">推荐搜索</span><div class="search-keyword-grid">${hot}</div></section>`;
+      return `<section class="list-workspace dismiss-region" aria-label="Search content workspace"><header class="workspace-header"><span class="workspace-title">搜索</span><span class="spacer"></span>${hasQuery ? `<button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="切换列表布局">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button>` : ''}</header><div class="workspace-scroll search-workspace">${body}</div></section>`;
+    }
     function ListWorkspace() {
+      if (state.route === 'search') return SearchWorkspace();
       // UX: Workspace titles do not repeat Back; the top content-navigation slot is the one return affordance for every subroute.
       return `<section class="list-workspace dismiss-region" aria-label="Transparent video list workspace"><header class="workspace-header"><span class="workspace-title">${state.canvas === 'focus' ? '创作者投稿' : '视频列表'}</span><span class="spacer"></span><button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="Switch list layout">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button></header><div class="workspace-scroll"><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></div></section>`;
     }
@@ -525,6 +555,20 @@
       app.dataset.canvas = state.canvas;
       app.dataset.route = state.route;
       app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section>${ProfileSurface()}<div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
+      const searchWorkspace = app.querySelector('.search-workspace');
+      if (searchWorkspace) searchWorkspace.scrollTop = state.searchScrollPosition;
+    }
+    function restoreSnapshot(snapshot) {
+      state.canvas = snapshot.canvas;
+      state.route = snapshot.route;
+      state.category = snapshot.category;
+      state.listMode = snapshot.listMode;
+      state.searchQuery = snapshot.searchQuery;
+      state.searchScrollPosition = snapshot.searchScrollPosition;
+      state.settingsOpen = false;
+      state.transportMenu = null;
+      state.searchKeyboardOpen = false;
+      render();
     }
     function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
     // UX: one comment cannot be both liked and disliked at the same time.
@@ -540,18 +584,22 @@
         case 'stage': setCanvas(state.canvas === 'watch' ? 'controls' : 'watch'); break;
         case 'watch': setCanvas('watch'); break;
         // UX: Home restores the user's last category and list mode without replacing the active canvas or its side panels.
-        case 'home': state.route = 'home'; state.searchKeyboardOpen = false; render(); break;
-        case 'search': setCanvas('browse', 'search'); break;
-        case 'browse-search': setCanvas('browse', 'search'); break;
+        case 'home': state.route = 'home'; state.searchReturn = null; state.searchKeyboardOpen = false; render(); break;
+        // UX: entering Search snapshots the origin but never swaps the active canvas or its side panels.
+        case 'search': if (state.route !== 'search') state.searchReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; state.route = 'search'; state.searchKeyboardOpen = false; render(); break;
+        case 'browse-search': state.searchKeyboardOpen = false; render(); break;
         case 'open-search-keyboard': state.searchKeyboardOpen = true; render(); break;
         case 'dismiss-search-keyboard': state.searchKeyboardOpen = false; render(); break;
-        case 'clear-search': state.searchQuery = ''; render(); break;
+        case 'clear-search': state.searchQuery = ''; state.searchScrollPosition = 0; render(); break;
+        case 'select-search-entry': state.searchQuery = value; state.searchKeyboardOpen = false; state.searchScrollPosition = 0; render(); break;
+        case 'remove-search-history': state.searchHistory = state.searchHistory.filter(entry => entry !== value); render(); break;
         // UX: the prototype shows system-IME and voice placement without simulating platform focus or speech results.
         case 'request-system-ime': state.searchKeyboardOpen = false; render(); break;
         case 'voice-search': break;
         case 'keyboard-preview': break;
-        case 'open-workspace': setCanvas('workspace', 'playback'); break;
-        case 'back': setCanvas('controls', 'playback'); break;
+        // UX: playback's video-list tab returns to the exact Search origin after a result starts playback.
+        case 'open-workspace': if (state.playbackReturn?.route === 'search') { const snapshot = state.playbackReturn; state.playbackReturn = null; restoreSnapshot(snapshot); } else setCanvas('workspace', 'playback'); break;
+        case 'back': if (state.route === 'search' && state.searchReturn) { const snapshot = state.searchReturn; state.searchReturn = null; restoreSnapshot(snapshot); } else setCanvas('controls', 'playback'); break;
         case 'focus': setCanvas('focus', 'focus'); break;
         case 'profile': state.profileOpen = !state.profileOpen; render(); break;
         // UX: playback settings and direct option menus are mutually exclusive surfaces anchored to transport.
@@ -564,7 +612,8 @@
         case 'cycle-display-ratio': { const ratios = ['自动', '16:9', '4:3']; state.displayRatio = ratios[(ratios.indexOf(state.displayRatio) + 1) % ratios.length]; render(); break; }
         case 'toggle-danmaku': state.danmaku = !state.danmaku; render(); break;
         case 'toggle-list': state.listMode = state.listMode === 'grid' ? 'list' : 'grid'; render(); break;
-        case 'select-video': state.selected = Number(value); setCanvas('controls', 'playback'); break;
+        // UX: selecting a Search result enters playback but stores the result page so the video-list tab can return to it.
+        case 'select-video': if (state.route === 'search') state.playbackReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; else state.playbackReturn = null; state.selected = Number(value); setCanvas('controls', 'playback'); break;
         // UX: category selection preserves the active canvas and reuses its visible center list rather than changing side-panel composition.
         case 'category': state.category = value; render(); break;
         case 'source-tab': state.sourceTab = value; render(); break;
@@ -581,6 +630,9 @@
         default: break;
       }
     }
+    app.addEventListener('scroll', event => {
+      if (state.route === 'search' && event.target.matches('.search-workspace')) state.searchScrollPosition = event.target.scrollTop;
+    }, true);
     app.addEventListener('click', event => {
       const action = event.target.closest('[data-action]');
       if (action) { event.stopPropagation(); dispatch(action.dataset.action, action.dataset.value); return; }
