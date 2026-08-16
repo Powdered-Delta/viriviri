@@ -8,24 +8,24 @@
   <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.468.0/font/lucide.css">
   <style>
     :root {
-      --ink: #f5f2e9;
-      --muted: #b8b9ad;
-      --scene: #1b1c17;
-      --surface: #22241f;
-      --surface-strong: #33352c;
-      --surface-soft: rgba(32, 34, 29, .9);
-      --border: #626459;
-      --accent: #e5bd62;
-      --accent-ink: #2a210d;
-      --danger: #d86960;
-      --charge: #c63f72;
-      --reaction-like: #e47772;
-      --reaction-like-surface: rgba(139, 53, 60, .38);
-      --reaction-coin: #e5bd62;
-      --reaction-coin-surface: rgba(132, 98, 29, .38);
-      --reaction-favorite: #78b48c;
-      --reaction-favorite-surface: rgba(48, 107, 70, .38);
-      --scrim: rgba(0, 0, 0, .42);
+      --ink: #f8ead7;
+      --muted: #c9ac91;
+      --scene: #281a14;
+      --surface: #36251d;
+      --surface-strong: #4a3327;
+      --surface-soft: rgba(51, 35, 27, .92);
+      --border: #785948;
+      --accent: #d39a63;
+      --accent-ink: #2c180d;
+      --danger: #e68173;
+      --charge: #cf81a3;
+      --reaction-like: #f09382;
+      --reaction-like-surface: rgba(145, 60, 53, .4);
+      --reaction-coin: #efc47f;
+      --reaction-coin-surface: rgba(120, 79, 32, .4);
+      --reaction-favorite: #8cc9a0;
+      --reaction-favorite-surface: rgba(54, 105, 68, .4);
+      --scrim: rgba(16, 8, 4, .48);
       --rail-width: clamp(184px, 17vw, 248px);
       --right-width: clamp(176px, 16vw, 230px);
       --stage-width: min(48vw, 760px);
@@ -39,8 +39,8 @@
       font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
     }
 
-    /* UX: Web offers light, dark, and terminal display themes; the terminal palette is visual only and does not simulate the headset's immersive environment. */
-    .prototype[data-theme="light"] {
+    /* UX: theme IDs mirror the future Spatial scenes; Web previews their visual language without simulating scene loading. */
+    .prototype[data-theme="waffle"] {
       --ink: #3b281c;
       --muted: #705645;
       --scene: #f2debe;
@@ -61,13 +61,13 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
-    .prototype[data-theme="light"] .scene { background: #f2debe; }
-    .prototype[data-theme="light"] .scene-floor { border-color: #d2ad80; }
-    .prototype[data-theme="light"] .scene-marker { border-color: #af8056; }
-    .prototype[data-theme="light"] .media-stage { background: #e6bd90; border-color: #a9784d; box-shadow: 0 18px 64px rgba(76, 48, 28, .23); }
-    .prototype[data-theme="light"] .mode-pill { background: rgba(248, 235, 211, .94); }
-    /* UX: terminal mode uses #77DD77 for primary focus and active controls while retaining subdued surfaces for long viewing sessions. */
-    .prototype[data-theme="terminal"] {
+    .prototype[data-theme="waffle"] .scene { background: #f2debe; }
+    .prototype[data-theme="waffle"] .scene-floor { border-color: #d2ad80; }
+    .prototype[data-theme="waffle"] .scene-marker { border-color: #af8056; }
+    .prototype[data-theme="waffle"] .media-stage { background: #e6bd90; border-color: #a9784d; box-shadow: 0 18px 64px rgba(76, 48, 28, .23); }
+    .prototype[data-theme="waffle"] .mode-pill { background: rgba(248, 235, 211, .94); }
+    /* UX: matcha uses #77DD77 for primary focus and active controls while retaining subdued surfaces for long viewing sessions. */
+    .prototype[data-theme="matcha"] {
       --ink: #d5f7d5;
       --muted: #96c996;
       --scene: #0e160e;
@@ -87,31 +87,31 @@
       --reaction-favorite-surface: rgba(42, 117, 107, .4);
       --scrim: rgba(0, 8, 0, .5);
     }
-    .prototype[data-theme="terminal"] .scene { background: #0e160e; }
-    .prototype[data-theme="terminal"] .scene-floor { border-color: #284a28; }
-    .prototype[data-theme="terminal"] .scene-marker { border-color: #5b9d5b; }
-    .prototype[data-theme="terminal"] .media-stage { background: #0c130c; border-color: #548e54; box-shadow: 0 18px 64px rgba(0, 0, 0, .54); }
-    .prototype[data-theme="terminal"] .mode-pill { background: rgba(17, 29, 17, .94); }
+    .prototype[data-theme="matcha"] .scene { background: #0e160e; }
+    .prototype[data-theme="matcha"] .scene-floor { border-color: #284a28; }
+    .prototype[data-theme="matcha"] .scene-marker { border-color: #5b9d5b; }
+    .prototype[data-theme="matcha"] .media-stage { background: #0c130c; border-color: #548e54; box-shadow: 0 18px 64px rgba(0, 0, 0, .54); }
+    .prototype[data-theme="matcha"] .mode-pill { background: rgba(17, 29, 17, .94); }
     button, input { font: inherit; }
     button { color: inherit; border: 0; cursor: pointer; }
     /* UX: the theme root owns the inherited foreground color so selecting light or dark changes all default text and button labels together. */
     .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); color: var(--ink); }
-    .scene { position: absolute; inset: 0; background: #1b1c17; }
-    .scene-floor { position: absolute; left: 10%; right: 10%; bottom: -16%; height: 58%; border: 1px solid #35372e; transform: perspective(620px) rotateX(58deg); transform-origin: bottom; opacity: .68; }
-    .scene-marker { position: absolute; width: 20px; height: 20px; border: 1px solid #63655b; border-radius: 50%; opacity: .45; }
+    .scene { position: absolute; inset: 0; background: var(--scene); }
+    .scene-floor { position: absolute; left: 10%; right: 10%; bottom: -16%; height: 58%; border: 1px solid var(--border); transform: perspective(620px) rotateX(58deg); transform-origin: bottom; opacity: .68; }
+    .scene-marker { position: absolute; width: 20px; height: 20px; border: 1px solid var(--border); border-radius: 50%; opacity: .45; }
     .scene-marker.one { left: 13%; top: 24%; }
     .scene-marker.two { right: 15%; top: 30%; }
 
+    /* UX: MediaStage shares the Workbench center grid cell with the operation stack, preventing edge drift when left and right rails have different widths. */
     .media-stage {
-      position: absolute;
-      left: 50%;
-      top: calc(50% + 67px);
-      width: var(--stage-width);
-      height: var(--stage-height);
-      transform: translate(-50%, -50%);
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      background: #10110f;
-      border: 1px solid #73756b;
+      background: var(--scene);
+      border: 1px solid var(--border);
       box-shadow: 0 18px 64px rgba(0, 0, 0, .42);
     }
     .media-stage img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -142,10 +142,11 @@
     }
     .workbench > * { pointer-events: auto; }
 
+    /* UX: the operation stack shares MediaStage's exact center-column width, so their left and right edges remain aligned across viewports. */
     .top-stack {
       grid-column: 2;
       grid-row: 1;
-      width: calc(100% - 68px);
+      width: 100%;
       justify-self: center;
       display: grid;
       grid-template-rows: var(--topbar-height) var(--topbar-height) var(--content-nav-height);
@@ -376,9 +377,10 @@
     }
     /* UX: playback settings and option menus are owned by transport and open above it instead of aligning with the right rail. */
     .settings-popover { right: 8px; bottom: calc(100% + 8px); top: auto; width: 218px; padding: 10px; }
-    /* UX: the Web theme chooser is a short anchored menu, keeping the system bar compact and avoiding a distinct immersive-mode flow. */
+    /* UX: the theme chooser is a short anchored menu; swatches identify the eventual Spatial scenes without adding a second navigation flow. */
     .theme-popover { top: calc(100% + 8px); right: 42px; width: 148px; padding: 6px; }
     .theme-option { width: 100%; justify-content: flex-start; gap: 8px; padding: 0 7px; }
+    .theme-swatch { width: 14px; height: 14px; flex: 0 0 14px; border: 1px solid rgba(0,0,0,.28); border-radius: 3px; background: var(--theme-swatch); }
     .theme-option.active { color: var(--accent-ink); background: var(--accent); }
     .transport-menu { right: 58px; bottom: calc(100% + 8px); width: 188px; padding: 7px; }
     .transport-menu-title { padding: 2px 5px 7px; color: var(--muted); font-size: 11px; }
@@ -460,7 +462,8 @@
     .prototype[data-route="search"] .transport-overlay,
     .prototype[data-route="account"] .transport-overlay,
     .prototype[data-route="settings"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); height: 64px; }
-    .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); left: auto; right: 26px; top: 25%; transform: none; }
+    /* UX: Focus keeps MediaStage as a right-aligned preview inside the shared center grid instead of turning it into a second movable panel. */
+    .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); justify-self: end; align-self: start; top: 25%; transform: none; }
     .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
     .prototype[data-canvas="focus"] .stage-status { display: none; }
 
@@ -476,7 +479,8 @@
       :root { --rail-width: 0px; --right-width: 0px; --stage-width: min(92vw, 520px); --stage-height: min(52vw, 292px); }
       .workbench { width: var(--stage-width); grid-template-columns: var(--stage-width); }
       .top-stack { grid-column: 1; }
-      .detail-rail, .browse-rail, .list-workspace { grid-column: 1; }
+      /* UX: mobile keeps MediaStage and every center operation surface in the one available grid column. */
+      .detail-rail, .browse-rail, .list-workspace, .media-stage { grid-column: 1; }
       .transport-overlay, .search-keyboard { left: 0; }
       .right-rail { display: none; }
       .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -517,8 +521,8 @@
       accountSection: '我的收藏',
       settingsSection: '账户',
       settingsOpen: false,
-      // UX: the browser exposes only light and dark presentation choices; the headset's immersive environment is not simulated here.
-      theme: 'dark',
+      // UX: theme IDs are shared with the future Spatial scenes; the browser previews their colors and exposes the selected scene marker only.
+      theme: 'coffee',
       themeOpen: false,
       // UX: transport option state and its one visible menu persist across rerenders without leaving the current playback canvas.
       transportMenu: null,
@@ -549,6 +553,11 @@
       focusKind: 'creator'
     };
     const canvasLabels = { watch: 'Quiet Watch', controls: 'Playback Canvas', browse: 'Browse Canvas', context: 'Current Video Context', workspace: 'Video List Workspace', focus: 'Focus Workspace' };
+    const themes = {
+      waffle: { label: '华夫饼', swatch: '#f2debe', spatialScene: 'waffle' },
+      coffee: { label: '咖啡', swatch: '#281a14', spatialScene: 'coffee' },
+      matcha: { label: '抹茶', swatch: '#77DD77', spatialScene: 'matcha' }
+    };
     function compactCount(value) {
       if (value >= 10000) return `${(value / 10000).toFixed(1).replace('.0', '')}万`;
       return String(value);
@@ -556,12 +565,11 @@
 
     function ThemePopover() {
       if (!state.themeOpen) return '';
-      const options = [{ value: 'light', label: '亮色', icon: 'sun-medium' }, { value: 'dark', label: '暗色', icon: 'moon' }, { value: 'terminal', label: '终端', icon: 'terminal' }];
-      return `<aside class="popover theme-popover" aria-label="主题选择">${options.map(option => `<button class="text-button theme-option ${state.theme === option.value ? 'active' : ''}" data-action="select-theme" data-value="${option.value}">${icons(option.icon)}${option.label}</button>`).join('')}</aside>`;
+      return `<aside class="popover theme-popover" aria-label="主题选择">${Object.entries(themes).map(([value, theme]) => `<button class="text-button theme-option ${state.theme === value ? 'active' : ''}" data-action="select-theme" data-value="${value}"><span class="theme-swatch" style="--theme-swatch:${theme.swatch}"></span>${theme.label}</button>`).join('')}</aside>`;
     }
     function SystemBar() {
-      const theme = { light: { label: '亮色', icon: 'sun-medium' }, dark: { label: '暗色', icon: 'moon' }, terminal: { label: '终端', icon: 'terminal' } }[state.theme];
-      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${theme.label}">${icons(theme.icon)}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
+      const theme = themes[state.theme];
+      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${theme.label}">${icons('palette')}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
     }
     function GlobalNavigation() {
       return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="open-account" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="open-global-settings" title="Settings">${icons('settings-2')}</button></nav>`;
@@ -692,7 +700,8 @@
       app.dataset.canvas = state.canvas;
       app.dataset.route = state.route;
       app.dataset.theme = state.theme;
-      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section><div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
+      app.dataset.spatialScene = themes[state.theme].spatialScene;
+      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div><section class="workbench">${TopStack()}${MediaStage()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section><div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
       const searchWorkspace = app.querySelector('.search-workspace');
       if (searchWorkspace) searchWorkspace.scrollTop = state.searchScrollPosition;
     }

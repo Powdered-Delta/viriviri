@@ -53,7 +53,7 @@ feedback; do not infer new content or controls from consumer video apps.
 
 The prototype treats these as separate modules, in visual order:
 
-1. `SystemBar`: time, 2D handoff, light/dark/terminal theme chooser, danmaku, battery.
+1. `SystemBar`: time, 2D handoff, Waffle/Coffee/Matcha theme chooser, danmaku, battery.
 2. `GlobalNavigation`: `ViriViri` Home, search, profile, settings.
 3. `ContentNavigationSlot`: one route-specific module, never a pile of
    simultaneous navigation controls.
@@ -62,10 +62,11 @@ The prototype treats these as separate modules, in visual order:
 navigation. Transport has no title; the current video title belongs in context
 or detail content.
 
-The SystemBar theme control is a short anchored selector with `亮色`, `暗色`,
-and `终端`; it updates the browser prototype's color palette immediately.
-Terminal is a Web-only visual palette with `#77DD77` as its primary accent. It
-is not a simulation of the headset product's immersive environment.
+The SystemBar theme control is a short anchored selector with `华夫饼`, `咖啡`,
+and `抹茶`; it updates the browser prototype's color palette immediately. These
+are canonical theme IDs for the eventual Spatial scenes, exposed by the Web
+prototype as `data-spatial-scene`; the browser previews their colors but does
+not simulate scene loading. `抹茶` uses `#77DD77` as its primary accent.
 
 `ContentNavigationSlot` owns exactly one route-specific module. On Home it is a
 centered, content-width tab strip with `直播` (visible but unavailable), `推荐`,
