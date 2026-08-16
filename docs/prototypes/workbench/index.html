@@ -33,27 +33,27 @@
       font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
     }
 
-    /* UX: Web validates only the two readable display themes; the headset-only immersive environment remains outside this browser control. */
+    /* UX: Web validates only the two readable display themes; light uses a low-glare warm palette while the headset-only immersive environment remains outside this browser control. */
     .prototype[data-theme="light"] {
-      --ink: #20231e;
-      --muted: #596057;
-      --scene: #e8ece2;
-      --surface: #f4f6ef;
-      --surface-strong: #e4e9dc;
-      --surface-soft: rgba(247, 249, 242, .94);
-      --border: #aab2a4;
-      --accent: #79611a;
-      --accent-ink: #fffdf6;
-      --danger: #ae4e49;
-      --scrim: rgba(20, 24, 18, .28);
+      --ink: #3b281c;
+      --muted: #705645;
+      --scene: #f2debe;
+      --surface: #f8ebd3;
+      --surface-strong: #ead0a9;
+      --surface-soft: rgba(248, 235, 211, .94);
+      --border: #b99570;
+      --accent: #7b4d2b;
+      --accent-ink: #fffaf2;
+      --danger: #ad514a;
+      --scrim: rgba(58, 37, 22, .24);
     }
     * { box-sizing: border-box; }
     body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
-    .prototype[data-theme="light"] .scene { background: #e8ece2; }
-    .prototype[data-theme="light"] .scene-floor { border-color: #b0b8ab; }
-    .prototype[data-theme="light"] .scene-marker { border-color: #8b9587; }
-    .prototype[data-theme="light"] .media-stage { background: #d8ddd2; border-color: #899288; box-shadow: 0 18px 64px rgba(31, 37, 29, .26); }
-    .prototype[data-theme="light"] .mode-pill { background: rgba(247, 249, 242, .94); }
+    .prototype[data-theme="light"] .scene { background: #f2debe; }
+    .prototype[data-theme="light"] .scene-floor { border-color: #d2ad80; }
+    .prototype[data-theme="light"] .scene-marker { border-color: #af8056; }
+    .prototype[data-theme="light"] .media-stage { background: #e6bd90; border-color: #a9784d; box-shadow: 0 18px 64px rgba(76, 48, 28, .23); }
+    .prototype[data-theme="light"] .mode-pill { background: rgba(248, 235, 211, .94); }
     button, input { font: inherit; }
     button { color: inherit; border: 0; cursor: pointer; }
     /* UX: the theme root owns the inherited foreground color so selecting light or dark changes all default text and button labels together. */
