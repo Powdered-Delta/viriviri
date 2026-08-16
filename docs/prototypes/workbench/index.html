@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ViriViri Workbench UX Prototype</title>
+  <link rel="preconnect" href="https://images.unsplash.com">
+  <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.468.0/font/lucide.css">
+  <style>
+    :root {
+      --ink: #f5f2e9;
+      --muted: #b8b9ad;
+      --scene: #1b1c17;
+      --surface: #22241f;
+      --surface-strong: #33352c;
+      --surface-soft: rgba(32, 34, 29, .9);
+      --border: #626459;
+      --accent: #e5bd62;
+      --accent-ink: #2a210d;
+      --danger: #d86960;
+      --charge: #c63f72;
+      --scrim: rgba(0, 0, 0, .42);
+      --rail-width: clamp(184px, 17vw, 248px);
+      --right-width: clamp(176px, 16vw, 230px);
+      --stage-width: min(48vw, 760px);
+      --stage-height: min(27vw, 428px);
+      --topbar-height: 38px;
+      --content-nav-height: 32px;
+      --top-stack-height: 122px;
+      --gap: 12px;
+      --transport-lane: min(9vw, 142px);
+      --radius: 7px;
+      font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
+    button, input { font: inherit; }
+    button { color: inherit; border: 0; cursor: pointer; }
+    .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); }
+    .scene { position: absolute; inset: 0; background: #1b1c17; }
+    .scene-floor { position: absolute; left: 10%; right: 10%; bottom: -16%; height: 58%; border: 1px solid #35372e; transform: perspective(620px) rotateX(58deg); transform-origin: bottom; opacity: .68; }
+    .scene-marker { position: absolute; width: 20px; height: 20px; border: 1px solid #63655b; border-radius: 50%; opacity: .45; }
+    .scene-marker.one { left: 13%; top: 24%; }
+    .scene-marker.two { right: 15%; top: 30%; }
+
+    .media-stage {
+      position: absolute;
+      left: 50%;
+      top: calc(50% + 67px);
+      width: var(--stage-width);
+      height: var(--stage-height);
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+      background: #10110f;
+      border: 1px solid #73756b;
+      box-shadow: 0 18px 64px rgba(0, 0, 0, .42);
+    }
+    .media-stage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .stage-scrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity .16s ease; }
+    .stage-title { position: absolute; left: 14px; bottom: 12px; font-size: 14px; text-shadow: 0 1px 3px #000; }
+    .stage-status { position: absolute; top: 12px; right: 12px; color: var(--muted); font-size: 12px; text-shadow: 0 1px 3px #000; }
+    .stage-dismiss { position: absolute; inset: 0; background: transparent; }
+
+    .danmaku-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .danmaku { position: absolute; padding: 2px 5px; color: #fff; font-size: 15px; font-weight: 700; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; white-space: nowrap; }
+    .danmaku.a { top: 18%; left: 13%; }
+    .danmaku.b { top: 37%; right: 8%; color: #f8d26b; }
+    .danmaku.c { top: 58%; left: 29%; color: #a9e2ff; }
+
+    .workbench {
+      position: absolute;
+      z-index: 2;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--rail-width) + var(--stage-width) + var(--right-width) + var(--gap) + var(--gap));
+      height: calc(var(--top-stack-height) + var(--stage-height) + var(--gap));
+      display: grid;
+      grid-template-columns: var(--rail-width) var(--stage-width) var(--right-width);
+      grid-template-rows: var(--top-stack-height) var(--stage-height);
+      gap: var(--gap);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .workbench > * { pointer-events: auto; }
+
+    .top-stack {
+      grid-column: 2;
+      grid-row: 1;
+      width: calc(100% - 68px);
+      justify-self: center;
+      display: grid;
+      grid-template-rows: var(--topbar-height) var(--topbar-height) var(--content-nav-height);
+      gap: 6px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .system-bar, .global-navigation, .content-navigation {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+    .content-navigation { justify-self: center; min-width: 0; }
+    /* UX: the Home navigation is centered around its four stable tabs instead of occupying speculative empty slot width. */
+    .content-navigation-tabs { width: fit-content; max-width: 100%; }
+    .content-navigation-search { width: min(100%, 500px); gap: 5px; padding: 0 5px; }
+    .brand { height: 32px; padding: 0 8px 0 0; background: transparent; color: var(--accent); font-weight: 750; }
+    .spacer { flex: 1; }
+    .icon-button, .text-button, .tab-button, .category-button {
+      min-width: 32px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 8px;
+      border-radius: 5px;
+      background: transparent;
+    }
+    .icon-button { padding: 0; }
+    .icon-button i { font-size: 17px; }
+    .text-button, .tab-button, .category-button { font-size: 12px; }
+    .icon-button:hover, .text-button:hover, .tab-button:hover, .category-button:hover { background: var(--surface-strong); }
+    .active { color: var(--accent-ink); background: var(--accent) !important; }
+    .content-navigation .text-button { height: 24px; }
+    .category-strip { display: flex; gap: 4px; }
+    .category-button:disabled { color: var(--muted); cursor: not-allowed; opacity: .48; }
+    /* UX: Search keeps submit, clear, text, system-IME, and voice controls in one stable header row. */
+    .search-query { position: relative; min-width: 0; flex: 1; }
+    .search-field { min-width: 0; width: 100%; height: 24px; padding: 0 29px 0 7px; color: var(--ink); border: 1px solid var(--border); border-radius: 4px; background: #171815; }
+    .search-clear { position: absolute; top: 1px; right: 1px; width: 22px; min-width: 22px; height: 22px; }
+
+    .rail {
+      grid-row: 2;
+      z-index: 2;
+      height: var(--stage-height);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      opacity: 0;
+      transform: translateX(-14px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .browse-rail, .detail-rail { grid-column: 1; }
+    .right-rail { grid-column: 3; transform: translateX(14px); }
+    .rail-header { min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .rail-title { font-size: 14px; font-weight: 700; }
+    .rail-tabs { display: flex; gap: 5px; padding: 6px; border-bottom: 1px solid var(--border); }
+    .rail-scroll { height: calc(var(--stage-height) - 96px); overflow: auto; padding: 8px; }
+    .detail-rail .rail-header, .right-rail .rail-header { display: none; }
+    /* UX: left detail has no header at all; its body starts at the panel's top edge. */
+    .detail-rail { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 54px; }
+    .detail-rail .rail-scroll { grid-row: 1; height: auto; min-height: 0; overflow: auto; }
+    .detail-footer { grid-row: 2; display: flex; align-items: center; padding: 6px 8px; border-top: 1px solid var(--border); }
+    .detail-footer .comment-action { border-bottom: 0; }
+    .right-rail .rail-scroll { height: calc(var(--stage-height) - 42px); }
+    /* UX: open comments are a full-height opaque reading mode that rises from the rail's bottom edge with its own fixed header. */
+    .comments-drawer { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; height: 0; display: grid; grid-template-rows: 42px minmax(0, 1fr); overflow: hidden; opacity: 0; pointer-events: none; background: #1a1b17; transition: height .22s ease, opacity .16s ease; }
+    .comments-drawer.open { height: 100%; opacity: 1; pointer-events: auto; box-shadow: inset 0 1px 0 rgba(229,189,98,.28); }
+    /* UX: the complete comments header is the collapse hit target, with its mode label left and affordance right. */
+    .comments-header { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 5px 8px 5px 11px; border-bottom: 1px solid rgba(98,100,89,.62); background: #20211c; text-align: left; }
+    .comments-header:hover { background: #292a24; }
+    .comments-title { font-size: 13px; font-weight: 750; }
+    .comments-collapse-icon { width: 30px; height: 30px; display: grid; place-items: center; }
+    .comments-drawer-body { min-height: 0; overflow: auto; padding: 9px 9px 10px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .comments-drawer-body::-webkit-scrollbar { width: 6px; }
+    .comments-drawer-body::-webkit-scrollbar-track { background: transparent; }
+    .comments-drawer-body::-webkit-scrollbar-thumb { border-radius: 3px; background: var(--border); }
+    .comments-drawer.open .comments-drawer-body { scrollbar-gutter: stable; }
+    .comment-row { padding: 10px; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: #22231e; }
+    .comment-row + .comment-row { margin-top: 8px; }
+    .comment-author { color: var(--accent); font-size: 12px; font-weight: 700; }
+    .comment-text { margin-top: 5px; font-size: 13px; line-height: 1.48; }
+    /* UX: each comment keeps Reply on the left and compact reactions on the right for repeated-row scanning. */
+    .comment-actions { display: flex; align-items: center; gap: 5px; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(98,100,89,.38); }
+    .comment-reply { min-width: 0; height: 24px; padding: 0 4px; color: var(--muted); font-size: 12px; background: transparent; }
+    .comment-actions .spacer { min-width: 0; }
+    .comment-actions .icon-button { width: 26px; min-width: 26px; height: 24px; }
+    .reply-composer { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 6px; margin-top: 8px; }
+    .reply-field { min-width: 0; width: 100%; height: 30px; padding: 0 7px; color: var(--ink); border: 1px solid var(--border); border-radius: 4px; background: #11120f; }
+    .detail-section, .source-row, .browse-row { border-bottom: 1px solid rgba(98,100,89,.58); }
+    .detail-section { padding: 11px 4px; }
+    .detail-title { font-size: 14px; font-weight: 750; line-height: 1.4; }
+    .detail-metrics { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .detail-value { font-size: 13px; line-height: 1.45; }
+    /* UX: video reactions use only familiar icons and counts in stable equal-width hit targets below the metrics. */
+    .video-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
+    .video-action { min-width: 0; height: 40px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; padding: 5px 7px; border: 1px solid rgba(98,100,89,.68); border-radius: 5px; background: #252620; text-align: left; }
+    .video-action:hover { border-color: var(--accent); background: var(--surface-strong); }
+    .video-action i { font-size: 17px; }
+    .video-action-value { overflow: hidden; font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+    .creator-card, .comment-action { width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 2px; border-bottom: 1px solid rgba(98,100,89,.58); text-align: left; background: transparent; }
+    .creator-card:hover, .comment-action:hover { background: var(--surface-strong); }
+    .detail-rail [data-action] { position: relative; z-index: 3; pointer-events: auto; }
+    .creator-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 800; }
+    .creator-copy { min-width: 0; }
+    .creator-name { display: block; font-size: 13px; font-weight: 700; }
+    .creator-meta { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+    .source-row, .browse-row { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 7px; text-align: left; background: transparent; }
+    .source-row:hover, .browse-row:hover { background: var(--surface-strong); }
+    .row-index { width: 18px; color: var(--accent); font-size: 12px; }
+    .row-copy { min-width: 0; }
+    .row-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+    .row-sub { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    /* UX: a hidden list workspace cannot own center hit tests; MediaStage remains the dismissal target until the list is explicitly open. */
+    .list-workspace {
+      grid-column: 2;
+      grid-row: 2;
+      height: var(--stage-height);
+      min-width: 0;
+      background: transparent;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .16s ease;
+    }
+    .workspace-header { min-height: 40px; display: flex; align-items: center; gap: 7px; padding: 0 4px; border-bottom: 1px solid rgba(245,242,233,.44); }
+    .workspace-title { font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px #000; }
+    .workspace-scroll { height: calc(100% - 40px); overflow: auto; padding: 9px 4px 82px; }
+    /* UX: Home and category browsing scan the central list in three columns before responsive constraints reduce density. */
+    .video-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .video-grid.list { grid-template-columns: 1fr; }
+    /* UX: single-column browsing reserves a fixed left 16:9 thumbnail so title, author, and metrics scan as one right-side text column. */
+    .video-grid.list .video-card { min-height: 94px; display: grid; grid-template-columns: clamp(108px, 24%, 176px) minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 10px; align-items: start; }
+    .video-grid.list .cover { grid-row: 1 / span 3; width: 100%; align-self: stretch; }
+    .video-grid.list .video-title { min-height: 0; margin: 1px 0 4px; }
+    .video-grid.list .video-author { align-self: start; }
+    .video-grid.list .video-metrics { align-self: end; margin-top: 8px; }
+    .video-card { padding: 8px; border: 1px solid rgba(245,242,233,.55); border-radius: var(--radius); background: rgba(25, 26, 22, .64); text-align: left; }
+    .video-card:hover { border-color: var(--accent); background: rgba(41, 43, 35, .88); }
+    .cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #3e4138; }
+    .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .charge-badge { position: absolute; top: 6px; left: 6px; padding: 3px 6px; background: var(--charge); color: #fff; font-size: 11px; font-weight: 700; }
+    .duration-badge { position: absolute; right: 6px; bottom: 6px; padding: 3px 5px; background: rgba(10, 11, 9, .82); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .video-title { min-height: 35px; margin: 7px 0 3px; font-size: 13px; line-height: 1.35; }
+    .video-author { overflow: hidden; color: var(--muted); white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+    .video-metrics { display: flex; gap: 9px; margin-top: 7px; color: var(--muted); font-size: 11px; }
+
+    .transport-overlay {
+      position: absolute;
+      left: calc(var(--rail-width) + var(--gap));
+      top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) - var(--transport-lane));
+      width: var(--stage-width);
+      height: var(--transport-lane);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .16s ease, transform .16s ease, top .16s ease, height .16s ease;
+    }
+    .timeline { position: relative; width: 100%; height: 4px; background: #5d5f55; }
+    .timeline::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 38%; background: var(--accent); }
+    .transport-row { display: flex; align-items: center; gap: 5px; }
+    .transport-time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* UX: the application-owned 26-key console sits in front of transport and is the topmost browser input layer while open. */
+    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 86px minmax(0, 1fr) 78px; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: #1a1b17; box-shadow: 0 12px 38px rgba(0,0,0,.44); }
+    .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 4px; }
+    .keyboard-number-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .keyboard-main { min-width: 0; display: grid; grid-template-rows: 34px 1fr; gap: 5px; }
+    .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #11120f; }
+    .keyboard-preedit { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+    .keyboard-candidates { min-width: 0; display: flex; gap: 3px; overflow: hidden; }
+    .keyboard-candidate { min-width: 0; height: 22px; padding: 0 5px; font-size: 11px; }
+    .keyboard-letter-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+    .keyboard-actions { grid-template-rows: repeat(4, minmax(0, 1fr)); }
+    .keyboard-key { min-width: 0; min-height: 25px; padding: 0 3px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #272821; font-size: 11px; }
+    .keyboard-key:hover { border-color: var(--accent); background: var(--surface-strong); }
+    .keyboard-key.wide { grid-column: span 2; }
+    .transport-value-button { min-width: 46px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+    .grab-handle { padding: 0 5px; color: var(--muted); font-size: 17px; }
+
+    .popover, .profile-surface, .transport-menu {
+      position: absolute;
+      z-index: 5;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      box-shadow: 0 12px 44px rgba(0,0,0,.36);
+    }
+    /* UX: playback settings and option menus are owned by transport and open above it instead of aligning with the right rail. */
+    .settings-popover { right: 8px; bottom: calc(100% + 8px); top: auto; width: 218px; padding: 10px; }
+    .transport-menu { right: 58px; bottom: calc(100% + 8px); width: 188px; padding: 7px; }
+    .transport-menu-title { padding: 2px 5px 7px; color: var(--muted); font-size: 11px; }
+    .transport-menu-options { display: grid; gap: 3px; }
+    .transport-menu-options.speed { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .transport-option { width: 100%; min-height: 30px; justify-content: flex-start; padding: 0 7px; font-size: 12px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; border-bottom: 1px solid rgba(98,100,89,.58); font-size: 12px; }
+    .setting-row:last-child { border-bottom: 0; }
+    .toggle { width: 34px; height: 18px; padding: 2px; border-radius: 9px; background: #595b51; }
+    .toggle::after { content: ""; display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform .14s ease; }
+    .toggle.on { background: var(--accent); }
+    .toggle.on::after { transform: translateX(16px); background: var(--accent-ink); }
+    .profile-surface { left: 50%; top: 50%; width: min(480px, 82vw); max-height: min(520px, 78vh); transform: translate(-50%, -50%); overflow: auto; padding: 16px; }
+    .profile-head { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+    .profile-name { font-size: 18px; font-weight: 750; }
+    .profile-sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .profile-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+    .profile-stat { padding: 10px; border: 1px solid var(--border); border-radius: 5px; }
+    .profile-stat strong, .profile-stat span { display: block; }
+    .profile-stat span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .profile-list { display: grid; gap: 6px; }
+    .profile-list .text-button { justify-content: flex-start; border: 1px solid var(--border); }
+
+    .mode-pill { position: fixed; left: 14px; bottom: 12px; z-index: 9; padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; background: rgba(17,18,15,.92); color: var(--muted); font-size: 12px; }
+    .mode-pill strong { color: var(--accent); }
+
+    .prototype[data-canvas="controls"] .stage-scrim,
+    .prototype[data-canvas="browse"] .stage-scrim,
+    .prototype[data-canvas="context"] .stage-scrim,
+    .prototype[data-canvas="workspace"] .stage-scrim,
+    .prototype[data-canvas="focus"] .stage-scrim { opacity: 1; }
+    .prototype[data-canvas="controls"] .top-stack,
+    .prototype[data-canvas="browse"] .top-stack,
+    .prototype[data-canvas="context"] .top-stack,
+    .prototype[data-canvas="workspace"] .top-stack,
+    .prototype[data-canvas="focus"] .top-stack,
+    .prototype[data-canvas="controls"] .transport-overlay,
+    .prototype[data-canvas="browse"] .transport-overlay,
+    .prototype[data-canvas="context"] .transport-overlay,
+    .prototype[data-canvas="workspace"] .transport-overlay,
+    .prototype[data-canvas="focus"] .transport-overlay { opacity: 1; transform: none; }
+    .prototype[data-canvas="browse"] .browse-rail { opacity: 1; transform: none; }
+    /* UX: Home and category tabs reveal the center list within the active canvas without replacing its existing side-panel composition. */
+    .prototype[data-canvas="browse"] .list-workspace,
+    .prototype[data-canvas="controls"][data-route="home"] .list-workspace,
+    .prototype[data-canvas="context"][data-route="home"] .list-workspace { opacity: 1; pointer-events: auto; }
+    .prototype[data-canvas="controls"] .detail-rail,
+    .prototype[data-canvas="context"] .detail-rail,
+    .prototype[data-canvas="workspace"] .detail-rail,
+    .prototype[data-canvas="focus"] .detail-rail { opacity: 1; transform: none; }
+    .prototype[data-canvas="controls"] .right-rail,
+    .prototype[data-canvas="context"] .right-rail,
+    .prototype[data-canvas="workspace"] .right-rail,
+    .prototype[data-canvas="focus"] .right-rail { opacity: 1; transform: none; }
+    /* UX: visible workspace content preserves its own controls and scroll input instead of falling through to MediaStage. */
+    .prototype[data-canvas="workspace"] .list-workspace,
+    .prototype[data-canvas="focus"] .list-workspace { opacity: 1; pointer-events: auto; }
+    .prototype[data-canvas="workspace"] .transport-overlay,
+    .prototype[data-canvas="focus"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) - 34px); height: 64px; }
+    .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); left: auto; right: 26px; top: 25%; transform: none; }
+    .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
+    .prototype[data-canvas="focus"] .stage-status { display: none; }
+
+    @media (max-width: 900px) {
+      :root { --rail-width: 178px; --right-width: 178px; --stage-width: min(50vw, 500px); --stage-height: min(28vw, 281px); }
+      .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .right-rail { display: none; }
+      /* UX: compact transport preserves direct subtitle, quality, speed, and settings access before secondary skip controls. */
+      .transport-compact-hide { display: none; }
+      .transport-overlay { padding-right: 8px; padding-left: 8px; }
+    }
+    @media (max-width: 650px) {
+      :root { --rail-width: 0px; --right-width: 0px; --stage-width: min(92vw, 520px); --stage-height: min(52vw, 292px); }
+      .workbench { width: var(--stage-width); grid-template-columns: var(--stage-width); }
+      .top-stack { grid-column: 1; }
+      .detail-rail, .browse-rail, .list-workspace { grid-column: 1; }
+      .transport-overlay, .search-keyboard { left: 0; }
+      .right-rail { display: none; }
+      .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .global-navigation .text-button { display: none; }
+    }
+    @media (max-width: 450px) {
+      /* UX: very narrow transport hides elapsed time so every playback-option hit target keeps its stable width. */
+      .transport-time { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype" id="app" data-canvas="watch"></main>
+
+  <script>
+    const app = document.getElementById('app');
+    const icons = name => `<i class="icon icon-${name}"></i>`;
+    const videos = [
+      { title: '穿过城市的夜航', author: '折叠宇宙', views: '播放 18.6万', likes: 12000, coins: 3864, favorites: 7421, duration: '32:18', charge: true, image: 'photo-1493225457124-a3eb161ffa5f' },
+      { title: '雨天街景采样计划', author: '胶片观察员', views: '播放 9.4万', likes: 6821, coins: 2198, favorites: 4105, duration: '18:46', charge: false, image: 'photo-1481277542470-605612bd2d61' },
+      { title: '声音如何塑造空间', author: '立体声实验室', views: '播放 6.2万', likes: 4102, coins: 1675, favorites: 2960, duration: '24:05', charge: false, image: 'photo-1478720568477-152d9b164e26' },
+      { title: '山脊线上的日落', author: '漫游指南', views: '播放 31.8万', likes: 28000, coins: 8210, favorites: 16000, duration: '41:12', charge: true, image: 'photo-1500530855697-b586d89ba3ee' },
+      { title: '深海的蓝色频率', author: '深度频道', views: '播放 4.7万', likes: 2890, coins: 986, favorites: 1832, duration: '16:22', charge: false, image: 'photo-1519608487953-e999c86e7455' },
+      { title: '小城放映厅', author: '故事收集者', views: '播放 12.3万', likes: 9534, coins: 3028, favorites: 6184, duration: '27:50', charge: false, image: 'photo-1489599849927-2ee91cede3ba' }
+    ];
+    const categories = [{ label: '直播', unavailable: true }, { label: '推荐' }, { label: '热门' }, { label: '追番' }];
+    const state = {
+      canvas: 'watch',
+      route: 'playback',
+      selected: 0,
+      // UX: video-level reaction state is scoped per video so navigation and rerenders preserve visible selections and counts.
+      videoActions: videos.map(video => ({ liked: false, coinsAdded: 0, favorited: false, likeCount: video.likes, coinCount: video.coins, favoriteCount: video.favorites })),
+      listMode: 'grid',
+      category: '推荐',
+      sourceTab: '选集',
+      profileOpen: false,
+      settingsOpen: false,
+      // UX: transport option state and its one visible menu persist across rerenders without leaving the current playback canvas.
+      transportMenu: null,
+      subtitleTrack: '中文（自动）',
+      quality: '1080P',
+      playbackRate: '1.0x',
+      autoplay: true,
+      displayRatio: '自动',
+      danmaku: true,
+      // UX: the browser keyboard preview is visible only for the active Search canvas and does not model text conversion or platform input.
+      searchQuery: '空间影像',
+      searchKeyboardOpen: false,
+      // UX: drawer and per-comment state persist while the Workbench remains open.
+      commentsOpen: false,
+      replyTarget: null,
+      commentReactions: [{ liked: false, disliked: false }, { liked: false, disliked: false }, { liked: false, disliked: false }],
+      focusKind: 'creator'
+    };
+    const canvasLabels = { watch: 'Quiet Watch', controls: 'Playback Canvas', browse: 'Browse Canvas', context: 'Current Video Context', workspace: 'Video List Workspace', focus: 'Focus Workspace' };
+    function compactCount(value) {
+      if (value >= 10000) return `${(value / 10000).toFixed(1).replace('.0', '')}万`;
+      return String(value);
+    }
+
+    function SystemBar() {
+      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="environment" title="Environment">${icons('sun-medium')}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button></div>`;
+    }
+    function GlobalNavigation() {
+      return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="profile" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="settings" title="Settings">${icons('settings-2')}</button></nav>`;
+    }
+    function ContentNavigationSlot() {
+      const isSubroute = ['workspace', 'context', 'focus'].includes(state.canvas);
+      // UX: every non-search route keeps one tab-shaped navigation surface; subroutes replace the selected tab with a single Back tab.
+      if (isSubroute) return `<nav class="content-navigation content-navigation-tabs"><button class="category-button" data-action="back" title="返回">${icons('arrow-left')}返回</button></nav>`;
+      // UX: Home exposes only its confirmed four tabs; unavailable live content stays visible but cannot imply an operable destination.
+      if (state.route === 'home') return `<nav class="content-navigation content-navigation-tabs"><div class="category-strip">${categories.map(category => `<button class="category-button ${state.category === category.label ? 'active' : ''}" ${category.unavailable ? 'disabled title="直播暂不可用"' : `data-action="category" data-value="${category.label}"`}>${category.label}</button>`).join('')}</div></nav>`;
+      if (state.route === 'search') return `<nav class="content-navigation content-navigation-search"><button class="icon-button" data-action="browse-search" title="搜索">${icons('search')}</button><div class="search-query"><input class="search-field" value="${state.searchQuery}" placeholder="搜索" readonly data-action="open-search-keyboard" aria-label="搜索查询"><button class="icon-button search-clear" data-action="clear-search" title="清空">${icons('x')}</button></div><button class="icon-button" data-action="request-system-ime" title="唤起系统输入法">${icons('keyboard')}</button><button class="icon-button" data-action="voice-search" title="语音输入">${icons('mic')}</button></nav>`;
+      return `<nav class="content-navigation content-navigation-tabs"><button class="category-button active" data-action="open-workspace" title="Open source-aware video list">${icons('list-video')}视频列表</button></nav>`;
+    }
+    function TopStack() { return `<section class="top-stack">${SystemBar()}${GlobalNavigation()}${ContentNavigationSlot()}</section>`; }
+
+    function DanmakuLayer() {
+      if (!state.danmaku) return '';
+      return `<div class="danmaku-layer" aria-hidden="true"><span class="danmaku a">这个镜头好舒服</span><span class="danmaku b">声音设计太细了</span><span class="danmaku c">收藏了，晚上再看</span></div>`;
+    }
+    function MediaStage() {
+      const video = videos[state.selected];
+      return `<section class="media-stage" data-action="stage" aria-label="Media stage"><img src="https://images.unsplash.com/${video.image}?auto=format&fit=crop&w=1500&q=82" alt="${video.title}"><div class="stage-scrim"></div>${DanmakuLayer()}<button class="stage-dismiss" data-action="stage" title="Open or dismiss controls"></button><span class="stage-title">${video.title}</span><span class="stage-status">点击幕布</span></section>`;
+    }
+
+    function BrowseRail() {
+      return `<aside class="rail browse-rail dismiss-region" aria-label="Browse rail"><div class="rail-header"><span class="rail-title">发现</span><button class="icon-button" data-action="watch" title="Close browse">${icons('x')}</button></div><div class="rail-tabs"><button class="tab-button active">${state.category}</button><button class="tab-button" data-action="search">搜索</button><button class="tab-button" data-action="home">分类</button></div><div class="rail-scroll">${videos.map((video, index) => `<button class="browse-row" data-action="select-video" data-value="${index}"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${video.title}</span><span class="row-sub">${video.author} · ${video.views}</span></span></button>`).join('')}</div></aside>`;
+    }
+    // UX: a comment's action row always reserves the left for reply and the right for reactions.
+    function CommentRow(comment, index) {
+      const reaction = state.commentReactions[index];
+      const composer = state.replyTarget === index ? `<div class="reply-composer"><input class="reply-field" aria-label="Reply to ${comment.author}" placeholder="回复 ${comment.author}"><button class="icon-button" data-action="submit-reply" title="Send reply">${icons('send')}</button></div>` : '';
+      return `<article class="comment-row"><span class="comment-author">${comment.author}</span><div class="comment-text">${comment.text}</div><div class="comment-actions"><button class="comment-reply" data-action="reply-comment" data-value="${index}">回复</button><span class="spacer"></span><button class="icon-button ${reaction.disliked ? 'active' : ''}" data-action="comment-dislike" data-value="${index}" title="Dislike comment">${icons('thumbs-down')}</button><button class="icon-button ${reaction.liked ? 'active' : ''}" data-action="comment-like" data-value="${index}" title="Like comment">${icons('thumbs-up')}</button></div>${composer}</article>`;
+    }
+    function DetailRail() {
+      const video = videos[state.selected];
+      const actionState = state.videoActions[state.selected];
+      const comments = [
+        { author: '空间散步者', text: '镜头运动和声音设计都很有沉浸感。' },
+        { author: '晚风放映室', text: '这个段落的光线变化很喜欢。' },
+        { author: '声音采样员', text: '已收藏，晚上戴耳机再看一次。' }
+      ];
+      // UX: comments replace the complete detail rail; their full-width header labels the mode and acts as the collapse control.
+      const drawer = `<section class="comments-drawer ${state.commentsOpen ? 'open' : ''}" aria-label="Comments drawer"><button class="comments-header" data-action="comments" title="收起评论"><span class="comments-title">评论</span><span class="comments-collapse-icon" aria-hidden="true">${icons('chevron-down')}</span></button><div class="comments-drawer-body">${comments.map(CommentRow).join('')}</div></section>`;
+      // UX: title, metrics, and video reactions form one reading section before creator and description content.
+      return `<aside class="rail detail-rail dismiss-region" aria-label="Current video details"><div class="rail-scroll"><div class="detail-section"><div class="detail-title">${video.title}</div><div class="detail-metrics">${video.views} · ${video.duration}</div><div class="video-actions" aria-label="Video reactions"><button class="video-action ${actionState.liked ? 'active' : ''}" data-action="video-like" aria-label="点赞，${compactCount(actionState.likeCount)}" aria-pressed="${actionState.liked}" title="${actionState.liked ? '取消点赞' : '点赞'}">${icons('thumbs-up')}<span class="video-action-value">${compactCount(actionState.likeCount)}</span></button><button class="video-action ${actionState.coinsAdded > 0 ? 'active' : ''}" data-action="video-coin" aria-label="投币，${compactCount(actionState.coinCount)}" aria-pressed="${actionState.coinsAdded > 0}" title="${actionState.coinsAdded >= 2 ? '已达到投币上限' : actionState.coinsAdded === 1 ? '已投1枚，再投1枚' : '投币'}">${icons('coins')}<span class="video-action-value">${compactCount(actionState.coinCount)}</span></button><button class="video-action ${actionState.favorited ? 'active' : ''}" data-action="video-favorite" aria-label="收藏，${compactCount(actionState.favoriteCount)}" aria-pressed="${actionState.favorited}" title="${actionState.favorited ? '取消收藏' : '收藏'}">${icons('star')}<span class="video-action-value">${compactCount(actionState.favoriteCount)}</span></button></div></div><button class="creator-card" data-action="focus" title="View creator uploads"><span class="creator-avatar">宇</span><span class="creator-copy"><span class="creator-name">${video.author}</span><span class="creator-meta">查看全部投稿 ${icons('chevron-right')}</span></span></button><div class="detail-section" aria-label="简介"><div class="detail-value">从夜间城市声场出发，记录光线、移动与空间感知。</div></div></div><footer class="detail-footer"><button class="comment-action" data-action="comments"><span>${icons('messages-square')}</span><span class="creator-copy"><span class="creator-name">评论</span><span class="creator-meta">展开评论 3</span></span></button></footer>${drawer}</aside>`;
+    }
+    function SourceRail() {
+      const label = state.sourceTab === '选集' ? '当前播放' : state.sourceTab === '合集' ? '同合集内容' : '相关内容';
+      return `<aside class="rail right-rail dismiss-region" aria-label="Source-aware content"><div class="rail-tabs">${['选集', '合集', '相关', '弹幕'].map(tab => `<button class="tab-button ${state.sourceTab === tab ? 'active' : ''}" data-action="source-tab" data-value="${tab}">${tab}</button>`).join('')}</div><div class="rail-scroll">${state.sourceTab === '弹幕' ? DanmakuList() : videos.slice(0, 5).map((video, index) => `<button class="source-row" data-action="select-video" data-value="${index}"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${video.title}</span><span class="row-sub">${index === state.selected ? '当前播放' : label}</span></span></button>`).join('')}</div></aside>`;
+    }
+    function DanmakuList() {
+      return ['这个镜头好舒服', '声音设计太细了', '收藏了，晚上再看', '夜景氛围很棒', '字幕位置很舒服'].map((text, index) => `<div class="source-row"><span class="row-index">${String(index + 1).padStart(2, '0')}</span><span class="row-copy"><span class="row-title">${text}</span><span class="row-sub">00:${12 + index * 7}</span></span></div>`).join('');
+    }
+    function ListWorkspace() {
+      // UX: Workspace titles do not repeat Back; the top content-navigation slot is the one return affordance for every subroute.
+      return `<section class="list-workspace dismiss-region" aria-label="Transparent video list workspace"><header class="workspace-header"><span class="workspace-title">${state.canvas === 'focus' ? '创作者投稿' : '视频列表'}</span><span class="spacer"></span><button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="Switch list layout">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button></header><div class="workspace-scroll"><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></div></section>`;
+    }
+    function VideoCard(video, index) {
+      const actionState = state.videoActions[index];
+      return `<button class="video-card" data-action="select-video" data-value="${index}"><div class="cover"><img src="https://images.unsplash.com/${video.image}?auto=format&fit=crop&w=720&q=78" alt="${video.title}">${video.charge ? '<span class="charge-badge">充电</span>' : ''}<span class="duration-badge">${video.duration}</span></div><div class="video-title">${video.title}</div><div class="video-author">${video.author}</div><div class="video-metrics"><span>${video.views}</span><span>${icons('heart')} ${compactCount(actionState.likeCount)}</span></div></button>`;
+    }
+    function TransportOverlay() {
+      const subtitlesOn = state.subtitleTrack !== '关闭';
+      // UX: subtitle, quality, and speed remain direct transport controls; each opens one compact PiliPlus-style option menu.
+      return `<footer class="transport-overlay" aria-label="Transport controls"><div class="timeline"></div><div class="transport-row"><button class="icon-button" title="Volume">${icons('volume-2')}</button><button class="icon-button transport-compact-hide" title="Previous">${icons('skip-back')}</button><button class="icon-button transport-compact-hide" title="Replay">${icons('rotate-ccw')}</button><button class="icon-button active" title="Pause">${icons('pause')}</button><button class="icon-button transport-compact-hide" title="Forward">${icons('rotate-cw')}</button><button class="icon-button transport-compact-hide" title="Next">${icons('skip-forward')}</button><span class="spacer"></span><span class="transport-time">12:34 / 32:18</span><button class="icon-button ${subtitlesOn ? 'active' : ''}" data-action="transport-menu" data-value="subtitles" title="字幕：${state.subtitleTrack}">${icons('captions')}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="quality" title="清晰度">${state.quality}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="speed" title="倍速">${state.playbackRate}</button><button class="icon-button" data-action="settings" title="Playback settings">${icons('sliders-horizontal')}</button><span class="grab-handle" title="Workbench grab handle">${icons('grip-horizontal')}</span></div>${TransportMenu()}${SettingsPopover()}</footer>`;
+    }
+    function TransportMenu() {
+      if (!state.transportMenu) return '';
+      const menus = {
+        subtitles: { title: '字幕', action: 'set-subtitle', current: state.subtitleTrack, options: ['关闭', '中文（自动）', 'English'] },
+        quality: { title: '清晰度', action: 'set-quality', current: state.quality, options: ['自动', '1080P', '720P', '480P'] },
+        speed: { title: '倍速', action: 'set-playback-speed', current: state.playbackRate, options: ['0.5x', '0.75x', '1.0x', '1.25x', '1.5x', '1.75x', '2.0x', '3.0x'] }
+      };
+      const menu = menus[state.transportMenu];
+      return `<aside class="transport-menu" aria-label="${menu.title}选项"><div class="transport-menu-title">${menu.title}</div><div class="transport-menu-options ${state.transportMenu}">${menu.options.map(option => `<button class="text-button transport-option ${menu.current === option ? 'active' : ''}" data-action="${menu.action}" data-value="${option}">${option}</button>`).join('')}</div></aside>`;
+    }
+    // UX: settings excludes subtitle, quality, and speed because those options already have direct transport controls.
+    function SettingsPopover() {
+      if (!state.settingsOpen) return '';
+      return `<aside class="popover settings-popover" aria-label="Playback settings"><div class="setting-row"><span>自动连播</span><button class="toggle ${state.autoplay ? 'on' : ''}" data-action="toggle-autoplay" title="自动连播"></button></div><div class="setting-row"><span>显示比例</span><button class="text-button" data-action="cycle-display-ratio">${state.displayRatio}</button></div><div class="setting-row"><span>弹幕</span><button class="toggle ${state.danmaku ? 'on' : ''}" data-action="toggle-danmaku" title="Toggle danmaku"></button></div></aside>`;
+    }
+    function SearchKeyboard() {
+      if (state.route !== 'search' || !state.searchKeyboardOpen) return '';
+      const keys = 'QWERTYUIOPASDFGHJKLZXCVBNM'.split('');
+      // UX: this preview fixes the 26-key Chinese/English console in front of transport without claiming to implement a real input engine.
+      return `<section class="search-keyboard dismiss-region" aria-label="26键中英文输入法预览"><div class="keyboard-number-grid">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-'].map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-main"><div class="keyboard-composition"><span class="keyboard-preedit">nihao</span><div class="keyboard-candidates"><button class="keyboard-candidate active" data-action="keyboard-preview">你好</button><button class="keyboard-candidate" data-action="keyboard-preview">你</button><button class="keyboard-candidate" data-action="keyboard-preview">拟好</button></div></div><div class="keyboard-letter-grid">${keys.map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}<button class="keyboard-key wide" data-action="keyboard-preview">中/英</button><button class="keyboard-key wide" data-action="keyboard-preview">'</button></div></div><div class="keyboard-actions"><button class="keyboard-key" data-action="keyboard-preview" title="删除">${icons('delete')}</button><button class="keyboard-key" data-action="voice-search" title="语音输入">${icons('mic')}</button><button class="keyboard-key" data-action="keyboard-preview" title="确认">${icons('corner-down-left')}</button><button class="keyboard-key" data-action="dismiss-search-keyboard" title="收起键盘">${icons('chevron-down')}</button></div></section>`;
+    }
+    function ProfileSurface() {
+      if (!state.profileOpen) return '';
+      return `<section class="profile-surface" aria-label="Profile"><div class="rail-header"><span class="rail-title">个人资料</span><button class="icon-button" data-action="profile" title="Close profile">${icons('x')}</button></div><div class="profile-head"><div class="avatar">V</div><div><div class="profile-name">Viri 用户</div><div class="profile-sub">登录以同步收藏、历史与订阅</div></div></div><div class="profile-stats"><div class="profile-stat"><strong>128</strong><span>收藏</span></div><div class="profile-stat"><strong>46</strong><span>稍后再看</span></div><div class="profile-stat"><strong>72</strong><span>历史记录</span></div></div><div class="profile-list"><button class="text-button">${icons('heart')}我的收藏</button><button class="text-button">${icons('clock-3')}观看历史</button><button class="text-button">${icons('bookmark')}稍后再看</button><button class="text-button">${icons('settings-2')}账户设置</button></div></section>`;
+    }
+
+    function render() {
+      app.dataset.canvas = state.canvas;
+      app.dataset.route = state.route;
+      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section>${ProfileSurface()}<div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
+    }
+    function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
+    // UX: one comment cannot be both liked and disliked at the same time.
+    function toggleCommentReaction(index, reactionKind) {
+      const previous = state.commentReactions[index];
+      const enabled = !previous[reactionKind];
+      state.commentReactions[index] = reactionKind === 'liked'
+        ? { liked: enabled, disliked: false }
+        : { liked: false, disliked: enabled };
+    }
+    function dispatch(action, value) {
+      switch (action) {
+        case 'stage': setCanvas(state.canvas === 'watch' ? 'controls' : 'watch'); break;
+        case 'watch': setCanvas('watch'); break;
+        // UX: Home restores the user's last category and list mode without replacing the active canvas or its side panels.
+        case 'home': state.route = 'home'; state.searchKeyboardOpen = false; render(); break;
+        case 'search': setCanvas('browse', 'search'); break;
+        case 'browse-search': setCanvas('browse', 'search'); break;
+        case 'open-search-keyboard': state.searchKeyboardOpen = true; render(); break;
+        case 'dismiss-search-keyboard': state.searchKeyboardOpen = false; render(); break;
+        case 'clear-search': state.searchQuery = ''; render(); break;
+        // UX: the prototype shows system-IME and voice placement without simulating platform focus or speech results.
+        case 'request-system-ime': state.searchKeyboardOpen = false; render(); break;
+        case 'voice-search': break;
+        case 'keyboard-preview': break;
+        case 'open-workspace': setCanvas('workspace', 'playback'); break;
+        case 'back': setCanvas('controls', 'playback'); break;
+        case 'focus': setCanvas('focus', 'focus'); break;
+        case 'profile': state.profileOpen = !state.profileOpen; render(); break;
+        // UX: playback settings and direct option menus are mutually exclusive surfaces anchored to transport.
+        case 'settings': state.settingsOpen = !state.settingsOpen; state.transportMenu = null; render(); break;
+        case 'transport-menu': state.transportMenu = state.transportMenu === value ? null : value; state.settingsOpen = false; render(); break;
+        case 'set-subtitle': state.subtitleTrack = value; state.transportMenu = null; render(); break;
+        case 'set-quality': state.quality = value; state.transportMenu = null; render(); break;
+        case 'set-playback-speed': state.playbackRate = value; state.transportMenu = null; render(); break;
+        case 'toggle-autoplay': state.autoplay = !state.autoplay; render(); break;
+        case 'cycle-display-ratio': { const ratios = ['自动', '16:9', '4:3']; state.displayRatio = ratios[(ratios.indexOf(state.displayRatio) + 1) % ratios.length]; render(); break; }
+        case 'toggle-danmaku': state.danmaku = !state.danmaku; render(); break;
+        case 'toggle-list': state.listMode = state.listMode === 'grid' ? 'list' : 'grid'; render(); break;
+        case 'select-video': state.selected = Number(value); setCanvas('controls', 'playback'); break;
+        // UX: category selection preserves the active canvas and reuses its visible center list rather than changing side-panel composition.
+        case 'category': state.category = value; render(); break;
+        case 'source-tab': state.sourceTab = value; render(); break;
+        // UX: Like and Favorite toggle their public counts, while Coin only accumulates to PiliPlus's normal two-coin ceiling.
+        case 'video-like': { const item = state.videoActions[state.selected]; item.liked = !item.liked; item.likeCount += item.liked ? 1 : -1; render(); break; }
+        case 'video-coin': { const item = state.videoActions[state.selected]; if (item.coinsAdded < 2) { item.coinsAdded += 1; item.coinCount += 1; } render(); break; }
+        case 'video-favorite': { const item = state.videoActions[state.selected]; item.favorited = !item.favorited; item.favoriteCount += item.favorited ? 1 : -1; render(); break; }
+        // UX: closing the drawer also exits any inline reply composer.
+        case 'comments': state.commentsOpen = !state.commentsOpen; if (!state.commentsOpen) state.replyTarget = null; render(); break;
+        case 'reply-comment': state.replyTarget = state.replyTarget === Number(value) ? null : Number(value); render(); break;
+        case 'submit-reply': state.replyTarget = null; render(); break;
+        case 'comment-like': toggleCommentReaction(Number(value), 'liked'); render(); break;
+        case 'comment-dislike': toggleCommentReaction(Number(value), 'disliked'); render(); break;
+        default: break;
+      }
+    }
+    app.addEventListener('click', event => {
+      const action = event.target.closest('[data-action]');
+      if (action) { event.stopPropagation(); dispatch(action.dataset.action, action.dataset.value); return; }
+      // UX: panel body clicks are never canvas-dismiss clicks; only scene/canvas whitespace dismisses.
+      const preservesInteraction = event.target.closest('input, .settings-popover, .profile-surface, .top-stack, .rail, .list-workspace, .transport-overlay, .search-keyboard');
+      if (!preservesInteraction && state.canvas !== 'watch') setCanvas('watch');
+    });
+    render();
+  </script>
+</body>
+</html>
