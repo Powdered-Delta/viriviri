@@ -56,7 +56,8 @@
     .prototype[data-theme="light"] .mode-pill { background: rgba(247, 249, 242, .94); }
     button, input { font: inherit; }
     button { color: inherit; border: 0; cursor: pointer; }
-    .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); }
+    /* UX: the theme root owns the inherited foreground color so selecting light or dark changes all default text and button labels together. */
+    .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); color: var(--ink); }
     .scene { position: absolute; inset: 0; background: #1b1c17; }
     .scene-floor { position: absolute; left: 10%; right: 10%; bottom: -16%; height: 58%; border: 1px solid #35372e; transform: perspective(620px) rotateX(58deg); transform-origin: bottom; opacity: .68; }
     .scene-marker { position: absolute; width: 20px; height: 20px; border: 1px solid #63655b; border-radius: 50%; opacity: .45; }
