@@ -302,7 +302,7 @@
     .transport-value-button { min-width: 46px; padding: 0 6px; font-variant-numeric: tabular-nums; }
     .grab-handle { padding: 0 5px; color: var(--muted); font-size: 17px; }
 
-    .popover, .profile-surface, .transport-menu {
+    .popover, .transport-menu {
       position: absolute;
       z-index: 5;
       border: 1px solid var(--border);
@@ -323,17 +323,25 @@
     .toggle::after { content: ""; display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); transition: transform .14s ease; }
     .toggle.on { background: var(--accent); }
     .toggle.on::after { transform: translateX(16px); background: var(--accent-ink); }
-    .profile-surface { left: 50%; top: 50%; width: min(480px, 82vw); max-height: min(520px, 78vh); transform: translate(-50%, -50%); overflow: auto; padding: 16px; }
-    .profile-head { display: flex; align-items: center; gap: 12px; }
-    .avatar { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; }
-    .profile-name { font-size: 18px; font-weight: 750; }
-    .profile-sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
-    .profile-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
-    .profile-stat { padding: 10px; border: 1px solid var(--border); border-radius: 5px; }
-    .profile-stat strong, .profile-stat span { display: block; }
-    .profile-stat span { margin-top: 3px; color: var(--muted); font-size: 11px; }
-    .profile-list { display: grid; gap: 6px; }
-    .profile-list .text-button { justify-content: flex-start; border: 1px solid var(--border); }
+    /* UX: account and global settings reuse the center list scroller, keeping persistent destinations in the same touch-page hierarchy as search and video lists. */
+    .account-summary { display: flex; align-items: center; gap: 12px; padding: 7px 0 14px; border-bottom: 1px solid rgba(98,100,89,.58); }
+    .account-avatar { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; }
+    .account-name, .account-sub { display: block; }
+    .account-name { font-size: 18px; font-weight: 750; }
+    .account-sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .account-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+    .account-stat { padding: 10px; border: 1px solid var(--border); border-radius: 5px; background: rgba(32,33,28,.72); text-align: left; }
+    .account-stat strong, .account-stat span { display: block; }
+    .account-stat span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .workspace-group { display: grid; gap: 5px; margin-top: 14px; }
+    .workspace-group-title { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .workspace-row { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; background: rgba(32,33,28,.72); text-align: left; }
+    .workspace-row:hover, .workspace-row.active { border-color: var(--accent); background: var(--surface-strong); }
+    .workspace-row i { color: var(--accent); font-size: 16px; }
+    .workspace-row-copy { min-width: 0; }
+    .workspace-row-title, .workspace-row-sub { display: block; }
+    .workspace-row-title { font-size: 13px; font-weight: 700; }
+    .workspace-row-sub { margin-top: 2px; color: var(--muted); font-size: 11px; }
 
     .mode-pill { position: fixed; left: 14px; bottom: 12px; z-index: 9; padding: 7px 10px; border: 1px solid var(--border); border-radius: 5px; background: rgba(17,18,15,.92); color: var(--muted); font-size: 12px; }
     .mode-pill strong { color: var(--accent); }
@@ -358,6 +366,8 @@
     .prototype[data-canvas="browse"] .list-workspace,
     .prototype[data-canvas="controls"][data-route="home"] .list-workspace,
     .prototype[data-canvas="context"][data-route="home"] .list-workspace,
+    .prototype[data-route="account"] .list-workspace,
+    .prototype[data-route="settings"] .list-workspace,
     /* UX: Search replaces only center content; its route preserves the active canvas and side-panel composition. */
     .prototype[data-canvas="controls"][data-route="search"] .list-workspace,
     .prototype[data-canvas="context"][data-route="search"] .list-workspace,
@@ -379,7 +389,9 @@
     .prototype[data-canvas="focus"] .transport-overlay,
     .prototype[data-canvas="controls"][data-route="home"] .transport-overlay,
     .prototype[data-canvas="context"][data-route="home"] .transport-overlay,
-    .prototype[data-route="search"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); height: 64px; }
+    .prototype[data-route="search"] .transport-overlay,
+    .prototype[data-route="account"] .transport-overlay,
+    .prototype[data-route="settings"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); height: 64px; }
     .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); left: auto; right: 26px; top: 25%; transform: none; }
     .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
     .prototype[data-canvas="focus"] .stage-status { display: none; }
@@ -432,7 +444,10 @@
       listMode: 'grid',
       category: '推荐',
       sourceTab: '选集',
-      profileOpen: false,
+      // UX: account and global settings retain their origin so Back returns to the same touch-page context and scroll state.
+      centerReturn: [],
+      accountSection: '我的收藏',
+      settingsSection: '账户',
       settingsOpen: false,
       // UX: transport option state and its one visible menu persist across rerenders without leaving the current playback canvas.
       transportMenu: null,
@@ -472,14 +487,15 @@
       return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="environment" title="Environment">${icons('sun-medium')}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button></div>`;
     }
     function GlobalNavigation() {
-      return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="profile" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="settings" title="Settings">${icons('settings-2')}</button></nav>`;
+      return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="open-account" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="open-global-settings" title="Settings">${icons('settings-2')}</button></nav>`;
     }
     function ContentNavigationSlot() {
       const isSubroute = ['workspace', 'context', 'focus'].includes(state.canvas);
+      const isCenterRoute = ['account', 'settings'].includes(state.route);
       // UX: Search is a route within the current canvas, so it always owns the slot before any subroute tab can replace it.
       if (state.route === 'search') return `<nav class="content-navigation content-navigation-search"><button class="icon-button" data-action="browse-search" title="搜索">${icons('search')}</button><div class="search-query"><input class="search-field" value="${state.searchQuery}" placeholder="搜索" readonly data-action="open-search-keyboard" aria-label="搜索查询">${state.searchQuery ? `<button class="icon-button search-clear" data-action="clear-search" title="清空">${icons('x')}</button>` : ''}</div><button class="icon-button" data-action="request-system-ime" title="唤起系统输入法">${icons('keyboard')}</button><button class="icon-button" data-action="voice-search" title="语音输入">${icons('mic')}</button></nav>`;
-      // UX: every non-search route keeps one tab-shaped navigation surface; subroutes replace the selected tab with a single Back tab.
-      if (isSubroute) return `<nav class="content-navigation content-navigation-tabs"><button class="category-button" data-action="back" title="返回">${icons('arrow-left')}返回</button></nav>`;
+      // UX: center pages and canvas subroutes share one Back tab, preserving a consistent touch-page return affordance.
+      if (isCenterRoute || isSubroute) return `<nav class="content-navigation content-navigation-tabs"><button class="category-button" data-action="back" title="返回">${icons('arrow-left')}返回</button></nav>`;
       // UX: Home exposes only its confirmed four tabs; unavailable live content stays visible but cannot imply an operable destination.
       if (state.route === 'home') return `<nav class="content-navigation content-navigation-tabs"><div class="category-strip">${categories.map(category => `<button class="category-button ${state.category === category.label ? 'active' : ''}" ${category.unavailable ? 'disabled title="直播暂不可用"' : `data-action="category" data-value="${category.label}"`}>${category.label}</button>`).join('')}</div></nav>`;
       return `<nav class="content-navigation content-navigation-tabs"><button class="category-button active" data-action="open-workspace" title="Open source-aware video list">${icons('list-video')}视频列表</button></nav>`;
@@ -537,8 +553,28 @@
         : `<section class="search-section"><div class="search-section-heading"><span class="search-section-title">搜索历史</span></div><div class="search-tag-list">${history || '<span class="row-sub">暂无搜索历史</span>'}</div>${historyMore}</section><section class="search-section"><div class="search-section-heading"><span class="search-section-title">推荐搜索</span><button class="icon-button" data-action="refresh-hot-searches" title="刷新推荐搜索">${icons('refresh-cw')}</button></div><div class="search-keyword-grid">${hot}</div></section>`;
       return `<section class="list-workspace dismiss-region" aria-label="Search content workspace"><header class="workspace-header"><span class="workspace-title">搜索</span><span class="spacer"></span>${hasQuery ? `<button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="切换列表布局">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button>` : ''}</header><div class="workspace-scroll search-workspace">${body}</div></section>`;
     }
+    function AccountWorkspace() {
+      const sections = [
+        { label: '我的收藏', icon: 'heart', detail: '128 个已收藏视频' },
+        { label: '观看历史', icon: 'clock-3', detail: '72 条最近观看记录' },
+        { label: '稍后再看', icon: 'bookmark', detail: '46 个待观看视频' }
+      ];
+      // UX: account destinations stay selectable in-page so the persistent profile surface does not become a transient modal.
+      return `<section class="list-workspace dismiss-region" aria-label="Account workspace"><header class="workspace-header"><span class="workspace-title">个人资料</span></header><div class="workspace-scroll"><section class="account-summary"><span class="account-avatar">V</span><span><span class="account-name">Viri 用户</span><span class="account-sub">登录以同步收藏、历史与订阅</span></span></section><div class="account-stats"><button class="account-stat" data-action="account-section" data-value="我的收藏"><strong>128</strong><span>收藏</span></button><button class="account-stat" data-action="account-section" data-value="稍后再看"><strong>46</strong><span>稍后再看</span></button><button class="account-stat" data-action="account-section" data-value="观看历史"><strong>72</strong><span>历史记录</span></button></div><section class="workspace-group"><span class="workspace-group-title">内容库</span>${sections.map(section => `<button class="workspace-row ${state.accountSection === section.label ? 'active' : ''}" data-action="account-section" data-value="${section.label}">${icons(section.icon)}<span class="workspace-row-copy"><span class="workspace-row-title">${section.label}</span><span class="workspace-row-sub">${section.detail}</span></span><span class="spacer"></span>${icons('chevron-right')}</button>`).join('')}</section><section class="workspace-group"><span class="workspace-group-title">账户</span><button class="workspace-row" data-action="open-global-settings">${icons('settings-2')}<span class="workspace-row-copy"><span class="workspace-row-title">账户设置</span><span class="workspace-row-sub">同步、隐私与偏好</span></span><span class="spacer"></span>${icons('chevron-right')}</button></section></div></section>`;
+    }
+    function SettingsWorkspace() {
+      const sections = [
+        { label: '账户', icon: 'circle-user-round', detail: '登录、同步与隐私' },
+        { label: '显示与输入', icon: 'monitor', detail: '面板、手势与输入方式' },
+        { label: '通知', icon: 'bell', detail: '互动与更新提醒' }
+      ];
+      // UX: global settings are a center page, while only playback-scoped controls remain in the Transport popover.
+      return `<section class="list-workspace dismiss-region" aria-label="Global settings workspace"><header class="workspace-header"><span class="workspace-title">设置</span></header><div class="workspace-scroll"><section class="workspace-group"><span class="workspace-group-title">全局偏好</span>${sections.map(section => `<button class="workspace-row ${state.settingsSection === section.label ? 'active' : ''}" data-action="settings-section" data-value="${section.label}">${icons(section.icon)}<span class="workspace-row-copy"><span class="workspace-row-title">${section.label}</span><span class="workspace-row-sub">${section.detail}</span></span><span class="spacer"></span>${icons('chevron-right')}</button>`).join('')}</section><section class="workspace-group"><span class="workspace-group-title">当前播放</span><button class="workspace-row" data-action="playback-settings">${icons('sliders-horizontal')}<span class="workspace-row-copy"><span class="workspace-row-title">播放设置</span><span class="workspace-row-sub">自动连播、显示比例与弹幕</span></span><span class="spacer"></span>${icons('chevron-right')}</button></section></div></section>`;
+    }
     function ListWorkspace() {
       if (state.route === 'search') return SearchWorkspace();
+      if (state.route === 'account') return AccountWorkspace();
+      if (state.route === 'settings') return SettingsWorkspace();
       // UX: Workspace titles do not repeat Back; the top content-navigation slot is the one return affordance for every subroute.
       return `<section class="list-workspace dismiss-region" aria-label="Transparent video list workspace"><header class="workspace-header"><span class="workspace-title">${state.canvas === 'focus' ? '创作者投稿' : '视频列表'}</span><span class="spacer"></span><button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="Switch list layout">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button></header><div class="workspace-scroll"><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></div></section>`;
     }
@@ -549,7 +585,7 @@
     function TransportOverlay() {
       const subtitlesOn = state.subtitleTrack !== '关闭';
       // UX: subtitle, quality, and speed remain direct transport controls; each opens one compact PiliPlus-style option menu.
-      return `<footer class="transport-overlay" aria-label="Transport controls"><div class="timeline"></div><div class="transport-row"><button class="icon-button" title="Volume">${icons('volume-2')}</button><button class="icon-button transport-compact-hide" title="Previous">${icons('skip-back')}</button><button class="icon-button transport-compact-hide" title="Replay">${icons('rotate-ccw')}</button><button class="icon-button active" title="Pause">${icons('pause')}</button><button class="icon-button transport-compact-hide" title="Forward">${icons('rotate-cw')}</button><button class="icon-button transport-compact-hide" title="Next">${icons('skip-forward')}</button><span class="spacer"></span><span class="transport-time">12:34 / 32:18</span><button class="icon-button ${subtitlesOn ? 'active' : ''}" data-action="transport-menu" data-value="subtitles" title="字幕：${state.subtitleTrack}">${icons('captions')}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="quality" title="清晰度">${state.quality}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="speed" title="倍速">${state.playbackRate}</button><button class="icon-button" data-action="settings" title="Playback settings">${icons('sliders-horizontal')}</button><span class="grab-handle" title="Workbench grab handle">${icons('grip-horizontal')}</span></div>${TransportMenu()}${SettingsPopover()}</footer>`;
+      return `<footer class="transport-overlay" aria-label="Transport controls"><div class="timeline"></div><div class="transport-row"><button class="icon-button" title="Volume">${icons('volume-2')}</button><button class="icon-button transport-compact-hide" title="Previous">${icons('skip-back')}</button><button class="icon-button transport-compact-hide" title="Replay">${icons('rotate-ccw')}</button><button class="icon-button active" title="Pause">${icons('pause')}</button><button class="icon-button transport-compact-hide" title="Forward">${icons('rotate-cw')}</button><button class="icon-button transport-compact-hide" title="Next">${icons('skip-forward')}</button><span class="spacer"></span><span class="transport-time">12:34 / 32:18</span><button class="icon-button ${subtitlesOn ? 'active' : ''}" data-action="transport-menu" data-value="subtitles" title="字幕：${state.subtitleTrack}">${icons('captions')}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="quality" title="清晰度">${state.quality}</button><button class="text-button transport-value-button" data-action="transport-menu" data-value="speed" title="倍速">${state.playbackRate}</button><button class="icon-button" data-action="playback-settings" title="Playback settings">${icons('sliders-horizontal')}</button><span class="grab-handle" title="Workbench grab handle">${icons('grip-horizontal')}</span></div>${TransportMenu()}${SettingsPopover()}</footer>`;
     }
     function TransportMenu() {
       if (!state.transportMenu) return '';
@@ -575,15 +611,10 @@
       // UX: Shift and symbol mode belong to the ZXC row; common punctuation stays beside the centered space key for touch typing.
       return `<section class="search-keyboard dismiss-region" aria-label="26键中英文输入法预览"><div class="keyboard-number-grid">${['1', '2', '3', '+', '4', '5', '6', '−', '7', '8', '9', '×', '0', '.', '=', '÷'].map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-main"><div class="keyboard-composition"><span class="keyboard-preedit">${state.keyboardLanguage === 'zh' ? 'nihao' : 'hello'}</span><div class="keyboard-candidates">${state.keyboardLanguage === 'zh' ? '<button class="keyboard-candidate active" data-action="keyboard-preview">你好</button><button class="keyboard-candidate" data-action="keyboard-preview">你</button><button class="keyboard-candidate" data-action="keyboard-preview">拟好</button>' : '<span class="keyboard-preedit">English</span>'}</div></div><div class="keyboard-letter-grid"><div class="keyboard-letter-row row-0">${letterRows[0].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-1">${letterRows[1].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-2"><button class="keyboard-key ${state.keyboardUppercase ? 'active' : ''}" data-action="toggle-keyboard-case" title="切换大小写">${icons('arrow-up')}</button>${zxcRow}<button class="keyboard-key ${state.keyboardMode === 'symbols' ? 'active' : ''}" data-action="toggle-keyboard-mode" title="切换符号键盘">${state.keyboardMode === 'symbols' ? 'ABC' : '符号'}</button></div><div class="keyboard-bottom-row"><button class="keyboard-key ${state.keyboardLanguage === 'en' ? 'active' : ''}" data-action="toggle-keyboard-language" title="切换中英文">中/英</button><button class="keyboard-key" data-action="keyboard-preview" title="逗号">,</button><button class="keyboard-key" data-action="keyboard-preview" title="句号">.</button><button class="keyboard-key keyboard-space" data-action="keyboard-preview" title="空格">空格</button><button class="keyboard-key" data-action="keyboard-preview" title="感叹号">!</button><button class="keyboard-key" data-action="keyboard-preview" title="问号">?</button><button class="keyboard-key" data-action="keyboard-preview" title="拼音分词符">'</button></div></div></div><div class="keyboard-actions"><button class="keyboard-key" data-action="keyboard-preview" title="删除">${icons('delete')}</button><button class="keyboard-key" data-action="voice-search" title="语音输入">${icons('mic')}</button><button class="keyboard-key" data-action="keyboard-preview" title="确认">${icons('corner-down-left')}</button><button class="keyboard-key" data-action="dismiss-search-keyboard" title="收起键盘">${icons('chevron-down')}</button></div></section>`;
     }
-    function ProfileSurface() {
-      if (!state.profileOpen) return '';
-      return `<section class="profile-surface" aria-label="Profile"><div class="rail-header"><span class="rail-title">个人资料</span><button class="icon-button" data-action="profile" title="Close profile">${icons('x')}</button></div><div class="profile-head"><div class="avatar">V</div><div><div class="profile-name">Viri 用户</div><div class="profile-sub">登录以同步收藏、历史与订阅</div></div></div><div class="profile-stats"><div class="profile-stat"><strong>128</strong><span>收藏</span></div><div class="profile-stat"><strong>46</strong><span>稍后再看</span></div><div class="profile-stat"><strong>72</strong><span>历史记录</span></div></div><div class="profile-list"><button class="text-button">${icons('heart')}我的收藏</button><button class="text-button">${icons('clock-3')}观看历史</button><button class="text-button">${icons('bookmark')}稍后再看</button><button class="text-button">${icons('settings-2')}账户设置</button></div></section>`;
-    }
-
     function render() {
       app.dataset.canvas = state.canvas;
       app.dataset.route = state.route;
-      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section>${ProfileSurface()}<div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
+      app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section><div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
       const searchWorkspace = app.querySelector('.search-workspace');
       if (searchWorkspace) searchWorkspace.scrollTop = state.searchScrollPosition;
     }
@@ -600,6 +631,16 @@
       render();
     }
     function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
+    // UX: persistent center destinations retain a short route stack, so Back returns through the same pages a touch user just visited.
+    function openCenterRoute(route) {
+      if (state.route === route) return;
+      state.centerReturn.push({ canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition });
+      state.route = route;
+      state.settingsOpen = false;
+      state.transportMenu = null;
+      state.searchKeyboardOpen = false;
+      render();
+    }
     // UX: one comment cannot be both liked and disliked at the same time.
     function toggleCommentReaction(index, reactionKind) {
       const previous = state.commentReactions[index];
@@ -613,7 +654,7 @@
         case 'stage': setCanvas(state.canvas === 'watch' ? 'controls' : 'watch'); break;
         case 'watch': setCanvas('watch'); break;
         // UX: Home restores the user's last category and list mode without replacing the active canvas or its side panels.
-        case 'home': state.route = 'home'; state.searchReturn = null; state.searchKeyboardOpen = false; render(); break;
+        case 'home': state.route = 'home'; state.searchReturn = null; state.centerReturn = []; state.searchKeyboardOpen = false; render(); break;
         // UX: entering Search snapshots the origin but never swaps the active canvas or its side panels.
         case 'search': if (state.route !== 'search') state.searchReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; state.route = 'search'; state.searchKeyboardOpen = false; render(); break;
         case 'browse-search': state.searchKeyboardOpen = false; render(); break;
@@ -633,11 +674,14 @@
         case 'toggle-keyboard-mode': state.keyboardMode = state.keyboardMode === 'symbols' ? 'letters' : 'symbols'; render(); break;
         // UX: playback's video-list tab returns to the exact Search origin after a result starts playback.
         case 'open-workspace': if (state.playbackReturn?.route === 'search') { const snapshot = state.playbackReturn; state.playbackReturn = null; restoreSnapshot(snapshot); } else setCanvas('workspace', 'playback'); break;
-        case 'back': if (state.route === 'search' && state.searchReturn) { const snapshot = state.searchReturn; state.searchReturn = null; restoreSnapshot(snapshot); } else setCanvas('controls', 'playback'); break;
+        case 'back': if (['account', 'settings'].includes(state.route) && state.centerReturn.length) { const snapshot = state.centerReturn.pop(); restoreSnapshot(snapshot); } else if (state.route === 'search' && state.searchReturn) { const snapshot = state.searchReturn; state.searchReturn = null; restoreSnapshot(snapshot); } else setCanvas('controls', 'playback'); break;
         case 'focus': setCanvas('focus', 'focus'); break;
-        case 'profile': state.profileOpen = !state.profileOpen; render(); break;
+        case 'open-account': openCenterRoute('account'); break;
+        case 'open-global-settings': openCenterRoute('settings'); break;
+        case 'account-section': state.accountSection = value; render(); break;
+        case 'settings-section': state.settingsSection = value; render(); break;
         // UX: playback settings and direct option menus are mutually exclusive surfaces anchored to transport.
-        case 'settings': state.settingsOpen = !state.settingsOpen; state.transportMenu = null; render(); break;
+        case 'playback-settings': state.settingsOpen = !state.settingsOpen; state.transportMenu = null; render(); break;
         case 'transport-menu': state.transportMenu = state.transportMenu === value ? null : value; state.settingsOpen = false; render(); break;
         case 'set-subtitle': state.subtitleTrack = value; state.transportMenu = null; render(); break;
         case 'set-quality': state.quality = value; state.transportMenu = null; render(); break;
@@ -671,7 +715,7 @@
       const action = event.target.closest('[data-action]');
       if (action) { event.stopPropagation(); dispatch(action.dataset.action, action.dataset.value); return; }
       // UX: panel body clicks are never canvas-dismiss clicks; only scene/canvas whitespace dismisses.
-      const preservesInteraction = event.target.closest('input, .settings-popover, .profile-surface, .top-stack, .rail, .list-workspace, .transport-overlay, .search-keyboard');
+      const preservesInteraction = event.target.closest('input, .settings-popover, .top-stack, .rail, .list-workspace, .transport-overlay, .search-keyboard');
       if (!preservesInteraction && state.canvas !== 'watch') setCanvas('watch');
     });
     render();

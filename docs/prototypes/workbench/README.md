@@ -68,7 +68,11 @@ centered, content-width tab strip with `直播` (visible but unavailable), `推�
 empty percentage of the top stack. Search uses its own constrained field width;
 video-list actions use their content width and render as the selected tab.
 Subordinate routes use the same tab surface for a single Back tab; list-workspace
-headers never repeat that return control.
+headers never repeat that return control. Profile and global Settings are
+persistent center routes within that same workspace, not modals: their short
+return stack restores Account, Search, or the prior canvas in touch-page order.
+Only Transport's playback settings remain a local popover; its action is kept
+separate from global Settings.
 
 Home restores the last selected Home category and list layout without changing
 the active canvas or its left/right rail composition. The centered list workspace
