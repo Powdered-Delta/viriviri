@@ -19,6 +19,12 @@
       --accent-ink: #2a210d;
       --danger: #d86960;
       --charge: #c63f72;
+      --reaction-like: #e47772;
+      --reaction-like-surface: rgba(139, 53, 60, .38);
+      --reaction-coin: #e5bd62;
+      --reaction-coin-surface: rgba(132, 98, 29, .38);
+      --reaction-favorite: #78b48c;
+      --reaction-favorite-surface: rgba(48, 107, 70, .38);
       --scrim: rgba(0, 0, 0, .42);
       --rail-width: clamp(184px, 17vw, 248px);
       --right-width: clamp(176px, 16vw, 230px);
@@ -45,6 +51,12 @@
       --accent: #7b4d2b;
       --accent-ink: #fffaf2;
       --danger: #ad514a;
+      --reaction-like: #a7433e;
+      --reaction-like-surface: rgba(201, 113, 101, .24);
+      --reaction-coin: #8a5b19;
+      --reaction-coin-surface: rgba(202, 158, 81, .26);
+      --reaction-favorite: #376f54;
+      --reaction-favorite-surface: rgba(104, 160, 120, .24);
       --scrim: rgba(58, 37, 22, .24);
     }
     * { box-sizing: border-box; }
@@ -212,8 +224,13 @@
     .detail-value { font-size: 13px; line-height: 1.45; }
     /* UX: video reactions use only familiar icons and counts in stable equal-width hit targets below the metrics. */
     .video-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
-    .video-action { min-width: 0; height: 40px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; padding: 5px 7px; border: 1px solid rgba(98,100,89,.68); border-radius: 5px; background: #252620; text-align: left; }
+    /* UX: each activated reaction keeps a distinct semantic color while its tokenized surface follows the selected light or dark theme. */
+    .video-action { min-width: 0; height: 40px; display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); text-align: left; }
     .video-action:hover { border-color: var(--accent); background: var(--surface-strong); }
+    .video-action.active.video-action-like { color: var(--reaction-like); border-color: var(--reaction-like); background: var(--reaction-like-surface) !important; }
+    .video-action.active.video-action-coin { color: var(--reaction-coin); border-color: var(--reaction-coin); background: var(--reaction-coin-surface) !important; }
+    .video-action.active.video-action-favorite { color: var(--reaction-favorite); border-color: var(--reaction-favorite); background: var(--reaction-favorite-surface) !important; }
+    .video-action.active:hover { filter: brightness(.96); }
     .video-action i { font-size: 17px; }
     .video-action-value { overflow: hidden; font-size: 12px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
     .creator-card, .comment-action { width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 2px; border-bottom: 1px solid rgba(98,100,89,.58); text-align: left; background: transparent; }
@@ -565,7 +582,7 @@
       // UX: comments replace the complete detail rail; their full-width header labels the mode and acts as the collapse control.
       const drawer = `<section class="comments-drawer ${state.commentsOpen ? 'open' : ''}" aria-label="Comments drawer"><button class="comments-header" data-action="comments" title="收起评论"><span class="comments-title">评论</span><span class="comments-collapse-icon" aria-hidden="true">${icons('chevron-down')}</span></button><div class="comments-drawer-body">${comments.map(CommentRow).join('')}</div></section>`;
       // UX: title, metrics, and video reactions form one reading section before creator and description content.
-      return `<aside class="rail detail-rail dismiss-region" aria-label="Current video details"><div class="rail-scroll"><div class="detail-section"><div class="detail-title">${video.title}</div><div class="detail-metrics">${video.views} · ${video.duration}</div><div class="video-actions" aria-label="Video reactions"><button class="video-action ${actionState.liked ? 'active' : ''}" data-action="video-like" aria-label="点赞，${compactCount(actionState.likeCount)}" aria-pressed="${actionState.liked}" title="${actionState.liked ? '取消点赞' : '点赞'}">${icons('thumbs-up')}<span class="video-action-value">${compactCount(actionState.likeCount)}</span></button><button class="video-action ${actionState.coinsAdded > 0 ? 'active' : ''}" data-action="video-coin" aria-label="投币，${compactCount(actionState.coinCount)}" aria-pressed="${actionState.coinsAdded > 0}" title="${actionState.coinsAdded >= 2 ? '已达到投币上限' : actionState.coinsAdded === 1 ? '已投1枚，再投1枚' : '投币'}">${icons('coins')}<span class="video-action-value">${compactCount(actionState.coinCount)}</span></button><button class="video-action ${actionState.favorited ? 'active' : ''}" data-action="video-favorite" aria-label="收藏，${compactCount(actionState.favoriteCount)}" aria-pressed="${actionState.favorited}" title="${actionState.favorited ? '取消收藏' : '收藏'}">${icons('star')}<span class="video-action-value">${compactCount(actionState.favoriteCount)}</span></button></div></div><button class="creator-card" data-action="focus" title="View creator uploads"><span class="creator-avatar">宇</span><span class="creator-copy"><span class="creator-name">${video.author}</span><span class="creator-meta">查看全部投稿 ${icons('chevron-right')}</span></span></button><div class="detail-section" aria-label="简介"><div class="detail-value">从夜间城市声场出发，记录光线、移动与空间感知。</div></div></div><footer class="detail-footer"><button class="comment-action" data-action="comments"><span>${icons('messages-square')}</span><span class="creator-copy"><span class="creator-name">评论</span><span class="creator-meta">展开评论 3</span></span></button></footer>${drawer}</aside>`;
+      return `<aside class="rail detail-rail dismiss-region" aria-label="Current video details"><div class="rail-scroll"><div class="detail-section"><div class="detail-title">${video.title}</div><div class="detail-metrics">${video.views} · ${video.duration}</div><div class="video-actions" aria-label="Video reactions"><button class="video-action video-action-like ${actionState.liked ? 'active' : ''}" data-action="video-like" aria-label="点赞，${compactCount(actionState.likeCount)}" aria-pressed="${actionState.liked}" title="${actionState.liked ? '取消点赞' : '点赞'}">${icons('thumbs-up')}<span class="video-action-value">${compactCount(actionState.likeCount)}</span></button><button class="video-action video-action-coin ${actionState.coinsAdded > 0 ? 'active' : ''}" data-action="video-coin" aria-label="投币，${compactCount(actionState.coinCount)}" aria-pressed="${actionState.coinsAdded > 0}" title="${actionState.coinsAdded >= 2 ? '已达到投币上限' : actionState.coinsAdded === 1 ? '已投1枚，再投1枚' : '投币'}">${icons('coins')}<span class="video-action-value">${compactCount(actionState.coinCount)}</span></button><button class="video-action video-action-favorite ${actionState.favorited ? 'active' : ''}" data-action="video-favorite" aria-label="收藏，${compactCount(actionState.favoriteCount)}" aria-pressed="${actionState.favorited}" title="${actionState.favorited ? '取消收藏' : '收藏'}">${icons('star')}<span class="video-action-value">${compactCount(actionState.favoriteCount)}</span></button></div></div><button class="creator-card" data-action="focus" title="View creator uploads"><span class="creator-avatar">宇</span><span class="creator-copy"><span class="creator-name">${video.author}</span><span class="creator-meta">查看全部投稿 ${icons('chevron-right')}</span></span></button><div class="detail-section" aria-label="简介"><div class="detail-value">从夜间城市声场出发，记录光线、移动与空间感知。</div></div></div><footer class="detail-footer"><button class="comment-action" data-action="comments"><span>${icons('messages-square')}</span><span class="creator-copy"><span class="creator-name">评论</span><span class="creator-meta">展开评论 3</span></span></button></footer>${drawer}</aside>`;
     }
     function SourceRail() {
       const label = state.sourceTab === '选集' ? '当前播放' : state.sourceTab === '合集' ? '同合集内容' : '相关内容';
