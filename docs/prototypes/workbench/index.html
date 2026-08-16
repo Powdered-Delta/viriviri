@@ -280,10 +280,12 @@
     .row-title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
     .row-sub { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
 
-    /* UX: a hidden list workspace cannot own center hit tests; MediaStage remains the dismissal target until the list is explicitly open. */
+    /* UX: the list workspace stays above MediaStage when visible, while a hidden workspace cannot own center hit tests or displace the dismissal target. */
     .list-workspace {
       grid-column: 2;
       grid-row: 2;
+      position: relative;
+      z-index: 1;
       height: var(--stage-height);
       min-width: 0;
       background: transparent;
