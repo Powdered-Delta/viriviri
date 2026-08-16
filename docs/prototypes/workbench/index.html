@@ -27,6 +27,7 @@
       --reaction-favorite-surface: rgba(54, 105, 68, .4);
       --scrim: rgba(16, 8, 4, .48);
       --controls-scrim: rgba(16, 8, 4, .60);
+      --keyboard-shadow: rgba(0, 0, 0, .44);
       --rail-width: clamp(184px, 17vw, 248px);
       --right-width: clamp(176px, 16vw, 230px);
       --stage-width: min(48vw, 760px);
@@ -60,6 +61,7 @@
       --reaction-favorite-surface: rgba(104, 160, 120, .24);
       --scrim: rgba(58, 37, 22, .24);
       --controls-scrim: rgba(58, 37, 22, .34);
+      --keyboard-shadow: rgba(76, 48, 28, .28);
     }
     * { box-sizing: border-box; }
     body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
@@ -89,6 +91,7 @@
       --reaction-favorite-surface: rgba(42, 117, 107, .4);
       --scrim: rgba(0, 8, 0, .5);
       --controls-scrim: rgba(0, 8, 0, .62);
+      --keyboard-shadow: rgba(0, 8, 0, .54);
     }
     .prototype[data-theme="matcha"] .scene { background: #0e160e; }
     .prototype[data-theme="matcha"] .scene-floor { border-color: #284a28; }
@@ -347,16 +350,17 @@
     .timeline::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 38%; background: var(--accent); }
     .transport-row { display: flex; align-items: center; gap: 5px; }
     .transport-time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    /* UX: the application-owned 26-key console sits in front of transport and is the topmost browser input layer while open. */
-    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 86px minmax(0, 1fr) 78px; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: #1a1b17; box-shadow: 0 12px 38px rgba(0,0,0,.44); }
+    /* UX: the application-owned 26-key console sits in front of Transport below MediaStage, preserving Search history and recommendations in the center workspace. */
+    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); width: var(--stage-width); display: grid; grid-template-columns: 120px minmax(0, 1fr) 68px; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-soft); box-shadow: 0 12px 38px var(--keyboard-shadow); }
     .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 4px; }
     /* UX: the numeric zone keeps common arithmetic operators beside digits instead of forcing a separate calculator mode. */
     .keyboard-number-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .keyboard-main { min-width: 0; display: grid; grid-template-rows: 34px 1fr; gap: 5px; }
-    .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #11120f; }
+    /* UX: the entire input console uses the active theme palette, rather than mixing themed labels with a fixed dark keyboard shell. */
+    .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--scene); }
     .keyboard-preedit { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
     .keyboard-candidates { min-width: 0; display: flex; gap: 3px; overflow: hidden; }
-    .keyboard-candidate { min-width: 0; height: 22px; padding: 0 5px; font-size: 11px; }
+    .keyboard-candidate { min-width: 0; height: 22px; padding: 0 5px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); font-size: 11px; }
     .keyboard-letter-grid { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 4px; }
     .keyboard-letter-row { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
     .keyboard-letter-row.row-1 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
@@ -365,7 +369,7 @@
     .keyboard-bottom-row { display: grid; grid-template-columns: 1.1fr .55fr .55fr minmax(0, 3fr) .55fr .55fr .55fr; gap: 4px; margin: 0 3%; }
     .keyboard-space { min-width: 0; }
     .keyboard-actions { grid-template-rows: repeat(4, minmax(0, 1fr)); }
-    .keyboard-key { min-width: 0; min-height: 25px; padding: 0 3px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #272821; font-size: 11px; }
+    .keyboard-key { min-width: 0; min-height: 25px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--ink); font-size: 11px; }
     .keyboard-key:hover { border-color: var(--accent); background: var(--surface-strong); }
     .keyboard-key.wide { grid-column: span 2; }
     .transport-value-button { min-width: 46px; padding: 0 6px; font-variant-numeric: tabular-nums; }
