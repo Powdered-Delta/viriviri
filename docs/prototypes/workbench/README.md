@@ -84,9 +84,16 @@ video-list return target.
 Search uses the slot's constrained field mode: search action, clear action within
 the query field when text exists, system-IME request, and voice request. Empty
 queries show local search history and recommendation keywords in the center
-workspace; committed sample keywords show reusable result cards. The browser
-prototype shows an application-owned 26-key Chinese/English console in front of
-Transport when the field is selected. It validates console placement and hit
+workspace; committed sample keywords show reusable result cards. History renders
+as removable, wrapping tags with a bounded local sample and an expand control;
+recommendation tags wrap and have a refresh action. Both groups use restrained
+local translucency so the tags remain legible without obscuring MediaStage. The
+browser prototype shows
+an application-owned 26-key Chinese/English console in front of Transport when
+the field is selected. Its preview puts Shift and symbol mode on the ZXC row,
+keeps `中/英`, comma, period, a wide centered space key, exclamation, question,
+and the Pinyin delimiter `'` on the bottom row, and extends the numeric zone
+with `+`, `−`, `×`, `÷`, and `=`. It validates console placement and hit
 ownership only; it does not model Pinyin conversion, text entry, system-IME
 focus, voice capture, requests, or player changes.
 
@@ -106,7 +113,9 @@ The prototype models these canvas states:
 The center list workspace is transparent. Its cards and controls can have local
 surfaces for legibility, but the workspace itself is not a global opaque
 backdrop. Search can replace that center content inside any active non-watch
-canvas; it does not imply a transition to `browse`.
+canvas; it does not imply a transition to `browse`. While Search is active,
+Transport moves below MediaStage so it does not obstruct the center search
+content; the input console remains in front of that moved transport.
 
 ### Normal Playback Layout
 

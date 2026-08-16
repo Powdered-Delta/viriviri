@@ -226,11 +226,17 @@
     .search-workspace { display: grid; align-content: start; gap: 14px; }
     .search-section { display: grid; gap: 6px; }
     .search-section-title { color: var(--muted); font-size: 12px; font-weight: 700; }
-    .search-history-row { width: 100%; min-height: 36px; display: grid; grid-template-columns: 24px minmax(0, 1fr) 28px; align-items: center; gap: 5px; padding: 0 5px; border-bottom: 1px solid rgba(245,242,233,.24); background: transparent; text-align: left; }
-    .search-history-row:hover { background: var(--surface-strong); }
-    .search-history-label { min-width: 0; overflow: hidden; padding: 0; color: inherit; background: transparent; text-align: left; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
-    .search-keyword-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-    .search-keyword { min-width: 0; height: 32px; overflow: hidden; justify-content: flex-start; border: 1px solid rgba(98,100,89,.68); white-space: nowrap; text-overflow: ellipsis; }
+    /* UX: history and recommendation tags use restrained local opacity so they group touch targets without hiding MediaStage. */
+    .search-section-heading { display: flex; align-items: center; min-height: 28px; gap: 6px; }
+    .search-section-heading .search-section-title { flex: 1; }
+    .search-tag-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid rgba(98,100,89,.48); border-radius: 5px; background: rgba(25,26,22,.56); }
+    .search-tag { min-width: 0; display: inline-flex; align-items: center; max-width: 100%; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: rgba(47,49,41,.72); }
+    .search-tag-label { min-width: 0; max-width: 180px; height: 28px; overflow: hidden; padding: 0 7px; color: var(--ink); background: transparent; text-align: left; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+    .search-tag-delete { width: 26px; min-width: 26px; height: 26px; color: var(--muted); background: transparent; }
+    .search-tag-delete:hover { color: var(--ink); background: var(--surface-strong); }
+    .search-history-more { justify-self: start; color: var(--muted); font-size: 11px; }
+    .search-keyword-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid rgba(98,100,89,.48); border-radius: 5px; background: rgba(25,26,22,.56); }
+    .search-keyword { min-width: 0; max-width: 100%; height: 30px; justify-content: flex-start; padding: 0 8px; border: 1px solid rgba(98,100,89,.62); border-radius: 5px; background: rgba(47,49,41,.72); white-space: nowrap; text-overflow: ellipsis; }
     /* UX: Home and category browsing scan the central list in three columns before responsive constraints reduce density. */
     .video-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
     .video-grid.list { grid-template-columns: 1fr; }
@@ -275,13 +281,20 @@
     /* UX: the application-owned 26-key console sits in front of transport and is the topmost browser input layer while open. */
     .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 86px minmax(0, 1fr) 78px; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: #1a1b17; box-shadow: 0 12px 38px rgba(0,0,0,.44); }
     .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 4px; }
-    .keyboard-number-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    /* UX: the numeric zone keeps common arithmetic operators beside digits instead of forcing a separate calculator mode. */
+    .keyboard-number-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .keyboard-main { min-width: 0; display: grid; grid-template-rows: 34px 1fr; gap: 5px; }
     .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #11120f; }
     .keyboard-preedit { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
     .keyboard-candidates { min-width: 0; display: flex; gap: 3px; overflow: hidden; }
     .keyboard-candidate { min-width: 0; height: 22px; padding: 0 5px; font-size: 11px; }
-    .keyboard-letter-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+    .keyboard-letter-grid { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 4px; }
+    .keyboard-letter-row { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+    .keyboard-letter-row.row-1 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
+    .keyboard-letter-row.row-2 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
+    /* UX: Shift and symbol mode stay with ZXC; the bottom row centers space between common punctuation and language controls. */
+    .keyboard-bottom-row { display: grid; grid-template-columns: 1.1fr .55fr .55fr minmax(0, 3fr) .55fr .55fr .55fr; gap: 4px; margin: 0 3%; }
+    .keyboard-space { min-width: 0; }
     .keyboard-actions { grid-template-rows: repeat(4, minmax(0, 1fr)); }
     .keyboard-key { min-width: 0; min-height: 25px; padding: 0 3px; border: 1px solid rgba(98,100,89,.68); border-radius: 4px; background: #272821; font-size: 11px; }
     .keyboard-key:hover { border-color: var(--accent); background: var(--surface-strong); }
@@ -362,6 +375,8 @@
     .prototype[data-canvas="focus"] .list-workspace { opacity: 1; pointer-events: auto; }
     .prototype[data-canvas="workspace"] .transport-overlay,
     .prototype[data-canvas="focus"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) - 34px); height: 64px; }
+    /* UX: Search gives center history, tags, and results an unobstructed reading area by moving the front transport below MediaStage. */
+    .prototype[data-route="search"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); }
     .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); left: auto; right: 26px; top: 25%; transform: none; }
     .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
     .prototype[data-canvas="focus"] .stage-status { display: none; }
@@ -428,11 +443,16 @@
       searchReturn: null,
       playbackReturn: null,
       searchQuery: '',
-      searchHistory: ['沉浸式影像', '夜间城市声场', '空间音频'],
+      // UX: history has a bounded local sample and expands in place so the empty-search page remains compact by default.
+      searchHistory: ['沉浸式影像', '夜间城市声场', '空间音频', 'VR 旅行', '电影配乐', '独立动画', '自然风光', '城市纪录片'],
+      searchHistoryExpanded: false,
       hotSearches: ['VR 旅行', '电影配乐', '城市纪录片', '声音设计', '独立动画', '自然风光'],
       searchScrollPosition: 0,
       // UX: the browser keyboard preview is visible only for the active Search canvas and does not model text conversion or platform input.
       searchKeyboardOpen: false,
+      keyboardLanguage: 'zh',
+      keyboardMode: 'letters',
+      keyboardUppercase: false,
       // UX: drawer and per-comment state persist while the Workbench remains open.
       commentsOpen: false,
       replyTarget: null,
@@ -503,12 +523,15 @@
     }
     function SearchWorkspace() {
       const hasQuery = state.searchQuery.length > 0;
-      const history = state.searchHistory.map(entry => `<div class="search-history-row"><button class="icon-button" data-action="select-search-entry" data-value="${entry}" title="搜索 ${entry}">${icons('history')}</button><button class="search-history-label" data-action="select-search-entry" data-value="${entry}">${entry}</button><button class="icon-button" data-action="remove-search-history" data-value="${entry}" title="删除 ${entry}">${icons('x')}</button></div>`).join('');
+      const historyLimit = 4;
+      const visibleHistory = state.searchHistory.slice(0, state.searchHistoryExpanded ? historyLimit * 2 : historyLimit);
+      const history = visibleHistory.map(entry => `<span class="search-tag"><button class="search-tag-label" data-action="select-search-entry" data-value="${entry}" title="搜索 ${entry}">${icons('history')} ${entry}</button><button class="search-tag-delete" data-action="remove-search-history" data-value="${entry}" title="删除 ${entry}">${icons('x')}</button></span>`).join('');
       const hot = state.hotSearches.map(entry => `<button class="text-button search-keyword" data-action="select-search-entry" data-value="${entry}">${entry}</button>`).join('');
-      // UX: Search content follows touch-page hierarchy: empty queries show history and recommendations, committed queries show reusable result cards.
+      const historyMore = state.searchHistory.length > historyLimit ? `<button class="text-button search-history-more" data-action="toggle-search-history">${state.searchHistoryExpanded ? `${icons('chevron-up')}收起` : `${icons('chevron-down')}更多`}</button>` : '';
+      // UX: Search content follows touch-page hierarchy: empty queries show removable history tags and refreshable recommendations, committed queries show reusable result cards.
       const body = hasQuery
         ? `<section class="search-section"><span class="search-section-title">搜索结果</span><div class="video-grid ${state.listMode}">${videos.map((video, index) => VideoCard(video, index)).join('')}</div></section>`
-        : `<section class="search-section"><span class="search-section-title">搜索历史</span>${history || '<span class="row-sub">暂无搜索历史</span>'}</section><section class="search-section"><span class="search-section-title">推荐搜索</span><div class="search-keyword-grid">${hot}</div></section>`;
+        : `<section class="search-section"><div class="search-section-heading"><span class="search-section-title">搜索历史</span></div><div class="search-tag-list">${history || '<span class="row-sub">暂无搜索历史</span>'}</div>${historyMore}</section><section class="search-section"><div class="search-section-heading"><span class="search-section-title">推荐搜索</span><button class="icon-button" data-action="refresh-hot-searches" title="刷新推荐搜索">${icons('refresh-cw')}</button></div><div class="search-keyword-grid">${hot}</div></section>`;
       return `<section class="list-workspace dismiss-region" aria-label="Search content workspace"><header class="workspace-header"><span class="workspace-title">搜索</span><span class="spacer"></span>${hasQuery ? `<button class="icon-button ${state.listMode === 'grid' ? 'active' : ''}" data-action="toggle-list" title="切换列表布局">${icons(state.listMode === 'grid' ? 'layout-grid' : 'list')}</button>` : ''}</header><div class="workspace-scroll search-workspace">${body}</div></section>`;
     }
     function ListWorkspace() {
@@ -542,9 +565,12 @@
     }
     function SearchKeyboard() {
       if (state.route !== 'search' || !state.searchKeyboardOpen) return '';
-      const keys = 'QWERTYUIOPASDFGHJKLZXCVBNM'.split('');
-      // UX: this preview fixes the 26-key Chinese/English console in front of transport without claiming to implement a real input engine.
-      return `<section class="search-keyboard dismiss-region" aria-label="26键中英文输入法预览"><div class="keyboard-number-grid">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '.', '-'].map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-main"><div class="keyboard-composition"><span class="keyboard-preedit">nihao</span><div class="keyboard-candidates"><button class="keyboard-candidate active" data-action="keyboard-preview">你好</button><button class="keyboard-candidate" data-action="keyboard-preview">你</button><button class="keyboard-candidate" data-action="keyboard-preview">拟好</button></div></div><div class="keyboard-letter-grid">${keys.map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}<button class="keyboard-key wide" data-action="keyboard-preview">中/英</button><button class="keyboard-key wide" data-action="keyboard-preview">'</button></div></div><div class="keyboard-actions"><button class="keyboard-key" data-action="keyboard-preview" title="删除">${icons('delete')}</button><button class="keyboard-key" data-action="voice-search" title="语音输入">${icons('mic')}</button><button class="keyboard-key" data-action="keyboard-preview" title="确认">${icons('corner-down-left')}</button><button class="keyboard-key" data-action="dismiss-search-keyboard" title="收起键盘">${icons('chevron-down')}</button></div></section>`;
+      const letterRows = state.keyboardMode === 'symbols'
+        ? ['~!@#$%^&*', '()_+-=[]{', '};:,.?/']
+        : ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].map(row => state.keyboardUppercase ? row : row.toLowerCase());
+      const zxcRow = letterRows[2].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('');
+      // UX: Shift and symbol mode belong to the ZXC row; common punctuation stays beside the centered space key for touch typing.
+      return `<section class="search-keyboard dismiss-region" aria-label="26键中英文输入法预览"><div class="keyboard-number-grid">${['1', '2', '3', '+', '4', '5', '6', '−', '7', '8', '9', '×', '0', '.', '=', '÷'].map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-main"><div class="keyboard-composition"><span class="keyboard-preedit">${state.keyboardLanguage === 'zh' ? 'nihao' : 'hello'}</span><div class="keyboard-candidates">${state.keyboardLanguage === 'zh' ? '<button class="keyboard-candidate active" data-action="keyboard-preview">你好</button><button class="keyboard-candidate" data-action="keyboard-preview">你</button><button class="keyboard-candidate" data-action="keyboard-preview">拟好</button>' : '<span class="keyboard-preedit">English</span>'}</div></div><div class="keyboard-letter-grid"><div class="keyboard-letter-row row-0">${letterRows[0].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-1">${letterRows[1].split('').map(key => `<button class="keyboard-key" data-action="keyboard-preview">${key}</button>`).join('')}</div><div class="keyboard-letter-row row-2"><button class="keyboard-key ${state.keyboardUppercase ? 'active' : ''}" data-action="toggle-keyboard-case" title="切换大小写">${icons('arrow-up')}</button>${zxcRow}<button class="keyboard-key ${state.keyboardMode === 'symbols' ? 'active' : ''}" data-action="toggle-keyboard-mode" title="切换符号键盘">${state.keyboardMode === 'symbols' ? 'ABC' : '符号'}</button></div><div class="keyboard-bottom-row"><button class="keyboard-key ${state.keyboardLanguage === 'en' ? 'active' : ''}" data-action="toggle-keyboard-language" title="切换中英文">中/英</button><button class="keyboard-key" data-action="keyboard-preview" title="逗号">,</button><button class="keyboard-key" data-action="keyboard-preview" title="句号">.</button><button class="keyboard-key keyboard-space" data-action="keyboard-preview" title="空格">空格</button><button class="keyboard-key" data-action="keyboard-preview" title="感叹号">!</button><button class="keyboard-key" data-action="keyboard-preview" title="问号">?</button><button class="keyboard-key" data-action="keyboard-preview" title="拼音分词符">'</button></div></div></div><div class="keyboard-actions"><button class="keyboard-key" data-action="keyboard-preview" title="删除">${icons('delete')}</button><button class="keyboard-key" data-action="voice-search" title="语音输入">${icons('mic')}</button><button class="keyboard-key" data-action="keyboard-preview" title="确认">${icons('corner-down-left')}</button><button class="keyboard-key" data-action="dismiss-search-keyboard" title="收起键盘">${icons('chevron-down')}</button></div></section>`;
     }
     function ProfileSurface() {
       if (!state.profileOpen) return '';
@@ -593,10 +619,15 @@
         case 'clear-search': state.searchQuery = ''; state.searchScrollPosition = 0; render(); break;
         case 'select-search-entry': state.searchQuery = value; state.searchKeyboardOpen = false; state.searchScrollPosition = 0; render(); break;
         case 'remove-search-history': state.searchHistory = state.searchHistory.filter(entry => entry !== value); render(); break;
+        case 'toggle-search-history': state.searchHistoryExpanded = !state.searchHistoryExpanded; render(); break;
+        case 'refresh-hot-searches': state.hotSearches = [...state.hotSearches.slice(3), ...state.hotSearches.slice(0, 3)]; render(); break;
         // UX: the prototype shows system-IME and voice placement without simulating platform focus or speech results.
         case 'request-system-ime': state.searchKeyboardOpen = false; render(); break;
         case 'voice-search': break;
         case 'keyboard-preview': break;
+        case 'toggle-keyboard-case': state.keyboardUppercase = !state.keyboardUppercase; render(); break;
+        case 'toggle-keyboard-language': state.keyboardLanguage = state.keyboardLanguage === 'zh' ? 'en' : 'zh'; state.keyboardUppercase = false; render(); break;
+        case 'toggle-keyboard-mode': state.keyboardMode = state.keyboardMode === 'symbols' ? 'letters' : 'symbols'; render(); break;
         // UX: playback's video-list tab returns to the exact Search origin after a result starts playback.
         case 'open-workspace': if (state.playbackReturn?.route === 'search') { const snapshot = state.playbackReturn; state.playbackReturn = null; restoreSnapshot(snapshot); } else setCanvas('workspace', 'playback'); break;
         case 'back': if (state.route === 'search' && state.searchReturn) { const snapshot = state.searchReturn; state.searchReturn = null; restoreSnapshot(snapshot); } else setCanvas('controls', 'playback'); break;
