@@ -4,9 +4,11 @@
 
 This document defines the interactive browser prototype at
 [`index.html`](./index.html). It is the version-controlled UX
-validation surface for the immersive Workbench. It validates information
-hierarchy, canvas transitions, hit-target ownership, and visual composition
-before Quest/Spatial implementation.
+validation surface for the immersive Workbench. It is a fixed desktop
+reference for the VR App's immersive-mode UX: it validates information
+hierarchy, canvas transitions, hit-target ownership, and in-view spatial
+composition before Quest/Spatial implementation. It is not a responsive Web
+product and does not define mobile layouts or mobile input behavior.
 
 It is not a runtime implementation, a Quest compositor validation artifact, or
 a replacement for in-headset input, depth, grabbing, and performance testing.
@@ -284,7 +286,7 @@ function toggleCommentReaction(...) { ... }
 Required locations for annotations:
 
 - Beside new or changed CSS rules that alter spatial/layout behavior, opacity,
-  stacking, hit targets, or responsive sizing.
+  stacking, hit targets, or desktop spatial geometry.
 - Beside state fields that preserve a user-visible transient state across a
   render.
 - Beside reducer/dispatch branches that encode a UX rule.

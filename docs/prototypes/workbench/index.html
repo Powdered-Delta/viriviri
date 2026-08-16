@@ -467,29 +467,6 @@
     .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
     .prototype[data-canvas="focus"] .stage-status { display: none; }
 
-    @media (max-width: 900px) {
-      :root { --rail-width: 178px; --right-width: 178px; --stage-width: min(50vw, 500px); --stage-height: min(28vw, 281px); }
-      .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .right-rail { display: none; }
-      /* UX: compact transport preserves direct subtitle, quality, speed, and settings access before secondary skip controls. */
-      .transport-compact-hide { display: none; }
-      .transport-overlay { padding-right: 8px; padding-left: 8px; }
-    }
-    @media (max-width: 650px) {
-      :root { --rail-width: 0px; --right-width: 0px; --stage-width: min(92vw, 520px); --stage-height: min(52vw, 292px); }
-      .workbench { width: var(--stage-width); grid-template-columns: var(--stage-width); }
-      .top-stack { grid-column: 1; }
-      /* UX: mobile keeps MediaStage and every center operation surface in the one available grid column. */
-      .detail-rail, .browse-rail, .list-workspace, .media-stage { grid-column: 1; }
-      .transport-overlay, .search-keyboard { left: 0; }
-      .right-rail { display: none; }
-      .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .global-navigation .text-button { display: none; }
-    }
-    @media (max-width: 450px) {
-      /* UX: very narrow transport hides elapsed time so every playback-option hit target keeps its stable width. */
-      .transport-time { display: none; }
-    }
   </style>
 </head>
 <body>
