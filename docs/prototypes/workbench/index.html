@@ -33,8 +33,27 @@
       font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
     }
 
+    /* UX: Web validates only the two readable display themes; the headset-only immersive environment remains outside this browser control. */
+    .prototype[data-theme="light"] {
+      --ink: #20231e;
+      --muted: #596057;
+      --scene: #e8ece2;
+      --surface: #f4f6ef;
+      --surface-strong: #e4e9dc;
+      --surface-soft: rgba(247, 249, 242, .94);
+      --border: #aab2a4;
+      --accent: #79611a;
+      --accent-ink: #fffdf6;
+      --danger: #ae4e49;
+      --scrim: rgba(20, 24, 18, .28);
+    }
     * { box-sizing: border-box; }
     body { margin: 0; min-width: 320px; min-height: 100vh; background: #0b0c0a; color: var(--ink); }
+    .prototype[data-theme="light"] .scene { background: #e8ece2; }
+    .prototype[data-theme="light"] .scene-floor { border-color: #b0b8ab; }
+    .prototype[data-theme="light"] .scene-marker { border-color: #8b9587; }
+    .prototype[data-theme="light"] .media-stage { background: #d8ddd2; border-color: #899288; box-shadow: 0 18px 64px rgba(31, 37, 29, .26); }
+    .prototype[data-theme="light"] .mode-pill { background: rgba(247, 249, 242, .94); }
     button, input { font: inherit; }
     button { color: inherit; border: 0; cursor: pointer; }
     .prototype { position: relative; min-height: 100vh; overflow: hidden; background: var(--scene); }
@@ -105,6 +124,7 @@
       border-radius: var(--radius);
       background: var(--surface-soft);
     }
+    .system-bar { position: relative; }
     .content-navigation { justify-self: center; min-width: 0; }
     /* UX: the Home navigation is centered around its four stable tabs instead of occupying speculative empty slot width. */
     .content-navigation-tabs { width: fit-content; max-width: 100%; }
@@ -312,6 +332,10 @@
     }
     /* UX: playback settings and option menus are owned by transport and open above it instead of aligning with the right rail. */
     .settings-popover { right: 8px; bottom: calc(100% + 8px); top: auto; width: 218px; padding: 10px; }
+    /* UX: the Web theme chooser is a short anchored menu, keeping the system bar compact and avoiding a distinct immersive-mode flow. */
+    .theme-popover { top: calc(100% + 8px); right: 42px; width: 148px; padding: 6px; }
+    .theme-option { width: 100%; justify-content: flex-start; gap: 8px; padding: 0 7px; }
+    .theme-option.active { color: var(--accent-ink); background: var(--accent); }
     .transport-menu { right: 58px; bottom: calc(100% + 8px); width: 188px; padding: 7px; }
     .transport-menu-title { padding: 2px 5px 7px; color: var(--muted); font-size: 11px; }
     .transport-menu-options { display: grid; gap: 3px; }
@@ -449,6 +473,9 @@
       accountSection: '我的收藏',
       settingsSection: '账户',
       settingsOpen: false,
+      // UX: the browser exposes only light and dark presentation choices; the headset's immersive environment is not simulated here.
+      theme: 'dark',
+      themeOpen: false,
       // UX: transport option state and its one visible menu persist across rerenders without leaving the current playback canvas.
       transportMenu: null,
       subtitleTrack: '中文（自动）',
@@ -483,8 +510,14 @@
       return String(value);
     }
 
+    function ThemePopover() {
+      if (!state.themeOpen) return '';
+      const options = [{ value: 'light', label: '亮色', icon: 'sun-medium' }, { value: 'dark', label: '暗色', icon: 'moon' }];
+      return `<aside class="popover theme-popover" aria-label="主题选择">${options.map(option => `<button class="text-button theme-option ${state.theme === option.value ? 'active' : ''}" data-action="select-theme" data-value="${option.value}">${icons(option.icon)}${option.label}</button>`).join('')}</aside>`;
+    }
     function SystemBar() {
-      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="environment" title="Environment">${icons('sun-medium')}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button></div>`;
+      const themeIcon = state.theme === 'light' ? 'sun-medium' : 'moon';
+      return `<div class="system-bar" aria-label="System controls"><span>18:42</span><span class="spacer"></span><button class="icon-button" data-action="two-d" title="Switch to 2D">${icons('monitor')}</button><button class="icon-button" data-action="toggle-theme" title="选择主题：${state.theme === 'light' ? '亮色' : '暗色'}">${icons(themeIcon)}</button><button class="icon-button" data-action="toggle-danmaku" title="Toggle danmaku">${icons('message-circle')}</button><button class="icon-button" title="Battery">${icons('battery-medium')}</button>${ThemePopover()}</div>`;
     }
     function GlobalNavigation() {
       return `<nav class="global-navigation" aria-label="Global navigation"><button class="brand" data-action="home" title="Home">ViriViri</button><span class="spacer"></span><button class="icon-button" data-action="search" title="Search">${icons('search')}</button><button class="icon-button" data-action="open-account" title="Profile">${icons('circle-user-round')}</button><button class="icon-button" data-action="open-global-settings" title="Settings">${icons('settings-2')}</button></nav>`;
@@ -614,6 +647,7 @@
     function render() {
       app.dataset.canvas = state.canvas;
       app.dataset.route = state.route;
+      app.dataset.theme = state.theme;
       app.innerHTML = `<div class="scene"><div class="scene-floor"></div><span class="scene-marker one"></span><span class="scene-marker two"></span></div>${MediaStage()}<section class="workbench">${TopStack()}${BrowseRail()}${DetailRail()}${SourceRail()}${ListWorkspace()}${TransportOverlay()}${SearchKeyboard()}</section><div class="mode-pill">状态：<strong>${canvasLabels[state.canvas]}</strong></div>`;
       const searchWorkspace = app.querySelector('.search-workspace');
       if (searchWorkspace) searchWorkspace.scrollTop = state.searchScrollPosition;
@@ -626,17 +660,19 @@
       state.searchQuery = snapshot.searchQuery;
       state.searchScrollPosition = snapshot.searchScrollPosition;
       state.settingsOpen = false;
+      state.themeOpen = false;
       state.transportMenu = null;
       state.searchKeyboardOpen = false;
       render();
     }
-    function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
+    function setCanvas(canvas, route = state.route) { state.canvas = canvas; state.route = route; state.settingsOpen = false; state.themeOpen = false; state.transportMenu = null; state.searchKeyboardOpen = false; render(); }
     // UX: persistent center destinations retain a short route stack, so Back returns through the same pages a touch user just visited.
     function openCenterRoute(route) {
       if (state.route === route) return;
       state.centerReturn.push({ canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition });
       state.route = route;
       state.settingsOpen = false;
+      state.themeOpen = false;
       state.transportMenu = null;
       state.searchKeyboardOpen = false;
       render();
@@ -654,9 +690,9 @@
         case 'stage': setCanvas(state.canvas === 'watch' ? 'controls' : 'watch'); break;
         case 'watch': setCanvas('watch'); break;
         // UX: Home restores the user's last category and list mode without replacing the active canvas or its side panels.
-        case 'home': state.route = 'home'; state.searchReturn = null; state.centerReturn = []; state.searchKeyboardOpen = false; render(); break;
+        case 'home': state.route = 'home'; state.searchReturn = null; state.centerReturn = []; state.themeOpen = false; state.searchKeyboardOpen = false; render(); break;
         // UX: entering Search snapshots the origin but never swaps the active canvas or its side panels.
-        case 'search': if (state.route !== 'search') state.searchReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; state.route = 'search'; state.searchKeyboardOpen = false; render(); break;
+        case 'search': if (state.route !== 'search') state.searchReturn = { canvas: state.canvas, route: state.route, category: state.category, listMode: state.listMode, searchQuery: state.searchQuery, searchScrollPosition: state.searchScrollPosition }; state.route = 'search'; state.themeOpen = false; state.searchKeyboardOpen = false; render(); break;
         case 'browse-search': state.searchKeyboardOpen = false; render(); break;
         case 'open-search-keyboard': state.searchKeyboardOpen = true; render(); break;
         case 'dismiss-search-keyboard': state.searchKeyboardOpen = false; render(); break;
@@ -681,13 +717,16 @@
         case 'account-section': state.accountSection = value; render(); break;
         case 'settings-section': state.settingsSection = value; render(); break;
         // UX: playback settings and direct option menus are mutually exclusive surfaces anchored to transport.
-        case 'playback-settings': state.settingsOpen = !state.settingsOpen; state.transportMenu = null; render(); break;
-        case 'transport-menu': state.transportMenu = state.transportMenu === value ? null : value; state.settingsOpen = false; render(); break;
+        case 'playback-settings': state.settingsOpen = !state.settingsOpen; state.themeOpen = false; state.transportMenu = null; render(); break;
+        case 'transport-menu': state.transportMenu = state.transportMenu === value ? null : value; state.settingsOpen = false; state.themeOpen = false; render(); break;
         case 'set-subtitle': state.subtitleTrack = value; state.transportMenu = null; render(); break;
         case 'set-quality': state.quality = value; state.transportMenu = null; render(); break;
         case 'set-playback-speed': state.playbackRate = value; state.transportMenu = null; render(); break;
         case 'toggle-autoplay': state.autoplay = !state.autoplay; render(); break;
         case 'cycle-display-ratio': { const ratios = ['自动', '16:9', '4:3']; state.displayRatio = ratios[(ratios.indexOf(state.displayRatio) + 1) % ratios.length]; render(); break; }
+        // UX: the two Web themes apply immediately and the menu closes after one direct choice.
+        case 'toggle-theme': state.themeOpen = !state.themeOpen; state.settingsOpen = false; state.transportMenu = null; render(); break;
+        case 'select-theme': state.theme = value; state.themeOpen = false; render(); break;
         case 'toggle-danmaku': state.danmaku = !state.danmaku; render(); break;
         case 'toggle-list': state.listMode = state.listMode === 'grid' ? 'list' : 'grid'; render(); break;
         // UX: selecting a Search result enters playback but stores the result page so the video-list tab can return to it.
