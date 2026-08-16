@@ -373,10 +373,13 @@
     /* UX: visible workspace content preserves its own controls and scroll input instead of falling through to MediaStage. */
     .prototype[data-canvas="workspace"] .list-workspace,
     .prototype[data-canvas="focus"] .list-workspace { opacity: 1; pointer-events: auto; }
+    /* UX: any visible center list uses its full reading area, so Transport yields below MediaStage as a shorter operation strip. */
+    .prototype[data-canvas="browse"] .transport-overlay,
     .prototype[data-canvas="workspace"] .transport-overlay,
-    .prototype[data-canvas="focus"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) - 34px); height: 64px; }
-    /* UX: Search gives center history, tags, and results an unobstructed reading area by moving the front transport below MediaStage. */
-    .prototype[data-route="search"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); }
+    .prototype[data-canvas="focus"] .transport-overlay,
+    .prototype[data-canvas="controls"][data-route="home"] .transport-overlay,
+    .prototype[data-canvas="context"][data-route="home"] .transport-overlay,
+    .prototype[data-route="search"] .transport-overlay { top: calc(var(--top-stack-height) + var(--gap) + var(--stage-height) + 8px); height: 64px; }
     .prototype[data-canvas="focus"] .media-stage { width: min(26vw, 360px); height: min(15vw, 202px); left: auto; right: 26px; top: 25%; transform: none; }
     .prototype[data-canvas="focus"] .stage-title { left: 8px; bottom: 7px; font-size: 11px; }
     .prototype[data-canvas="focus"] .stage-status { display: none; }

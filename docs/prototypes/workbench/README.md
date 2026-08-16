@@ -113,9 +113,10 @@ The prototype models these canvas states:
 The center list workspace is transparent. Its cards and controls can have local
 surfaces for legibility, but the workspace itself is not a global opaque
 backdrop. Search can replace that center content inside any active non-watch
-canvas; it does not imply a transition to `browse`. While Search is active,
-Transport moves below MediaStage so it does not obstruct the center search
-content; the input console remains in front of that moved transport.
+canvas; it does not imply a transition to `browse`. Any visible center list,
+including Search, moves Transport below MediaStage and reduces it to a compact
+operation strip so it does not obstruct list content; the input console remains
+in front of that moved transport.
 
 ### Normal Playback Layout
 
