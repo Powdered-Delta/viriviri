@@ -297,13 +297,15 @@
     .workspace-title { font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px #000; }
     .workspace-scroll { height: calc(100% - 40px); overflow: auto; padding: 9px 4px 82px; }
     .search-workspace { display: grid; align-content: start; gap: 14px; }
-    /* UX: when the keyboard occupies MediaStage's lower area, empty-search history and recommendations compact into two readable columns above it. */
-    .search-workspace-keyboard { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-bottom: 8px; }
+    /* UX: keyboard-open Search retains the normal vertical history-then-recommendation scan, with compact rows above the lowered input area. */
+    .search-workspace-keyboard { gap: 8px; padding-bottom: 0; }
     .search-workspace-keyboard .search-section { min-width: 0; gap: 4px; }
-    .search-workspace-keyboard .search-section-heading { min-height: 24px; }
+    .search-workspace-keyboard .search-section-heading { height: 24px; min-height: 24px; }
+    .search-workspace-keyboard .search-section-heading .icon-button { width: 24px; min-width: 24px; height: 24px; }
     .search-workspace-keyboard .search-tag-list, .search-workspace-keyboard .search-keyword-grid { gap: 4px; padding: 5px; }
-    .search-workspace-keyboard .search-tag-label { height: 24px; }
+    .search-workspace-keyboard .search-tag-label, .search-workspace-keyboard .search-keyword { height: 24px; }
     .search-workspace-keyboard .search-tag-delete { width: 24px; min-width: 24px; height: 24px; }
+    .search-workspace-keyboard .search-history-more { height: 20px; }
     .search-section { display: grid; gap: 6px; }
     .search-section-title { color: var(--muted); font-size: 12px; font-weight: 700; }
     /* UX: history and recommendation tags use restrained local opacity so they group touch targets without hiding MediaStage. */
@@ -359,26 +361,26 @@
     .timeline::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 38%; background: var(--accent); }
     .transport-row { display: flex; align-items: center; gap: 5px; }
     .transport-time { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    /* UX: the 26-key console remains in MediaStage's lower area above Transport; empty-search content compacts above it instead of moving the keyboard outside its input context. */
-    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 120px minmax(0, 1fr) 68px; gap: 7px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-soft); box-shadow: 0 12px 38px var(--keyboard-shadow); }
-    .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 4px; }
+    /* UX: the 26-key console remains in MediaStage's lower area above Transport; reduced vertical density preserves the normal vertical Search content hierarchy above it. */
+    .search-keyboard { position: absolute; z-index: 7; left: calc(var(--rail-width) + var(--gap)); bottom: 0; width: var(--stage-width); display: grid; grid-template-columns: 120px minmax(0, 1fr) 68px; gap: 5px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-soft); box-shadow: 0 12px 38px var(--keyboard-shadow); }
+    .keyboard-number-grid, .keyboard-letter-grid, .keyboard-actions { display: grid; gap: 3px; }
     /* UX: the numeric zone keeps common arithmetic operators beside digits instead of forcing a separate calculator mode. */
     .keyboard-number-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .keyboard-main { min-width: 0; display: grid; grid-template-rows: 34px 1fr; gap: 5px; }
+    .keyboard-main { min-width: 0; display: grid; grid-template-rows: 26px 1fr; gap: 4px; }
     /* UX: the entire input console uses the active theme palette, rather than mixing themed labels with a fixed dark keyboard shell. */
-    .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--scene); }
+    .keyboard-composition { min-width: 0; display: flex; align-items: center; gap: 4px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--scene); }
     .keyboard-preedit { overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
     .keyboard-candidates { min-width: 0; display: flex; gap: 3px; overflow: hidden; }
-    .keyboard-candidate { min-width: 0; height: 22px; padding: 0 5px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); font-size: 11px; }
-    .keyboard-letter-grid { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 4px; }
-    .keyboard-letter-row { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+    .keyboard-candidate { min-width: 0; height: 20px; padding: 0 4px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); font-size: 11px; }
+    .keyboard-letter-grid { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 3px; }
+    .keyboard-letter-row { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
     .keyboard-letter-row.row-1 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
     .keyboard-letter-row.row-2 { grid-template-columns: repeat(9, minmax(0, 1fr)); margin: 0 5%; }
     /* UX: Shift and symbol mode stay with ZXC; the bottom row centers space between common punctuation and language controls. */
-    .keyboard-bottom-row { display: grid; grid-template-columns: 1.1fr .55fr .55fr minmax(0, 3fr) .55fr .55fr .55fr; gap: 4px; margin: 0 3%; }
+    .keyboard-bottom-row { display: grid; grid-template-columns: 1.1fr .55fr .55fr minmax(0, 3fr) .55fr .55fr .55fr; gap: 3px; margin: 0 3%; }
     .keyboard-space { min-width: 0; }
     .keyboard-actions { grid-template-rows: repeat(4, minmax(0, 1fr)); }
-    .keyboard-key { min-width: 0; min-height: 25px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--ink); font-size: 11px; }
+    .keyboard-key { min-width: 0; min-height: 20px; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--ink); font-size: 11px; }
     .keyboard-key:hover { border-color: var(--accent); background: var(--surface-strong); }
     .keyboard-key.wide { grid-column: span 2; }
     .transport-value-button { min-width: 46px; padding: 0 6px; font-variant-numeric: tabular-nums; }
