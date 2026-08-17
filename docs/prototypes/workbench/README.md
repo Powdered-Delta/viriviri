@@ -105,7 +105,8 @@ an application-owned 26-key Chinese/English console in MediaStage's lower
 area and in front of Transport when the field is selected. Empty-search history
 and recommendations retain their vertical order in compact rows above it. A
 clipped first candidate row has a right-side expander; overflow candidates open
-downward over the key area. Its preview puts Shift and symbol mode on the ZXC
+in a fixed full-height composition layer over the key area, where plain-text
+candidate items scroll vertically. Its preview puts Shift and symbol mode on the ZXC
 row, keeps `中/英`, comma, period, a wide centered
 space key, exclamation, question, and the Pinyin delimiter `'` on the bottom
 row, and widens the numeric zone with `+`, `−`, `×`, `/`, and `=`. It validates console placement and hit
