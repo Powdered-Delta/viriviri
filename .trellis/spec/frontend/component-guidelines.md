@@ -123,6 +123,27 @@ Use the project's existing Compose Material dependency consistently. Spatial
 panel registration, materials, and scene integration belong in
 `SpatialVideoSampleActivity`, not in shared composables.
 
+### Convention: Atomic Workbench rail components
+
+**What**: Build Workbench rails from small shared atoms such as panel shell,
+section, title, secondary text, action strip, creator row, fixed footer action,
+and full-height collapse. Every atom receives one immutable
+`WorkbenchPanelStyle` derived from `CinemaPalette`; app-level composables bind
+only product data, availability, and callbacks.
+
+**Why**: Browse and Detail may occupy the same existing angled Spatial panel.
+Shared atoms keep their typography, surfaces, spacing, border, accent, and
+disabled treatment coherent without creating another panel or copying colors
+into route-specific composables.
+
+**Forbidden**:
+
+- Do not hardcode route-specific RGB values inside a Workbench rail atom.
+- Do not import Meta Spatial SDK, Media3, Bilibili, Activity, player, Surface,
+  or network APIs into shared atoms.
+- Do not create a Spatial panel to represent a header, footer, comments mode,
+  keyboard layer, or another internal state of an existing rail.
+
 ---
 
 ## Accessibility
