@@ -10,19 +10,25 @@ internal class SpatialPanelVisibilityController(
     private val handler: Handler,
     private val fadeDurationMs: Long = 200L,
     private val fadeSteps: Int = 4,
+    private val visibleAlpha: Float = WORKBENCH_PANEL_VISIBLE_ALPHA,
+    private val trace: (String) -> Unit = {},
 ) {
-  private val pendingAnimations = mutableMapOf<PanelSlot, Runnable>()
+  // UX: semantic slots can resolve to separate Detail and Center entities without sharing animation ownership.
+  private val pendingAnimations = mutableMapOf<Entity, Runnable>()
 
   fun setVisible(slot: PanelSlot, entity: Entity, visible: Boolean) {
-    pendingAnimations.remove(slot)?.let(handler::removeCallbacks)
+    pendingAnimations.remove(entity)?.let(handler::removeCallbacks)
     val startAlpha = entity.tryGetComponent<PanelLayerAlpha>()?.layerAlpha?.coerceIn(0f, 1f)
         ?: if (visible) 0f else 1f
-    val targetAlpha = if (visible) 1f else 0f
+    // UX: every Workbench panel uses one compositor alpha; Compose roots stay opaque to avoid dither.
+    val targetAlpha = if (visible) visibleAlpha.coerceIn(0f, 1f) else 0f
+    trace("setVisible slot=$slot visible=$visible startAlpha=$startAlpha targetAlpha=$targetAlpha")
 
     if (visible) entity.setComponent(Visible(true))
     if (startAlpha == targetAlpha) {
       entity.setComponent(PanelLayerAlpha(targetAlpha))
       if (!visible) entity.setComponent(Visible(false))
+      trace("setVisible immediate slot=$slot visible=$visible")
       return
     }
 
@@ -30,24 +36,29 @@ internal class SpatialPanelVisibilityController(
       var step = 0
 
       override fun run() {
-        if (pendingAnimations[slot] !== this) return
+        if (pendingAnimations[entity] !== this) return
         step += 1
         val fraction = step.toFloat() / fadeSteps
         entity.setComponent(PanelLayerAlpha(startAlpha + (targetAlpha - startAlpha) * fraction))
         if (step >= fadeSteps) {
-          pendingAnimations.remove(slot)
+          pendingAnimations.remove(entity)
           if (!visible) entity.setComponent(Visible(false))
+          trace("setVisible complete slot=$slot visible=$visible")
         } else {
           handler.postDelayed(this, fadeDurationMs / fadeSteps)
         }
       }
     }
-    pendingAnimations[slot] = animation
+    pendingAnimations[entity] = animation
     handler.post(animation)
   }
 
   fun clear() {
     pendingAnimations.values.forEach(handler::removeCallbacks)
     pendingAnimations.clear()
+  }
+
+  private companion object {
+    const val WORKBENCH_PANEL_VISIBLE_ALPHA = 0.88f
   }
 }

@@ -14,8 +14,7 @@ import androidx.activity.compose.setContent
 class MoviePanel : ComponentActivity() {
   override fun onCreate(savedInstanceBundle: Bundle?) {
     super.onCreate(savedInstanceBundle)
-    setContent {
-      RecommendationPanel(onReturnToPlayback = ViriViriApplication.appState::requestImmersiveBrowseReturn)
-    }
+    // UX: the original angled left panel remains video Detail in every Workbench route.
+    setContent { ImmersiveLeftPanel() }
   }
 }

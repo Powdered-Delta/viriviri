@@ -3,13 +3,14 @@ package com.m0e_n00b.viriviri
 import com.meta.spatial.core.Entity
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Query
+import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SystemBase
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.toolkit.AvatarBody
 import com.meta.spatial.toolkit.Transform
 import com.meta.spatial.toolkit.Visible
 
-/** Positions the optional debug panel on the local user's left wrist. */
+/** Applies the WristAttached position, Euler rotation, and facing contract to local entities. */
 class WristAttachedSystem : SystemBase() {
   private val wristEntities = mutableListOf<Entity>()
 
@@ -39,7 +40,14 @@ class WristAttachedSystem : SystemBase() {
       val attached = entity.getComponent<WristAttached>()
       val handPose = handTransform.transform
       val position = handPose.t + handPose.q.times(attached.position)
-      val pose = Pose(position, if (attached.faceUser) headTransform.transform.q else handPose.q)
+      val baseOrientation = if (attached.faceUser) headTransform.transform.q else handPose.q
+      // Component contract: rotation is a local Euler-degree offset after the selected base orientation.
+      val pose =
+          Pose(position, baseOrientation) *
+              Pose(
+                  Vector3(0f),
+                  Quaternion(attached.rotation.x, attached.rotation.y, attached.rotation.z),
+              )
       val headToWrist = (position - headTransform.transform.t).normalize()
       val wristIsInFrontOfHead = headTransform.transform.forward().dot(headToWrist) > WRIST_VISIBLE_HEAD_DOT
       entity.setComponent(Transform(pose))

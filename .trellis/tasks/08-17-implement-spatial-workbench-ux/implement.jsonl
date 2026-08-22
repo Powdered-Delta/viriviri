@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend package entry point and quality checklist."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Shared Compose callback, palette, and Spatial ownership conventions."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Preserve the process-wide player and SDK-owned Surface lifecycle."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Existing panel/entity mappings, lifecycle, collision, and visibility constraints."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Place runtime, shared state, and UI code in established modules."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Coordinate core state, Compose UI, Spatial panels, and scene boundaries."}
+{"file":"docs/prototypes/workbench/README.md","reason":"Approved browser UX behavior and implementation boundary reference."}
+{"file":"docs/Youtube-VR-UX.md","reason":"Canonical immersive canvas, navigation, input, and one-Surface UX contract."}

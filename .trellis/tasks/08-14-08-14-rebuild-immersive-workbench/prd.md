@@ -43,3 +43,7 @@ All action menus and selection controls must use CinemaPalette semantic tokens. 
 - Workbench visibility, modules, and layout mode never create a player, video Surface, video panel, or Media3 output.
 - Only the Workbench GrabHandle moves the workbench.
 - Keyboard is the top-most application-owned Workbench module and may cover transport while active.
+
+## Deferred
+
+- The application input method has known defects. Keep it as a separate follow-up; it must not block or alter this task's Workbench layout, stage input, panel visibility, or performance validation.
