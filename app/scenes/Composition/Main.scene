@@ -1,29 +1,74 @@
 entities:
   com.meta.models.Scene:
-    - components:
-        com.meta.components.Name:
-          {}
-        com.meta.components.Scene:
-          nodes:
-            - ref:MediaRoom
-      tag: Scene
+  - components:
+      com.meta.components.Name: {}
+      com.meta.components.Scene:
+        nodes:
+        - ref:MediaRoom
+        - ref:WorkbenchCenterContent
+        - ref:WorkbenchOuterDismiss
+    tag: Scene
   com.meta.models.SceneNode:
-    - components:
-        com.meta.components.Animatable:
-          {}
-        com.meta.components.DocumentReference:
-          transformType: None
-          documentReference: projref:MediaRoom/Main.metaspatialobj
-        com.meta.components.Name:
-          name: MediaRoom
-        com.meta.components.SceneNode:
-          rotation.format: Euler
-          scale:
-            - 1
-            - 1
-            - 1
-        com.meta.spatial.toolkit.Visible:
-          isVisible: true
-      tag: MediaRoom
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.DocumentReference:
+        transformType: None
+        documentReference: projref:MediaRoom/Main.metaspatialobj
+      com.meta.components.Name:
+        name: MediaRoom
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 1
+        - 1
+        - 1
+        componentVersion: 1
+      com.meta.components.Visibility:
+        visible: true
+    tag: MediaRoom
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.Name:
+        name: WorkbenchCenterContent
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 1.5
+        - 0.8399999737739563
+        - 1
+        translation:
+        - 0
+        - 0
+        - -0.059999998658895493
+        componentVersion: 1
+      com.meta.components.Visibility:
+        visible: true
+      com.meta.spatial.toolkit.Panel:
+        panel: '@id/center_content_panel'
+      com.meta.spatial.toolkit.PanelDimensions: {}
+    tag: WorkbenchCenterContent
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.DocumentReference:
+        transformType: None
+        documentReference: projref:WorkbenchOuterDismiss/Main.metaspatialobj
+      com.meta.components.Name:
+        name: WorkbenchOuterDismiss
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 9
+        - 6
+        - 0.02500000037252903
+        translation:
+        - 0
+        - 1.25
+        - 2.2000000476837158
+        componentVersion: 1
+      com.meta.components.Visibility: {}
+    tag: WorkbenchOuterDismiss
 metadata:
-  version: 1.0
+  version: 1.35

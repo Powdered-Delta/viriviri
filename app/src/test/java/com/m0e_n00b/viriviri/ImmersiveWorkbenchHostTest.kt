@@ -14,9 +14,26 @@ class ImmersiveWorkbenchHostTest {
 
     assertEquals(WorkbenchContent.BROWSE, host.state.content)
     assertEquals(
-        setOf(WorkbenchModule.NAVIGATION, WorkbenchModule.TRANSPORT, WorkbenchModule.CONTENT_LIST),
+        setOf(
+            WorkbenchModule.NAVIGATION,
+            WorkbenchModule.TRANSPORT,
+            WorkbenchModule.DETAIL_RAIL,
+            WorkbenchModule.CENTER_CONTENT,
+            WorkbenchModule.VIDEO_CONTEXT,
+        ),
         applied.single(),
     )
+  }
+
+  @Test
+  fun unchangedModuleSetsAreNotAppliedRepeatedly() {
+    val applied = mutableListOf<Set<WorkbenchModule>>()
+    val host = ImmersiveWorkbenchHost(applied::add)
+
+    host.applyCanvasSlots(setOf(PanelSlot.TRANSPORT))
+    host.applyCanvasSlots(setOf(PanelSlot.TRANSPORT))
+
+    assertEquals(1, applied.size)
   }
 
   @Test

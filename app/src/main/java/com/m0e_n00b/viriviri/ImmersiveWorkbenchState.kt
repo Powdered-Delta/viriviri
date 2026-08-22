@@ -23,7 +23,8 @@ internal enum class WorkbenchContent {
 internal enum class WorkbenchModule {
   NAVIGATION,
   TRANSPORT,
-  CONTENT_LIST,
+  DETAIL_RAIL,
+  CENTER_CONTENT,
   VIDEO_CONTEXT,
   PLAYBACK_CONFIG,
   SHORTS_ACTIONS,
@@ -39,6 +40,14 @@ internal sealed interface WorkbenchEvent {
   data object ClosePlaybackConfig : WorkbenchEvent
   data object Dismiss : WorkbenchEvent
 }
+
+internal fun shouldShowWorkbenchModule(
+    module: WorkbenchModule,
+    visibleModules: Set<WorkbenchModule>,
+    hasDataSource: Boolean,
+): Boolean =
+    module in visibleModules &&
+        (hasDataSource || module !in setOf(WorkbenchModule.DETAIL_RAIL, WorkbenchModule.VIDEO_CONTEXT))
 
 internal object ImmersiveWorkbenchReducer {
   fun reduce(state: ImmersiveWorkbenchState, event: WorkbenchEvent): ImmersiveWorkbenchState =
@@ -71,8 +80,13 @@ internal object ImmersiveWorkbenchReducer {
             WorkbenchModule.SHORTS_ACTIONS
           }
       )
+      // UX: normal controls preserve angled Detail and Context rails around the single MediaStage.
+      if (state.presentation == WorkbenchPresentation.NORMAL) {
+        add(WorkbenchModule.DETAIL_RAIL)
+        add(WorkbenchModule.VIDEO_CONTEXT)
+      }
       when (state.content) {
-        WorkbenchContent.BROWSE, WorkbenchContent.FOCUS -> add(WorkbenchModule.CONTENT_LIST)
+        WorkbenchContent.BROWSE, WorkbenchContent.FOCUS -> add(WorkbenchModule.CENTER_CONTENT)
         WorkbenchContent.VIDEO_CONTEXT -> add(WorkbenchModule.VIDEO_CONTEXT)
         WorkbenchContent.NONE -> Unit
       }
