@@ -29,6 +29,10 @@ data class Recommendation(
     val displayLabel: String?,
     val videoUrl: String,
     val access: ContentAccess = ContentAccess.STANDARD,
+    val likeCount: Long? = null,
+    val publishedAtEpochSeconds: Long? = null,
+    val danmakuCount: Long? = null,
+    val favoriteCount: Long? = null,
 )
 
 internal fun recommendationAccess(
@@ -45,6 +49,10 @@ internal data class BilibiliRecommendationVideo(
     val viewCount: Long,
     val displayLabel: String?,
     val isChargeableSeason: Boolean = false,
+    val likeCount: Long = -1L,
+    val publishedAtEpochSeconds: Long? = null,
+    val danmakuCount: Long = -1L,
+    val favoriteCount: Long = -1L,
 )
 
 internal data class BilibiliSearchVideo(
@@ -56,6 +64,14 @@ internal data class BilibiliSearchVideo(
     val play: String,
     val pubdate: String?,
     val isChargeableSeason: Boolean = false,
+    val danmakuCount: Long = -1L,
+    val favoriteCount: Long = -1L,
+)
+
+data class BilibiliSearchOptions(
+    val order: String = "totalrank",
+    val pubdate: Int? = null,
+    val duration: Int? = null,
 )
 
 class PlaybackProviderException(message: String, cause: Throwable? = null) : Exception(message, cause)
@@ -88,6 +104,10 @@ class BilibiliPlaybackProvider(
                 coverUrl = item.optString("pic"),
                 durationSeconds = item.optInt("duration"),
                 viewCount = item.optJSONObject("stat")?.optLong("view") ?: -1L,
+                likeCount = item.optJSONObject("stat")?.optLong("like") ?: -1L,
+                danmakuCount = item.optJSONObject("stat")?.optLong("danmaku") ?: -1L,
+                favoriteCount = item.optJSONObject("stat")?.optLong("favorite") ?: -1L,
+                publishedAtEpochSeconds = item.optLong("pubdate").takeIf { it > 0L },
                 displayLabel = item.optJSONObject("rcmd_reason")?.optString("content"),
                 isChargeableSeason = item.optBoolean("is_chargeable_season"),
             )
@@ -102,6 +122,10 @@ class BilibiliPlaybackProvider(
           coverUrl = video.coverUrl.takeIf { it.isNotBlank() },
           durationSeconds = video.durationSeconds.takeIf { it > 0 },
           viewCount = video.viewCount.takeIf { it >= 0 },
+          likeCount = video.likeCount.takeIf { it >= 0 },
+          publishedAtEpochSeconds = video.publishedAtEpochSeconds,
+          danmakuCount = video.danmakuCount.takeIf { it >= 0 },
+          favoriteCount = video.favoriteCount.takeIf { it >= 0 },
           displayLabel = video.displayLabel?.takeIf { it.isNotBlank() },
           videoUrl = "https://www.bilibili.com/video/$bvid",
           access = recommendationAccess(video.isChargeableSeason),
@@ -124,6 +148,8 @@ class BilibiliPlaybackProvider(
                   play = result.optString("play"),
                   pubdate = result.opt("pubdate")?.toString(),
                   isChargeableSeason = result.optBoolean("is_chargeable_season"),
+                  danmakuCount = result.optLong("video_review", -1L),
+                  favoriteCount = result.optLong("favorites", -1L),
               )
           )
         }
@@ -142,6 +168,9 @@ class BilibiliPlaybackProvider(
               durationSeconds = parseSearchDuration(result.duration),
               viewCount = parseSearchCount(result.play),
               displayLabel = result.pubdate?.takeIf { it.isNotBlank() },
+              publishedAtEpochSeconds = result.pubdate?.toLongOrNull(),
+              danmakuCount = result.danmakuCount.takeIf { it >= 0 },
+              favoriteCount = result.favoriteCount.takeIf { it >= 0 },
               videoUrl = "https://www.bilibili.com/video/$bvid",
               access = recommendationAccess(result.isChargeableSeason),
           )
@@ -192,6 +221,7 @@ class BilibiliPlaybackProvider(
       query: String,
       page: Int = 1,
       pageSize: Int = RECOMMENDATION_PAGE_SIZE,
+      options: BilibiliSearchOptions = BilibiliSearchOptions(),
   ): List<Recommendation> {
     require(page > 0) { "page must be positive" }
     require(pageSize > 0) { "pageSize must be positive" }
@@ -204,14 +234,17 @@ class BilibiliPlaybackProvider(
     val mixinKey = BilibiliWbi.mixinKey(wbi.optString("img_url"), wbi.optString("sub_url"))
         ?: throw PlaybackProviderException("Bilibili returned invalid WBI signing data")
     val signedQuery = BilibiliWbi.sign(
-        mapOf(
-            "search_type" to "video",
-            "keyword" to keyword,
-            "page" to page.toString(),
-            "page_size" to pageSize.toString(),
-            "platform" to "pc",
-            "web_location" to "1430654",
-        ),
+        buildMap {
+          put("search_type", "video")
+          put("keyword", keyword)
+          put("page", page.toString())
+          put("page_size", pageSize.toString())
+          put("order", options.order)
+          put("platform", "pc")
+          put("web_location", "1430654")
+          options.pubdate?.let { put("pubdate", it.toString()) }
+          options.duration?.let { put("duration", it.toString()) }
+        },
         mixinKey,
         clockSeconds(),
     )

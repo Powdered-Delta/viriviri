@@ -6,7 +6,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.LinkedHashMap
 
+// UX: keep a larger sampled thumbnail working set so virtual-list scrollback does not blank older cards.
 internal const val THUMBNAIL_CACHE_SIZE = 80
+internal const val MAX_THUMBNAIL_WIDTH = 480
+internal const val MAX_THUMBNAIL_HEIGHT = 270
 
 internal sealed interface ThumbnailState {
   data object Loading : ThumbnailState
@@ -55,19 +58,59 @@ internal class ThumbnailRepository(
     private const val READ_TIMEOUT_MS = 12_000
 
     fun downloadThumbnail(url: String): Bitmap? {
-      val connection = URL(url).openConnection() as HttpURLConnection
+      val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+      if (!readThumbnailBounds(url, bounds)) return null
+      val options =
+          BitmapFactory.Options().apply {
+            inSampleSize = thumbnailDecodeSampleSize(bounds.outWidth, bounds.outHeight)
+            // UX: cover art has no alpha requirement; RGB_565 halves retained bitmap memory.
+            inPreferredConfig = Bitmap.Config.RGB_565
+          }
+      return decodeThumbnailBitmap(url, options)
+    }
+
+    private fun readThumbnailBounds(url: String, options: BitmapFactory.Options): Boolean {
+      val connection = openThumbnailConnection(url)
       return try {
-        connection.connectTimeout = CONNECT_TIMEOUT_MS
-        connection.readTimeout = READ_TIMEOUT_MS
-        connection.instanceFollowRedirects = true
-        connection.setRequestProperty("User-Agent", "ViriViri/0.1")
+        if (connection.responseCode !in 200..299) return false
+        connection.inputStream.use { input ->
+          BitmapFactory.decodeStream(input, null, options)
+        }
+        options.outWidth > 0 && options.outHeight > 0
+      } catch (_: Exception) {
+        false
+      } finally {
+        connection.disconnect()
+      }
+    }
+
+    private fun decodeThumbnailBitmap(url: String, options: BitmapFactory.Options): Bitmap? {
+      val connection = openThumbnailConnection(url)
+      return try {
         if (connection.responseCode !in 200..299) return null
-        connection.inputStream.use(BitmapFactory::decodeStream)
+        connection.inputStream.use { input -> BitmapFactory.decodeStream(input, null, options) }
       } catch (_: Exception) {
         null
       } finally {
         connection.disconnect()
       }
     }
+
+    private fun openThumbnailConnection(url: String): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+          connectTimeout = CONNECT_TIMEOUT_MS
+          readTimeout = READ_TIMEOUT_MS
+          instanceFollowRedirects = true
+          setRequestProperty("User-Agent", "ViriViri/0.1")
+        }
   }
+}
+
+internal fun thumbnailDecodeSampleSize(sourceWidth: Int, sourceHeight: Int): Int {
+  if (sourceWidth <= 0 || sourceHeight <= 0) return 1
+  var sample = 1
+  while (sourceWidth / sample > MAX_THUMBNAIL_WIDTH || sourceHeight / sample > MAX_THUMBNAIL_HEIGHT) {
+    sample *= 2
+  }
+  return sample
 }

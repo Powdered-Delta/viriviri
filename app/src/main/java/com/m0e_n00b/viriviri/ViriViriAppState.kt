@@ -51,7 +51,10 @@ data class ViriViriUiState(
     val destination: ViriViriDestination = ViriViriDestination.RECOMMENDATIONS,
     val playbackQuality: PlaybackQuality = PlaybackQuality.AUTO,
     val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
+    val playbackCanvasSize: PlaybackCanvasSize = PlaybackCanvasSize.STANDARD,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
+    val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
+    val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
     val isLoadingDanmaku: Boolean = false,
     val isLoading: Boolean = false,
     val isLoadingNextPage: Boolean = false,
@@ -64,6 +67,7 @@ data class ViriViriUiState(
     val isShowingSearchResults: Boolean = false,
     val recommendationScrollPosition: ListScrollPosition = ListScrollPosition(),
     val searchScrollPosition: ListScrollPosition = ListScrollPosition(),
+    val searchOptions: BilibiliSearchOptions = BilibiliSearchOptions(),
 )
 
 data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
@@ -134,6 +138,7 @@ class ViriViriAppState(
     context: Context,
     private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider(),
     internal val inputMethods: SearchInputMethodRegistry = DefaultSearchInputMethods.registry,
+    internal val danmakuMergeConfig: DanmakuMergeConfig = DanmakuMergeConfig(),
 ) {
   val playerSession = PlayerSession(context)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -226,9 +231,12 @@ class ViriViriAppState(
     mutableState.value = current.copy(searchInput = inputMethods.initialSession())
   }
 
-  fun submitSearch() = submitSearch(mutableState.value.searchInput.committedText)
+  fun submitSearch() = submitSearch(mutableState.value.searchInput.committedText, mutableState.value.searchOptions)
 
-  private fun submitSearch(query: String) {
+  fun submitSearch(options: BilibiliSearchOptions) =
+      submitSearch(mutableState.value.searchInput.committedText, options)
+
+  private fun submitSearch(query: String, options: BilibiliSearchOptions) {
     val normalizedQuery = normalizeSearchQuery(query)
     listJob?.cancel()
     nextPageJob?.cancel()
@@ -257,8 +265,9 @@ class ViriViriAppState(
                   searchInput = inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
                   isShowingSearchResults = true,
                   searchScrollPosition = ListScrollPosition(),
+                  searchOptions = options,
               )
-          runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery) } }
+          runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery, options = options) } }
               .onSuccess { recommendations ->
                 if (searchRequestTracker.isCurrent(requestId)) {
                   val page = mergeRecommendationPage(emptyList(), recommendations)
@@ -303,7 +312,7 @@ class ViriViriAppState(
                         freshIndex = current.recommendations.size,
                     )
                   } else {
-                    provider.searchVideos(searchQuery, page = pageToLoad)
+                    provider.searchVideos(searchQuery, page = pageToLoad, options = current.searchOptions)
                   }
                 }
               }
@@ -416,6 +425,12 @@ class ViriViriAppState(
     mutableState.value = current.copy(playbackDisplayRatio = displayRatio)
   }
 
+  fun selectPlaybackCanvasSize(canvasSize: PlaybackCanvasSize) {
+    val current = mutableState.value
+    if (current.playbackCanvasSize == canvasSize) return
+    mutableState.value = current.copy(playbackCanvasSize = canvasSize)
+  }
+
   private fun startPlaybackResolution(
       recommendation: Recommendation,
       quality: PlaybackQuality = mutableState.value.playbackQuality,
@@ -430,6 +445,8 @@ class ViriViriAppState(
             isResolvingPlayback = true,
             isLoadingDanmaku = true,
             danmakuEvents = emptyList(),
+            danmakuLaneAssignments = emptyMap(),
+            danmakuRenderMetrics = emptyMap(),
             error = null,
         )
     val requestId = ++playbackRequestId
@@ -476,13 +493,20 @@ class ViriViriAppState(
   private fun loadDanmaku(recommendation: Recommendation, requestId: Long) {
     danmakuLoadJob =
         scope.launch {
-          val events = runCatching { withContext(Dispatchers.IO) { provider.loadDanmaku(recommendation.videoId) } }
+          val prepared =
+              runCatching {
+                withContext(Dispatchers.IO) { prepareDanmaku(provider.loadDanmaku(recommendation.videoId), danmakuMergeConfig) }
+              }
           if (requestId != danmakuRequestId) return@launch
-          events.onSuccess { Log.i("ViriViriDanmaku", "loaded ${it.size} events for ${recommendation.videoId}") }
+          prepared.onSuccess {
+                Log.i("ViriViriDanmaku", "loaded ${it.events.size} events for ${recommendation.videoId}")
+              }
               .onFailure { Log.w("ViriViriDanmaku", "unable to load ${recommendation.videoId}", it) }
           mutableState.value =
               mutableState.value.copy(
-                  danmakuEvents = events.getOrElse { emptyList() },
+                  danmakuEvents = prepared.getOrNull()?.events.orEmpty(),
+                  danmakuLaneAssignments = prepared.getOrNull()?.laneAssignments.orEmpty(),
+                  danmakuRenderMetrics = prepared.getOrNull()?.renderMetrics.orEmpty(),
                   isLoadingDanmaku = false,
               )
         }

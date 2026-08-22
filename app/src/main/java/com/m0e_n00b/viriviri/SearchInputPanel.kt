@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsole
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsoleActions
 import com.m0e_n00b.spatialworkbench.compose.DefaultInputConsoleStyle
+import com.m0e_n00b.spatialworkbench.compose.InputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateItem
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateModeItem
 import com.m0e_n00b.spatialworkbench.compose.SearchKeyItem
@@ -17,6 +18,7 @@ internal fun SearchInputPanel(
     onInputAction: (SearchInputAction) -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
+    style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
   val keyboardRows =
       method.keyboard(session).mapIndexed { rowIndex, row ->
@@ -76,6 +78,6 @@ internal fun SearchInputPanel(
               onClear = onClear,
               onSearch = onSearch,
           ),
-      style = DefaultInputConsoleStyle,
+      style = style,
   )
 }

@@ -55,6 +55,25 @@ class RecommendationPaginationTest {
   }
 
   @Test
+  fun recommendationFeedMappingCarriesLikeCount() {
+    val mapped =
+        BilibiliPlaybackProvider.mapRecommendationVideo(
+            BilibiliRecommendationVideo(
+                bvid = "BV1likes",
+                title = "Likes",
+                authorName = "Creator",
+                coverUrl = "",
+                durationSeconds = 60,
+                viewCount = 100,
+                likeCount = 42,
+                displayLabel = null,
+            )
+        )
+
+    assertEquals(42L, mapped?.likeCount)
+  }
+
+  @Test
   fun searchMappingCarriesChargingBadgeOnlyForExplicitFlag() {
     val mapped =
         BilibiliPlaybackProvider.mapVideoSearchResults(

@@ -17,6 +17,13 @@ class ThumbnailRepositoryTest {
   }
 
   @Test
+  fun decodeSamplingBoundsLargeCoverMemory() {
+    assertEquals(1, thumbnailDecodeSampleSize(480, 270))
+    assertEquals(2, thumbnailDecodeSampleSize(960, 540))
+    assertEquals(4, thumbnailDecodeSampleSize(1920, 1080))
+  }
+
+  @Test
   fun cacheEvictsLeastRecentlyUsedEntryAtBound() {
     val repository = ThumbnailRepository(maxEntries = 2, downloader = { null })
 
