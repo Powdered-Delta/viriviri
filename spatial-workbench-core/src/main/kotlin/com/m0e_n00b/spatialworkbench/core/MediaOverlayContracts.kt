@@ -64,6 +64,8 @@ data class OverlayTextLayoutStyle(
 
 data class OverlayBasicStyle(
     val fontScale: Float = 1f,
+    /** Packed ARGB stored as a Long so core remains platform-neutral. */
+    val textColorArgb: Long = 0xFFFFFFFFL,
     val opacity: Float = 1f,
     val speedScale: Float = 1f,
     val outlineWidthDp: Float = 1f,
@@ -72,6 +74,7 @@ data class OverlayBasicStyle(
 
 data class OverlayStyleOverride(
     val fontScale: Float? = null,
+    val textColorArgb: Long? = null,
     val opacity: Float? = null,
     val speedScale: Float? = null,
     val outlineWidthDp: Float? = null,

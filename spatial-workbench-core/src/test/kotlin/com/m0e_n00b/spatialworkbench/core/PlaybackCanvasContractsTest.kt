@@ -21,12 +21,14 @@ class PlaybackCanvasContractsTest {
   @Test
   fun browseAndContextAreMutuallyExclusiveAndDismissReturnsQuietWatch() {
     val browse = PlaybackCanvasReducer.reduce(PlaybackCanvasState(), PlaybackCanvasEvent.OpenBrowse)
+    val quietFromBrowse = PlaybackCanvasReducer.reduce(browse, PlaybackCanvasEvent.Dismiss)
     val context = PlaybackCanvasReducer.reduce(browse, PlaybackCanvasEvent.OpenContext)
-    val quiet = PlaybackCanvasReducer.reduce(context, PlaybackCanvasEvent.Dismiss)
+    val quietFromContext = PlaybackCanvasReducer.reduce(context, PlaybackCanvasEvent.Dismiss)
 
     assertEquals(PlaybackCanvas.BROWSE, browse.canvas)
+    assertEquals(PlaybackCanvas.QUIET_WATCH, quietFromBrowse.canvas)
     assertEquals(PlaybackCanvas.CONTEXT, context.canvas)
-    assertEquals(PlaybackCanvas.QUIET_WATCH, quiet.canvas)
+    assertEquals(PlaybackCanvas.QUIET_WATCH, quietFromContext.canvas)
   }
 
   @Test
