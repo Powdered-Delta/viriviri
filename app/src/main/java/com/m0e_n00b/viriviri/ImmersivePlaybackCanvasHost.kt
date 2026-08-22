@@ -14,15 +14,21 @@ internal class ImmersivePlaybackCanvasHost(
 ) {
   var state: PlaybackCanvasState = PlaybackCanvasState()
     private set
+  private var appliedVisibleSlots: Set<PanelSlot>? = null
 
   fun dispatch(event: PlaybackCanvasEvent) {
     state = PlaybackCanvasReducer.reduce(state, event)
-    applyVisibleSlots(PlaybackCanvasReducer.visibleSlots(state, theme))
+    applyCurrentVisibleSlots()
   }
 
-  fun applyInitialState() = applyCurrentState()
+  fun applyInitialState() = applyCurrentVisibleSlots()
 
-  fun applyCurrentState() {
-    applyVisibleSlots(PlaybackCanvasReducer.visibleSlots(state, theme))
+  fun applyCurrentState() = applyCurrentVisibleSlots()
+
+  private fun applyCurrentVisibleSlots() {
+    val visibleSlots = PlaybackCanvasReducer.visibleSlots(state, theme)
+    if (visibleSlots == appliedVisibleSlots) return
+    appliedVisibleSlots = visibleSlots
+    applyVisibleSlots(visibleSlots)
   }
 }

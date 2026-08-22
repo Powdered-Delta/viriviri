@@ -25,6 +25,17 @@ class ImmersivePlaybackCanvasHostTest {
   }
 
   @Test
+  fun repeatedInitialStateDoesNotRepublishUnchangedSlots() {
+    val applied = mutableListOf<Set<PanelSlot>>()
+    val host = ImmersivePlaybackCanvasHost(applyVisibleSlots = applied::add)
+
+    host.applyInitialState()
+    host.applyCurrentState()
+
+    assertEquals(1, applied.size)
+  }
+
+  @Test
   fun primaryStageActionAndIdleTimeoutApplyPlaybackThenQuietSlots() {
     val applied = mutableListOf<Set<PanelSlot>>()
     val host = ImmersivePlaybackCanvasHost(applyVisibleSlots = applied::add)

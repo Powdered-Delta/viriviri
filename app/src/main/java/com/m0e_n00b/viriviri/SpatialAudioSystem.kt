@@ -29,7 +29,8 @@ class SpatialAudioSystem(
             .eval()
             .first()
     val headPose = head.getComponent<Transform>().transform
-    val q = Query.where { has(SpatializedAudioPanel.id) }
+    // Component contract: spatialized audio requires a world transform for listener-relative panning.
+    val q = Query.where { has(SpatializedAudioPanel.id, Transform.id) }
     for (entity in q.eval()) {
       val panelPose = entity.getComponent<Transform>().transform
       // get direction from head to panel
