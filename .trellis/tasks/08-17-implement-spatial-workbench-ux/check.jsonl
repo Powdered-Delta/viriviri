@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend quality checklist."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Review implementation quality and forbidden patterns."}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Review pure state and UI contracts for safe modeling."}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Verify no player or Surface ownership regression."}
+{"file":".trellis/spec/frontend/quest-spatial-panel-debugging.md","reason":"Verify panel/entity visibility, input, and lifecycle behavior."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify consistency across core, UI, and Spatial adapter layers."}
+{"file":"docs/prototypes/workbench/README.md","reason":"Check visible behavior against approved Web Demo UX."}
