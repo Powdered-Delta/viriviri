@@ -204,7 +204,9 @@ private fun CenterContentWorkspace(
           initialFirstVisibleItemScrollOffset = savedScrollPosition.firstVisibleItemScrollOffset,
       )
   val thumbnailStates by appState.thumbnailStates.collectAsState()
-  val searchConsoleVisible = showSearchConsoleByDefault || state.isShowingSearchResults
+  val searchConsoleVisible =
+      (showSearchConsoleByDefault || state.isSearchKeyboardVisible || state.isShowingSearchResults) &&
+          !state.isSearchKeyboardDismissed
   var isGridView by rememberSaveable { mutableStateOf(true) }
   var filterState by remember { mutableStateOf(VideoListFilterState()) }
   var moreFiltersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -271,8 +273,13 @@ private fun CenterContentWorkspace(
             SearchPanelActions(
                 onQueryChanged = appState::updateSearchQuery,
                 onInputAction = appState::applySearchInputAction,
+                candidateExpanded = state.isSearchCandidatesExpanded,
+                onToggleCandidates = appState::toggleSearchCandidates,
                 onClear = appState::clearSearchInput,
                 onSubmit = appState::submitSearch,
+                onVoice = { appState.setSearchKeyboardVisible(true) },
+                onSystemIme = { appState.setSearchKeyboardVisible(true) },
+                onDismiss = { appState.setSearchKeyboardVisible(false) },
             ),
         style = panelStyle,
         inputStyle = inputStyle,

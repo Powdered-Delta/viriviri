@@ -69,6 +69,7 @@
   <string name="search_system_ime">系统输入法</string>
   <string name="search_delete">删除</string>
   <string name="search_collapse">收起</string>
+  <string name="search_expand_candidates">展开</string>
   <string name="search_clear_input">清空输入</string>
   <string name="search_submit">确定搜索</string>
   <string name="search_phrase">词组</string>

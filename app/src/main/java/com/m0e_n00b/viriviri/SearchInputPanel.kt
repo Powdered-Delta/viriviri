@@ -15,26 +15,43 @@ import com.m0e_n00b.spatialworkbench.compose.SearchKeyItem
 internal fun SearchInputPanel(
     session: SearchInputSession,
     method: SearchInputMethod,
+    candidateExpanded: Boolean,
     onSystemTextChanged: (String) -> Unit,
     onInputAction: (SearchInputAction) -> Unit,
+    onToggleCandidates: () -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
+    onVoice: () -> Unit = {},
+    onSystemIme: () -> Unit = {},
+    onDismiss: () -> Unit = {},
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
-  val keyboardRows =
-      method.keyboard(session).mapIndexed { rowIndex, row ->
-        row.mapIndexed { keyIndex, key ->
-          SearchKeyItem(
-              id = "$rowIndex-$keyIndex",
-              label = key.label,
-              hint = key.hint,
-          )
-        }
-      }
-  val keyActions =
-      method.keyboard(session).flatMapIndexed { rowIndex, row ->
-        row.mapIndexed { keyIndex, key -> "$rowIndex-$keyIndex" to key.action }
+  val layout = method.keyboardLayout(session)
+  val allKeys = layout.numberRows.flatten() + layout.mainRows.flatten()
+  val keyActions = allKeys.associateBy(SearchInputKey::id).mapValues { it.value.action }
+  val candidateValues =
+      session.candidates.mapIndexed { index, candidate ->
+        "candidate-$index" to candidate.value
       }.toMap()
+
+  fun dispatchKey(key: SearchKeyItem) {
+    when (key.id) {
+      "backspace" -> onInputAction(SearchInputAction.Backspace)
+      "enter" -> onInputAction(SearchInputAction.CommitComposition)
+      "voice" -> onVoice()
+      "hide" -> onDismiss()
+      else -> {
+        val action = keyActions[key.id] ?: return
+        onInputAction(
+            if (action is SearchInputAction.PressKey) {
+              action.copy(eventTimeMs = System.currentTimeMillis())
+            } else {
+              action
+            }
+        )
+      }
+    }
+  }
 
   CinemaInputConsole(
       query = session.committedText,
@@ -46,38 +63,38 @@ internal fun SearchInputPanel(
           ),
       selectedCandidateModeId = session.candidateMode.name,
       candidates =
-          session.candidates.map { candidate ->
-            SearchCandidateItem(candidate.value, candidate.label)
+          session.candidates.mapIndexed { index, candidate ->
+            SearchCandidateItem("candidate-$index", candidate.label)
           },
-      keyboardRows = keyboardRows,
-      candidateExpanded = false,
+      numberRows =
+          layout.numberRows.map { row ->
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint) }
+          },
+      keyboardRows =
+          layout.mainRows.map { row ->
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint) }
+          },
+      actionKeys = layout.actionKeys.map { key -> SearchKeyItem(key.id, key.label, key.hint) },
+      candidateExpanded = candidateExpanded,
       onQueryChanged = onSystemTextChanged,
       onSelectCandidateMode = { mode ->
         onInputAction(
-            SearchInputAction.SetCandidateMode(
-                SearchCandidateMode.valueOf(mode.id),
-            )
+            SearchInputAction.SetCandidateMode(SearchCandidateMode.valueOf(mode.id))
         )
       },
       onSelectCandidate = { candidate ->
-        onInputAction(SearchInputAction.SelectCandidate(candidate.id))
+        candidateValues[candidate.id]?.let { onInputAction(SearchInputAction.SelectCandidate(it)) }
       },
-      onToggleCandidates = {},
-      onKeyPress = { key ->
-        val action = keyActions.getValue(key.id)
-        onInputAction(
-            if (action is SearchInputAction.PressKey) {
-              action.copy(eventTimeMs = System.currentTimeMillis())
-            } else {
-              action
-            }
-        )
-      },
+      onToggleCandidates = onToggleCandidates,
+      onKeyPress = ::dispatchKey,
       actions =
           CinemaInputConsoleActions(
               onBackspace = { onInputAction(SearchInputAction.Backspace) },
               onClear = onClear,
               onSearch = onSearch,
+              onVoice = onVoice,
+              onSystemIme = onSystemIme,
+              onDismiss = onDismiss,
           ),
       style = style,
   )

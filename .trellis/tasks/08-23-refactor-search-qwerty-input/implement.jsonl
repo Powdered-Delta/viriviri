@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"输入台和共享 Compose 组件必须保持 state/callback 驱动，不依赖 Activity、Spatial SDK、播放器或网络；同时沿用现有输入法 contract 约定。"}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"Search 输入台必须复用现有 MediaStage 和唯一 Surface，实施与验收时需要明确不能改变播放器输出生命周期。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"本任务需要把 Search workspace 状态与 SearchInputSession 分离，并定义键盘可见性、候选展开和返回快照的归属。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"需要按项目质量和 JVM 测试要求补充输入法 reducer、候选、布局 contract 和 Search snapshot 测试。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"确认 QWERTY 输入法、Search workspace 状态、共享 Compose 组件和测试的正确模块与目录归属。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"输入法核心、Search workspace、Compose UI、Spatial Activity 之间存在明确状态和 callback 边界，需要在实施前固定数据流。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用现有 SearchInputMethod、lexicon、InputConsoleStyle 和 Web demo 对应布局语义，避免重复实现或无边界重构。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"确认输入法核心、Search workspace、左右 rail host contract、共享 Compose 组件和测试的正确模块与目录归属，避免跨模块倒置依赖。"}

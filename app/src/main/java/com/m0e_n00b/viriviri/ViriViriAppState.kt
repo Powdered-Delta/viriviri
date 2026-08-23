@@ -45,6 +45,16 @@ internal fun enqueueErrorMessage(
         ),
     )
 
+data class SearchWorkspaceState(
+    val input: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
+    val isShowingResults: Boolean = false,
+    val isKeyboardVisible: Boolean = false,
+    val isKeyboardDismissed: Boolean = false,
+    val isCandidatesExpanded: Boolean = false,
+    val scrollPosition: ListScrollPosition = ListScrollPosition(),
+    val options: BilibiliSearchOptions = BilibiliSearchOptions(),
+)
+
 data class ViriViriUiState(
     val recommendations: List<Recommendation> = emptyList(),
     val selected: Recommendation? = null,
@@ -63,14 +73,32 @@ data class ViriViriUiState(
     val isResolvingPlayback: Boolean = false,
     val error: String? = null,
     val transientMessages: TransientMessageState = TransientMessageState(),
-    val searchInput: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
-    val isShowingSearchResults: Boolean = false,
+    val searchWorkspace: SearchWorkspaceState = SearchWorkspaceState(),
     val recommendationScrollPosition: ListScrollPosition = ListScrollPosition(),
-    val searchScrollPosition: ListScrollPosition = ListScrollPosition(),
-    val searchOptions: BilibiliSearchOptions = BilibiliSearchOptions(),
 )
 
 data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
+
+internal val ViriViriUiState.searchInput: SearchInputSession
+  get() = searchWorkspace.input
+
+internal val ViriViriUiState.isShowingSearchResults: Boolean
+  get() = searchWorkspace.isShowingResults
+
+internal val ViriViriUiState.isSearchKeyboardVisible: Boolean
+  get() = searchWorkspace.isKeyboardVisible
+
+internal val ViriViriUiState.isSearchKeyboardDismissed: Boolean
+  get() = searchWorkspace.isKeyboardDismissed
+
+internal val ViriViriUiState.isSearchCandidatesExpanded: Boolean
+  get() = searchWorkspace.isCandidatesExpanded
+
+internal val ViriViriUiState.searchScrollPosition: ListScrollPosition
+  get() = searchWorkspace.scrollPosition
+
+internal val ViriViriUiState.searchOptions: BilibiliSearchOptions
+  get() = searchWorkspace.options
 
 internal enum class ImmersiveBrowseCommand {
   RETURN_TO_PLAYBACK,
@@ -143,7 +171,10 @@ class ViriViriAppState(
   val playerSession = PlayerSession(context)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
   private val mutableState = MutableStateFlow(
-      ViriViriUiState(isLoading = true, searchInput = inputMethods.initialSession())
+      ViriViriUiState(
+          isLoading = true,
+          searchWorkspace = SearchWorkspaceState(input = inputMethods.initialSession()),
+      )
   )
   private val mutableImmersiveBrowseCommands = MutableSharedFlow<ImmersiveBrowseCommand>(extraBufferCapacity = 1)
   private var playbackRequestId = 0L
@@ -184,7 +215,12 @@ class ViriViriAppState(
                   canLoadMore = true,
                   nextPage = 1,
                   error = null,
-                  isShowingSearchResults = false,
+                  searchWorkspace =
+                      mutableState.value.searchWorkspace.copy(
+                          isShowingResults = false,
+                          isKeyboardDismissed = false,
+                          isCandidatesExpanded = false,
+                      ),
                   recommendationScrollPosition = ListScrollPosition(),
               )
           runCatching { withContext(Dispatchers.IO) { provider.loadRecommendations() } }
@@ -218,17 +254,66 @@ class ViriViriAppState(
   fun updateSearchQuery(query: String) {
     val current = mutableState.value
     mutableState.value =
-        current.copy(searchInput = inputMethods.replaceCommittedText(current.searchInput, query))
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    input = inputMethods.replaceCommittedText(current.searchInput, query),
+                    isKeyboardDismissed = false,
+                    isCandidatesExpanded = false,
+                )
+        )
   }
 
   fun applySearchInputAction(action: SearchInputAction) {
     val current = mutableState.value
-    mutableState.value = current.copy(searchInput = inputMethods.reduce(current.searchInput, action))
+    if (action == SearchInputAction.CommitComposition && current.searchInput.composition.isBlank()) {
+      submitSearch()
+      return
+    }
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    input = inputMethods.reduce(current.searchInput, action),
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun setSearchKeyboardVisible(visible: Boolean) {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    isKeyboardVisible = visible,
+                    isKeyboardDismissed = !visible,
+                    isCandidatesExpanded = if (visible) current.isSearchCandidatesExpanded else false,
+                )
+        )
+  }
+
+  fun toggleSearchCandidates() {
+    val current = mutableState.value
+    if (current.searchInput.candidates.isEmpty()) return
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(isCandidatesExpanded = !current.isSearchCandidatesExpanded)
+        )
   }
 
   fun clearSearchInput() {
     val current = mutableState.value
-    mutableState.value = current.copy(searchInput = inputMethods.initialSession())
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    input = inputMethods.initialSession(),
+                    isCandidatesExpanded = false,
+                    isKeyboardDismissed = false,
+                )
+        )
   }
 
   fun submitSearch() = submitSearch(mutableState.value.searchInput.committedText, mutableState.value.searchOptions)
@@ -244,8 +329,13 @@ class ViriViriAppState(
     if (normalizedQuery.isBlank()) {
       mutableState.value =
           mutableState.value.copy(
-              searchInput = inputMethods.initialSession(),
-              isShowingSearchResults = false,
+              searchWorkspace =
+                  mutableState.value.searchWorkspace.copy(
+                      input = inputMethods.initialSession(),
+                      isShowingResults = false,
+                      isKeyboardDismissed = false,
+                      isCandidatesExpanded = false,
+                  ),
               isLoading = false,
               isLoadingNextPage = false,
               error = null,
@@ -262,10 +352,15 @@ class ViriViriAppState(
                   canLoadMore = true,
                   nextPage = 1,
                   error = null,
-                  searchInput = inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
-                  isShowingSearchResults = true,
-                  searchScrollPosition = ListScrollPosition(),
-                  searchOptions = options,
+                  searchWorkspace =
+                      mutableState.value.searchWorkspace.copy(
+                          input = inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
+                          isShowingResults = true,
+                          isKeyboardDismissed = false,
+                          isCandidatesExpanded = false,
+                          scrollPosition = ListScrollPosition(),
+                          options = options,
+                      ),
               )
           runCatching { withContext(Dispatchers.IO) { provider.searchVideos(normalizedQuery, options = options) } }
               .onSuccess { recommendations ->
@@ -371,7 +466,15 @@ class ViriViriAppState(
 
   fun returnToRecommendationsFeed() {
     mutableState.value =
-        mutableState.value.copy(searchInput = inputMethods.initialSession(), isShowingSearchResults = false)
+        mutableState.value.copy(
+            searchWorkspace =
+                mutableState.value.searchWorkspace.copy(
+                    input = inputMethods.initialSession(),
+                    isShowingResults = false,
+                    isKeyboardDismissed = false,
+                    isCandidatesExpanded = false,
+                )
+        )
     refreshRecommendations()
   }
 
@@ -384,7 +487,7 @@ class ViriViriAppState(
               destination = ViriViriDestination.VIEWER,
               isResolvingPlayback = true,
               error = null,
-              searchScrollPosition = scrollPosition,
+              searchWorkspace = current.searchWorkspace.copy(scrollPosition = scrollPosition),
           )
         } else {
           current.copy(

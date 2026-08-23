@@ -4,15 +4,15 @@ import android.icu.text.Transliterator
 import java.text.Normalizer
 import java.util.Locale
 
-/**
- * Pure input-method contract. Language engines own key processing and candidate generation;
- * hosts render the returned session without knowing a language or dictionary format.
- */
+/** Pure input-method contract. The engine owns text editing and candidates only. */
 interface SearchInputMethod {
   val id: String
   val displayName: String
 
   fun keyboard(session: SearchInputSession): List<List<SearchInputKey>>
+
+  fun keyboardLayout(session: SearchInputSession): SearchInputKeyboard =
+      SearchInputKeyboard(mainRows = keyboard(session))
 
   fun initialSession(committedText: String = ""): SearchInputSession
 
@@ -27,6 +27,9 @@ data class SearchInputSession(
     val composition: String = "",
     val candidates: List<SearchInputCandidate> = emptyList(),
     val candidateMode: SearchCandidateMode = SearchCandidateMode.PHRASE,
+    val language: SearchInputLanguage = SearchInputLanguage.CHINESE,
+    val shiftState: SearchInputShiftState = SearchInputShiftState.OFF,
+    val keyboardLayer: SearchInputKeyboardLayer = SearchInputKeyboardLayer.LETTERS,
     val engineData: Map<String, String> = emptyMap(),
 )
 
@@ -35,13 +38,40 @@ enum class SearchCandidateMode {
   PHRASE,
 }
 
-data class SearchInputCandidate(val value: String, val label: String = value)
+enum class SearchInputLanguage {
+  CHINESE,
+  ENGLISH,
+}
+
+enum class SearchInputShiftState {
+  OFF,
+  SHIFTED,
+  CAPS_LOCK,
+}
+
+enum class SearchInputKeyboardLayer {
+  LETTERS,
+  SYMBOLS,
+}
+
+data class SearchInputCandidate(
+    val value: String,
+    val label: String = value,
+    /** UTF-16 length of the composition consumed by this candidate. */
+    val consumedCompositionLength: Int = 0,
+)
 
 data class SearchInputKey(
     val id: String,
     val label: String,
-    val hint: String,
+    val hint: String = "",
     val action: SearchInputAction,
+)
+
+data class SearchInputKeyboard(
+    val numberRows: List<List<SearchInputKey>> = emptyList(),
+    val mainRows: List<List<SearchInputKey>> = emptyList(),
+    val actionKeys: List<SearchInputKey> = emptyList(),
 )
 
 sealed interface SearchInputAction {
@@ -78,7 +108,7 @@ class SearchInputMethodRegistry(methods: List<SearchInputMethod>) {
 
 object DefaultSearchInputMethods {
   private val chineseLexicon = DefaultOfflinePinyinLexicon()
-  val registry = SearchInputMethodRegistry(listOf(ChineseT9InputMethod(chineseLexicon)))
+  val registry = SearchInputMethodRegistry(listOf(ChinesePinyinQwertyInputMethod(chineseLexicon)))
 
   fun warmUp() = chineseLexicon.warmUp()
 }
@@ -90,18 +120,26 @@ interface OfflinePinyinLexicon {
       candidatesFor(composition).filter { it.value.codePointCount(0, it.value.length) == 1 }
 }
 
-/**
- * Multi-tap T9 Pinyin input. Tapping the same number inside the multi-tap window cycles its
- * letters; pause before entering another adjacent letter on that number.
- */
-class ChineseT9InputMethod(
+/** Pure Kotlin QWERTY Pinyin input method with an offline candidate source. */
+class ChinesePinyinQwertyInputMethod(
     private val lexicon: OfflinePinyinLexicon = DefaultOfflinePinyinLexicon(),
-    private val multiTapWindowMs: Long = MULTI_TAP_WINDOW_MS,
 ) : SearchInputMethod {
-  override val id: String = "zh-Hans-t9"
-  override val displayName: String = "中文九宫格"
+  override val id: String = "zh-Hans-qwerty"
+  override val displayName: String = "中文拼音"
 
-  override fun keyboard(session: SearchInputSession): List<List<SearchInputKey>> = KEYBOARD_ROWS
+  override fun keyboard(session: SearchInputSession): List<List<SearchInputKey>> =
+      keyboardLayout(session).mainRows
+
+  override fun keyboardLayout(session: SearchInputSession): SearchInputKeyboard =
+      if (session.keyboardLayer == SearchInputKeyboardLayer.SYMBOLS) {
+        SYMBOL_KEYBOARD
+      } else {
+        SearchInputKeyboard(
+            numberRows = NUMBER_ROWS,
+            mainRows = letterRows(session),
+            actionKeys = ACTION_KEYS,
+        )
+      }
 
   override fun initialSession(committedText: String): SearchInputSession =
       SearchInputSession(inputMethodId = id, committedText = committedText)
@@ -109,48 +147,148 @@ class ChineseT9InputMethod(
   override fun replaceCommittedText(
       session: SearchInputSession,
       committedText: String,
-  ): SearchInputSession = initialSession(committedText).copy(candidateMode = session.candidateMode)
+  ): SearchInputSession =
+      initialSession(committedText).copy(
+          candidateMode = session.candidateMode,
+          language = session.language,
+      )
 
   override fun reduce(session: SearchInputSession, action: SearchInputAction): SearchInputSession =
       when (action) {
-        is SearchInputAction.PressKey -> pressKey(session, action)
-        is SearchInputAction.SelectCandidate -> commit(session, action.value)
+        is SearchInputAction.PressKey -> pressKey(session, action.keyId)
+        is SearchInputAction.SelectCandidate -> commitCandidate(session, action.value)
         is SearchInputAction.SetCandidateMode ->
             session.copy(
                 candidateMode = action.mode,
                 candidates = candidatesFor(session.composition, action.mode),
             )
         SearchInputAction.Backspace -> backspace(session)
-        SearchInputAction.CommitComposition ->
-            commit(session, session.candidates.firstOrNull()?.value ?: session.composition)
+        SearchInputAction.CommitComposition -> commitComposition(session)
       }
 
-  private fun pressKey(
-      session: SearchInputSession,
-      action: SearchInputAction.PressKey,
-  ): SearchInputSession {
-    val letters = LETTERS_BY_KEY[action.keyId] ?: return session
-    val lastKey = session.engineData[LAST_KEY]
-    val lastPressAt = session.engineData[LAST_PRESS_AT]?.toLongOrNull()
-    val canCycle =
-        lastKey == action.keyId &&
-            lastPressAt != null &&
-            action.eventTimeMs - lastPressAt in 0 until multiTapWindowMs &&
-            session.composition.isNotEmpty()
-    val cycleIndex =
-        if (canCycle) (session.engineData[CYCLE_INDEX]?.toIntOrNull()?.plus(1) ?: 0) % letters.length else 0
-    val nextComposition =
-        if (canCycle) session.composition.dropLast(1) + letters[cycleIndex] else session.composition + letters[0]
+  private fun pressKey(session: SearchInputSession, keyId: String): SearchInputSession =
+      when {
+        keyId.startsWith("letter:") -> pressLetter(session, keyId.removePrefix("letter:"))
+        keyId.startsWith("digit:") -> commitSymbol(session, keyId.removePrefix("digit:"))
+        keyId.startsWith("operator:") -> commitSymbol(session, operatorFor(keyId))
+        keyId.startsWith("symbol:") -> commitSymbol(session, keyId.removePrefix("symbol:"))
+        keyId == KEY_LANGUAGE -> toggleLanguage(session)
+        keyId == KEY_SHIFT -> toggleShift(session)
+        keyId == KEY_SYMBOLS -> toggleKeyboardLayer(session)
+        keyId == KEY_SPACE -> pressSpace(session)
+        keyId == KEY_COMMA -> commitSymbol(session, ",")
+        keyId == KEY_PERIOD -> commitSymbol(session, ".")
+        keyId == KEY_EXCLAMATION -> commitSymbol(session, "!")
+        keyId == KEY_QUESTION -> commitSymbol(session, "?")
+        keyId == KEY_APOSTROPHE -> pressApostrophe(session)
+        else -> session
+      }
+
+  private fun pressLetter(session: SearchInputSession, letter: String): SearchInputSession {
+    val normalizedLetter = if (session.shiftState == SearchInputShiftState.OFF) letter else letter.uppercase()
+    val nextShift =
+        if (session.shiftState == SearchInputShiftState.SHIFTED) SearchInputShiftState.OFF
+        else session.shiftState
+    if (session.language == SearchInputLanguage.ENGLISH) {
+      return session.copy(
+          committedText = session.committedText + normalizedLetter,
+          shiftState = nextShift,
+      )
+    }
+    val nextComposition = normalizeComposition(session.composition + letter)
     return session.copy(
         composition = nextComposition,
         candidates = candidatesFor(nextComposition, session.candidateMode),
-        engineData =
-            mapOf(
-                LAST_KEY to action.keyId,
-                LAST_PRESS_AT to action.eventTimeMs.toString(),
-                CYCLE_INDEX to cycleIndex.toString(),
-            ),
+        shiftState = nextShift,
     )
+  }
+
+  private fun pressApostrophe(session: SearchInputSession): SearchInputSession {
+    if (session.language == SearchInputLanguage.ENGLISH || session.composition.isBlank()) return session
+    if (session.composition.endsWith("'")) return session
+    return session.copy(composition = session.composition + "'")
+  }
+
+  private fun pressSpace(session: SearchInputSession): SearchInputSession {
+    if (session.language == SearchInputLanguage.CHINESE && session.composition.isNotBlank()) {
+      val committed = commitComposition(session)
+      return committed.copy(committedText = committed.committedText + " ")
+    }
+    return commitSymbol(session, " ")
+  }
+
+  private fun commitSymbol(session: SearchInputSession, symbol: String): SearchInputSession {
+    val committed =
+        if (session.composition.isNotBlank()) commitComposition(session) else session
+    return committed.copy(
+        committedText = committed.committedText + symbol,
+        shiftState = if (session.shiftState == SearchInputShiftState.SHIFTED) SearchInputShiftState.OFF else session.shiftState,
+    )
+  }
+
+  private fun toggleLanguage(session: SearchInputSession): SearchInputSession =
+      session.copy(
+          language =
+              if (session.language == SearchInputLanguage.CHINESE) SearchInputLanguage.ENGLISH
+              else SearchInputLanguage.CHINESE,
+          composition = "",
+          candidates = emptyList(),
+          shiftState = SearchInputShiftState.OFF,
+      )
+
+  private fun toggleShift(session: SearchInputSession): SearchInputSession =
+      session.copy(
+          shiftState =
+              when (session.shiftState) {
+                SearchInputShiftState.OFF -> SearchInputShiftState.SHIFTED
+                SearchInputShiftState.SHIFTED -> SearchInputShiftState.CAPS_LOCK
+                SearchInputShiftState.CAPS_LOCK -> SearchInputShiftState.OFF
+              }
+      )
+
+  private fun toggleKeyboardLayer(session: SearchInputSession): SearchInputSession =
+      session.copy(
+          keyboardLayer =
+              if (session.keyboardLayer == SearchInputKeyboardLayer.LETTERS) {
+                SearchInputKeyboardLayer.SYMBOLS
+              } else {
+                SearchInputKeyboardLayer.LETTERS
+              }
+      )
+
+  private fun commitCandidate(session: SearchInputSession, value: String): SearchInputSession {
+    if (value.isBlank()) return session
+    val candidate = session.candidates.firstOrNull { it.value == value }
+    val consumedLength =
+        (candidate?.consumedCompositionLength ?: session.composition.length)
+            .coerceIn(0, session.composition.length)
+    val remaining = session.composition.drop(consumedLength).let(::normalizeComposition)
+    return initialSession(session.committedText + value).copy(
+        composition = remaining,
+        candidates = candidatesFor(remaining, session.candidateMode),
+        candidateMode = session.candidateMode,
+        language = session.language,
+        shiftState = session.shiftState,
+        keyboardLayer = session.keyboardLayer,
+    )
+  }
+
+  private fun commitComposition(session: SearchInputSession): SearchInputSession {
+    if (session.composition.isBlank()) return session
+    val value = session.candidates.firstOrNull()?.value ?: canonicalComposition(session.composition)
+    return commitCandidate(session, value)
+  }
+
+  private fun backspace(session: SearchInputSession): SearchInputSession {
+    if (session.composition.isNotEmpty()) {
+      val nextComposition = session.composition.dropLastCodePoint().trimEnd('\'')
+      return session.copy(
+          composition = nextComposition,
+          candidates = candidatesFor(nextComposition, session.candidateMode),
+          engineData = emptyMap(),
+      )
+    }
+    return session.copy(committedText = session.committedText.dropLastCodePoint())
   }
 
   private fun candidatesFor(
@@ -162,138 +300,162 @@ class ChineseT9InputMethod(
         SearchCandidateMode.PHRASE -> lexicon.candidatesFor(composition)
       }
 
-  private fun commit(session: SearchInputSession, value: String): SearchInputSession {
-    if (value.isBlank()) return session
-    return initialSession(session.committedText + value)
-  }
-
-  private fun backspace(session: SearchInputSession): SearchInputSession {
-    if (session.composition.isNotEmpty()) {
-      val nextComposition = session.composition.dropLast(1)
-      return session.copy(
-          composition = nextComposition,
-          candidates = candidatesFor(nextComposition, session.candidateMode),
-          engineData = emptyMap(),
-      )
-    }
-    return initialSession(session.committedText.dropLast(1))
-  }
-
   companion object {
-    private const val MULTI_TAP_WINDOW_MS = 650L
-    private const val LAST_KEY = "lastKey"
-    private const val LAST_PRESS_AT = "lastPressAt"
-    private const val CYCLE_INDEX = "cycleIndex"
+    private const val KEY_LANGUAGE = "language"
+    private const val KEY_SHIFT = "shift"
+    private const val KEY_SYMBOLS = "symbols"
+    private const val KEY_SPACE = "space"
+    private const val KEY_COMMA = "comma"
+    private const val KEY_PERIOD = "period"
+    private const val KEY_EXCLAMATION = "exclamation"
+    private const val KEY_QUESTION = "question"
+    private const val KEY_APOSTROPHE = "apostrophe"
 
-    private val LETTERS_BY_KEY =
-        linkedMapOf(
-            "2" to "abc",
-            "3" to "def",
-            "4" to "ghi",
-            "5" to "jkl",
-            "6" to "mno",
-            "7" to "pqrs",
-            "8" to "tuv",
-            "9" to "wxyz",
-        )
-
-    private val KEYBOARD_ROWS =
+    private val NUMBER_ROWS =
         listOf(
-            listOf(key("2", "2", "ABC"), key("3", "3", "DEF"), key("4", "4", "GHI")),
-            listOf(key("5", "5", "JKL"), key("6", "6", "MNO"), key("7", "7", "PQRS")),
+            listOf(key("digit:1", "1"), key("digit:2", "2"), key("digit:3", "3")),
+            listOf(key("digit:4", "4"), key("digit:5", "5"), key("digit:6", "6")),
+            listOf(key("digit:7", "7"), key("digit:8", "8"), key("digit:9", "9")),
             listOf(
-                key("8", "8", "TUV"),
-                key("9", "9", "WXYZ"),
-                SearchInputKey(
-                    id = "commit",
-                    label = "上屏",
-                    hint = "",
-                    action = SearchInputAction.CommitComposition,
-                ),
+                key("digit:0", "0"),
+                key("operator:plus", "+"),
+                key("operator:minus", "-"),
+                key("operator:multiply", "*"),
+                key("operator:divide", "/"),
+                key("operator:equals", "="),
             ),
         )
 
-    private fun key(id: String, label: String, hint: String) =
-        SearchInputKey(
-            id = id,
-            label = label,
-            hint = hint,
-            action = SearchInputAction.PressKey(id, 0L),
+    private val ACTION_KEYS =
+        listOf(
+            key("backspace", "⌫"),
+            key("voice", "麦克风"),
+            key("enter", "↵"),
+            key("hide", "收起"),
         )
+
+    private val SYMBOL_KEYBOARD =
+        SearchInputKeyboard(
+            numberRows = NUMBER_ROWS,
+            mainRows =
+                listOf(
+                    listOf(key("symbol:[", "["), key("symbol:]", "]"), key("symbol:{", "{"), key("symbol:}", "}"), key("symbol:#", "#")),
+                    listOf(key("symbol:@", "@"), key("symbol:%", "%"), key("symbol:&", "&"), key("symbol:*", "*"), key("symbol:+", "+")),
+                    listOf(key("symbol:-", "-"), key("symbol:=", "="), key("symbol:/", "/"), key("symbol:\\", "\\"), key("symbol:|", "|")),
+                    listOf(key(KEY_SYMBOLS, "ABC"), key(KEY_LANGUAGE, "中/英"), key(KEY_SPACE, "空格"), key(KEY_PERIOD, "."), key(KEY_QUESTION, "?")),
+                ),
+            actionKeys = ACTION_KEYS,
+        )
+
+    private fun letterRows(session: SearchInputSession): List<List<SearchInputKey>> {
+      val display = { letter: String ->
+        if (session.shiftState == SearchInputShiftState.OFF) letter else letter.uppercase()
+      }
+      return listOf(
+          listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p").map { key("letter:$it", display(it)) },
+          listOf("a", "s", "d", "f", "g", "h", "j", "k", "l").map { key("letter:$it", display(it)) },
+          listOf(key(KEY_SHIFT, if (session.shiftState == SearchInputShiftState.CAPS_LOCK) "⇧" else "Shift")) +
+              listOf("z", "x", "c", "v", "b", "n", "m").map { key("letter:$it", display(it)) } +
+              listOf(key(KEY_SYMBOLS, "?123")),
+          listOf(
+              key(KEY_LANGUAGE, if (session.language == SearchInputLanguage.CHINESE) "中/英" else "英/中"),
+              key(KEY_COMMA, ","),
+              key(KEY_PERIOD, "."),
+              key(KEY_SPACE, "空格"),
+              key(KEY_EXCLAMATION, "!"),
+              key(KEY_QUESTION, "?"),
+              key(KEY_APOSTROPHE, "'"),
+          ),
+      )
+    }
+
+    private fun operatorFor(keyId: String): String =
+        when (keyId) {
+          "operator:plus" -> "+"
+          "operator:minus" -> "-"
+          "operator:multiply" -> "*"
+          "operator:divide" -> "/"
+          "operator:equals" -> "="
+          else -> ""
+        }
+
+    private fun key(id: String, label: String, hint: String = "") =
+        SearchInputKey(id, label, hint, SearchInputAction.PressKey(id, 0L))
   }
 }
 
-/**
- * Bundled, offline candidates for the first-party Chinese board. Product-specific language packs
- * can replace this lexicon with a larger, frequency-ranked dictionary without changing the input
- * board or search workflow.
- */
+/** Bundled, offline, frequency-ordered candidates for the Chinese board. */
 class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
   fun warmUp() {
     reverseIndex
   }
 
   override fun candidatesFor(composition: String): List<SearchInputCandidate> {
-    val normalized = composition.lowercase(Locale.ROOT).filter { it in 'a'..'z' || it == 'v' }
+    val normalized = normalizeComposition(composition)
     if (normalized.isBlank()) return emptyList()
+    val noSeparators = normalized.filterNot { it == '\'' }
+    if (noSeparators.isBlank()) return emptyList()
 
     val phrases =
-        PHRASES.filterKeys { it.startsWith(normalized) }
-            .flatMap { it.value }
-    if (phrases.isNotEmpty()) return phrases.distinct().take(MAX_CANDIDATES).map(::SearchInputCandidate)
-
-    return candidateSequences(normalized).map(::SearchInputCandidate).take(MAX_CANDIDATES)
+        PHRASES.entries
+            .filter { noSeparators.startsWith(it.key) }
+            .flatMap { entry ->
+              entry.value.map { value ->
+                SearchInputCandidate(
+                    value = value,
+                    consumedCompositionLength = sourceLengthForLetters(normalized, entry.key.length),
+                )
+              }
+            }
+    val phraseCandidates = phrases.distinctBy { it.value to it.consumedCompositionLength }
+    val singleCandidates = singleCharacterCandidatesFor(normalized)
+    return (phraseCandidates + singleCandidates)
+        .distinctBy { it.value to it.consumedCompositionLength }
+        .take(MAX_CANDIDATES)
   }
 
   override fun singleCharacterCandidatesFor(composition: String): List<SearchInputCandidate> {
-    val normalized = composition.lowercase(Locale.ROOT).filter { it in 'a'..'z' || it == 'v' }
-    if (normalized.isBlank()) return emptyList()
-    val syllables = segmentPreferred(normalized, 0).firstOrNull().orEmpty()
-    val exactCharacters = syllables.flatMap { syllable -> PREFERRED_CHARACTERS[syllable].orEmpty() }
+    val normalized = normalizeComposition(composition)
+    val noSeparators = normalized.filterNot { it == '\'' }
+    if (noSeparators.isBlank()) return emptyList()
+    val syllable = segmentPreferred(noSeparators, 0).firstOrNull()?.firstOrNull()
+    val exactCharacters =
+        (syllable?.let { PREFERRED_CHARACTERS[it].orEmpty() }.orEmpty() +
+                reverseCharactersFor(syllable.orEmpty()))
+            .distinct()
     val prefixCharacters =
-        PREFERRED_CHARACTERS
-            .filterKeys { it.startsWith(normalized) }
+        (PREFERRED_CHARACTERS
+            .filterKeys { it.startsWith(noSeparators) }
             .values
-            .flatten()
+            .flatten() +
+            reversePrefixCharacters(noSeparators))
+            .distinct()
+    val consumed = sourceLengthForLetters(normalized, syllable?.length ?: 1)
     return (exactCharacters + prefixCharacters)
         .distinct()
         .take(MAX_CANDIDATES)
-        .map(::SearchInputCandidate)
+        .map { SearchInputCandidate(it, consumedCompositionLength = consumed) }
   }
 
-  private fun candidateSequences(composition: String): List<String> {
-    val segments = segment(composition, 0).take(MAX_SEGMENTATIONS)
-    return buildList {
-      for (segment in segments) {
-        var combinations = listOf("")
-        for (syllable in segment) {
-          val characters = charactersFor(syllable).take(CHARACTERS_PER_SYLLABLE)
-          if (characters.isEmpty()) {
-            combinations = emptyList()
-            break
-          }
-          combinations =
-              combinations.flatMap { prefix -> characters.map { character -> prefix + character } }
-                  .take(MAX_CANDIDATES)
-        }
-        addAll(combinations)
-      }
-    }.distinct()
-  }
+  private fun reverseCharactersFor(syllable: String): List<String> =
+      runCatching { reverseIndex[syllable].orEmpty() }.getOrDefault(emptyList())
 
-  private fun segment(composition: String, start: Int): List<List<String>> {
-    if (start == composition.length) return listOf(emptyList())
-    val result = mutableListOf<List<String>>()
-    val maxEnd = minOf(composition.length, start + MAX_SYLLABLE_LENGTH)
-    for (end in maxEnd downTo start + 1) {
-      val syllable = composition.substring(start, end)
-      if (charactersFor(syllable).isEmpty()) continue
-      for (tail in segment(composition, end)) {
-        result += listOf(syllable) + tail
-        if (result.size >= MAX_SEGMENTATIONS) return result
-      }
+  private fun reversePrefixCharacters(prefix: String): List<String> =
+      runCatching {
+        reverseIndex
+            .filterKeys { it.startsWith(prefix) }
+            .values
+            .flatten()
+      }.getOrDefault(emptyList())
+
+  private fun sourceLengthForLetters(source: String, letterCount: Int): Int {
+    if (letterCount <= 0) return 0
+    var letters = 0
+    source.forEachIndexed { index, character ->
+      if (character != '\'') letters++
+      if (letters == letterCount) return index + 1
     }
-    return result
+    return source.length
   }
 
   private fun segmentPreferred(composition: String, start: Int): List<List<String>> {
@@ -310,9 +472,6 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
     }
     return result
   }
-
-  private fun charactersFor(syllable: String): List<String> =
-      (PREFERRED_CHARACTERS[syllable].orEmpty() + reverseIndex[syllable].orEmpty()).distinct()
 
   private val reverseIndex: Map<String, List<String>> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
     val hanToLatin = Transliterator.getInstance("Han-Latin")
@@ -332,7 +491,6 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
     private const val MAX_CANDIDATES = 8
     private const val MAX_SEGMENTATIONS = 4
     private const val MAX_SYLLABLE_LENGTH = 6
-    private const val CHARACTERS_PER_SYLLABLE = 3
     private val CJK_UNIFIED_IDEOGRAPHS = 0x4E00..0x9FFF
 
     private val PHRASES =
@@ -347,6 +505,8 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
             "sousuo" to listOf("搜索"),
             "nihao" to listOf("你好"),
             "zhongguo" to listOf("中国"),
+            "xian" to listOf("西安"),
+            "changan" to listOf("长安"),
             "yule" to listOf("娱乐"),
             "wudao" to listOf("舞蹈"),
             "guichu" to listOf("鬼畜"),
@@ -359,7 +519,6 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
             "shishang" to listOf("时尚"),
             "meishi" to listOf("美食"),
             "yingshi" to listOf("影视"),
-            "youxi" to listOf("游戏"),
         )
 
     private val PREFERRED_CHARACTERS =
@@ -397,6 +556,19 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
             "zhi" to listOf("知", "之", "只"),
             "xun" to listOf("讯", "寻", "训"),
             "mei" to listOf("美", "没", "每"),
+            "an" to listOf("安", "按", "暗"),
+            "chang" to listOf("长", "常", "场"),
         )
   }
 }
+
+private fun normalizeComposition(value: String): String {
+  val filtered =
+      value.lowercase(Locale.ROOT).filter { it in 'a'..'z' || it == '\'' }
+  return filtered.replace(Regex("'{2,}"), "'").trimStart('\'')
+}
+
+private fun canonicalComposition(value: String): String = normalizeComposition(value).trimEnd('\'')
+
+private fun String.dropLastCodePoint(): String =
+    if (isEmpty()) this else substring(0, offsetByCodePoints(length, -1))

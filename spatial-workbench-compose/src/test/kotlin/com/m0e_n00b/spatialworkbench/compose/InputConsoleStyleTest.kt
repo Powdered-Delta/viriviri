@@ -18,16 +18,19 @@ class InputConsoleStyleTest {
     assertNotEquals(dark.alphabetKey.background, light.alphabetKey.background)
     val expectedSurfaceAlpha = (CinemaPalette.DARK.surfaceOpacity * 255f).roundToInt() / 255f
     assertEquals(expectedSurfaceAlpha, dark.shell.background.alpha, 0f)
-    assertTrue(dark.candidateStripHeight.value > 0f)
+    assertTrue(dark.skin.candidateStripHeight.value > 0f)
   }
 
   @Test
-  fun geometryTokensRemainStableForEmptyAndNonEmptyCandidates() {
-    val style = InputConsoleStyle.fromPalette(CinemaPalette.DARK)
+  fun gboardSkinOwnsStableConsoleGeometry() {
+    val skin = InputConsoleStyle.fromPalette(CinemaPalette.DARK).skin
 
-    assertEquals(20f, style.compositionHeight.value, 0.001f)
-    assertEquals(48f, style.candidateStripHeight.value, 0.001f)
-    assertEquals(180f, style.candidatePopupHeight.value, 0.001f)
+    assertEquals("gboard-qwerty-v1", skin.id)
+    assertEquals(20f, skin.compositionHeight.value, 0.001f)
+    assertEquals(48f, skin.candidateStripHeight.value, 0.001f)
+    assertTrue(skin.numberColumnWeight > 0f)
+    assertTrue(skin.mainColumnWeight > skin.numberColumnWeight)
+    assertTrue(skin.expandedCandidatesCoverBoard)
   }
 
   @Test
