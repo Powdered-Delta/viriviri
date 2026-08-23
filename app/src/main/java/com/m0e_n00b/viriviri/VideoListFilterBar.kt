@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.m0e_n00b.spatialworkbench.compose.WorkbenchPanelStyle
@@ -43,10 +44,10 @@ internal fun VideoListFilterBar(
     modifier: Modifier = Modifier,
 ) {
   val sorts = listOf(
-      VideoListFilterOption(VideoListSort.COMPREHENSIVE, "综合排序"),
-      VideoListFilterOption(VideoListSort.LATEST, "最新发布"),
-      VideoListFilterOption(VideoListSort.DANMAKU, "最多弹幕"),
-      VideoListFilterOption(VideoListSort.FAVORITES, "最多收藏"),
+      VideoListFilterOption(VideoListSort.COMPREHENSIVE, stringResource(R.string.list_sort_comprehensive)),
+      VideoListFilterOption(VideoListSort.LATEST, stringResource(R.string.list_sort_latest)),
+      VideoListFilterOption(VideoListSort.DANMAKU, stringResource(R.string.list_sort_danmaku)),
+      VideoListFilterOption(VideoListSort.FAVORITES, stringResource(R.string.list_sort_favorites)),
   )
   Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
     Row(
@@ -64,7 +65,7 @@ internal fun VideoListFilterBar(
         )
       }
       FilterButton(
-          label = "更多筛选",
+          label = stringResource(R.string.list_filter_more),
           selected = state.date != VideoListDateFilter.ANY || state.duration != VideoListDurationFilter.ANY,
           enabled = remoteFilteringAvailable,
           style = style,
@@ -73,14 +74,14 @@ internal fun VideoListFilterBar(
       IconButton(onClick = onTopOrRefresh) {
         Icon(
             imageVector = if (isAtTop) Icons.Default.Refresh else Icons.Default.ArrowUpward,
-            contentDescription = if (isAtTop) "刷新" else "回到顶部",
+            contentDescription = if (isAtTop) stringResource(R.string.list_refresh) else stringResource(R.string.list_to_top),
             tint = style.text,
         )
       }
       IconButton(onClick = onToggleLayout) {
         Icon(
             imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.ViewModule,
-            contentDescription = "切换列表布局",
+            contentDescription = stringResource(R.string.list_toggle_layout),
             tint = style.text,
         )
       }
@@ -91,18 +92,18 @@ internal fun VideoListFilterBar(
           horizontalArrangement = Arrangement.spacedBy(4.dp),
       ) {
         listOf(
-            VideoListFilterOption(VideoListDateFilter.ANY, "日期不限"),
-            VideoListFilterOption(VideoListDateFilter.TODAY, "今天"),
-            VideoListFilterOption(VideoListDateFilter.THIS_WEEK, "本周"),
-            VideoListFilterOption(VideoListDateFilter.THIS_MONTH, "本月"),
+            VideoListFilterOption(VideoListDateFilter.ANY, stringResource(R.string.list_date_any)),
+            VideoListFilterOption(VideoListDateFilter.TODAY, stringResource(R.string.list_date_today)),
+            VideoListFilterOption(VideoListDateFilter.THIS_WEEK, stringResource(R.string.list_date_week)),
+            VideoListFilterOption(VideoListDateFilter.THIS_MONTH, stringResource(R.string.list_date_month)),
         ).forEach { option ->
           FilterButton(option.label, state.date == option.value, remoteFilteringAvailable, style) { onDateChanged(option.value) }
         }
         listOf(
-            VideoListFilterOption(VideoListDurationFilter.ANY, "时长不限"),
-            VideoListFilterOption(VideoListDurationFilter.SHORT, "短片"),
-            VideoListFilterOption(VideoListDurationFilter.MEDIUM, "中等"),
-            VideoListFilterOption(VideoListDurationFilter.LONG, "长视频"),
+            VideoListFilterOption(VideoListDurationFilter.ANY, stringResource(R.string.list_duration_any)),
+            VideoListFilterOption(VideoListDurationFilter.SHORT, stringResource(R.string.list_duration_short)),
+            VideoListFilterOption(VideoListDurationFilter.MEDIUM, stringResource(R.string.list_duration_medium)),
+            VideoListFilterOption(VideoListDurationFilter.LONG, stringResource(R.string.list_duration_long)),
         ).forEach { option ->
           FilterButton(option.label, state.duration == option.value, remoteFilteringAvailable, style) { onDurationChanged(option.value) }
         }

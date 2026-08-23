@@ -1,4 +1,83 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string name="spatialized_audio_panel">spatialized_audio_panel</string>
+<resources>
+  <string name="nav_brand">ViriViri</string>
+  <string name="nav_home">主页</string>
+  <string name="volume_default">100%</string>
+  <string name="quality_auto">Auto</string>
+  <string name="speed_default">1x</string>
+  <string name="time_unknown">--:--</string>
+  <string name="nav_search">搜索</string>
+  <string name="nav_account">账户</string>
+  <string name="nav_settings">设置</string>
+  <string name="nav_video_list">视频列表</string>
+  <string name="nav_back">返回</string>
+  <string name="nav_profile">个人资料</string>
+  <string name="nav_mr">MR</string>
+  <string name="nav_2d">进入 2D</string>
+  <string name="nav_danmaku">弹幕</string>
+  <string name="nav_battery">电量</string>
+
+  <string name="detail_no_video">未选择视频</string>
+  <string name="detail_browse_choose">浏览以选择视频</string>
+  <string name="retry">重试</string>
+  <string name="display_ratio_auto">显示比例: 自动</string>
+  <string name="canvas_size_standard_label">画布大小: 标准</string>
+  <string name="open_2d">打开 2D 窗口</string>
+  <string name="detail_no_metrics">暂无播放数据</string>
+  <string name="detail_views">播放 %1$s</string>
+  <string name="detail_unknown_author">未知作者</string>
+  <string name="detail_author_unavailable">作者投稿入口暂不可用</string>
+  <string name="detail_no_description">暂无视频简介</string>
+  <string name="detail_like_unavailable">点赞暂不可用</string>
+  <string name="detail_coin_unavailable">投币暂不可用</string>
+  <string name="detail_favorite_unavailable">收藏暂不可用</string>
+  <string name="detail_comments">评论</string>
+  <string name="comments_unavailable">评论服务尚未接入</string>
+  <string name="comments_write_unavailable">回复、点赞和点踩需要登录与已验证的服务接口。</string>
+  <string name="comments_reply_unavailable">回复暂不可用</string>
+  <string name="comments_dislike_unavailable">点踩暂不可用</string>
+  <string name="comments_like_unavailable">点赞暂不可用</string>
+
+  <string name="list_sort_comprehensive">综合排序</string>
+  <string name="list_sort_latest">最新发布</string>
+  <string name="list_sort_danmaku">最多弹幕</string>
+  <string name="list_sort_favorites">最多收藏</string>
+  <string name="list_filter_more">更多筛选</string>
+  <string name="list_date_any">日期不限</string>
+  <string name="list_date_today">今天</string>
+  <string name="list_date_week">本周</string>
+  <string name="list_date_month">本月</string>
+  <string name="list_duration_any">时长不限</string>
+  <string name="list_duration_short">短片</string>
+  <string name="list_duration_medium">中等</string>
+  <string name="list_duration_long">长视频</string>
+  <string name="list_toggle_layout">切换列表布局</string>
+  <string name="list_refresh">刷新</string>
+  <string name="list_to_top">回到顶部</string>
+  <string name="list_searching">正在搜索</string>
+  <string name="list_loading_recommendations">正在加载推荐</string>
+  <string name="viewer_selected_video">已选择视频</string>
+  <string name="viewer_back_recommendations">返回推荐</string>
+  <string name="list_no_image">暂无图片</string>
+  <string name="list_no_results">没有找到匹配视频</string>
+  <string name="list_no_recommendations">暂无推荐视频</string>
+  <string name="list_loading">加载中</string>
+  <string name="list_loading_more">加载更多</string>
+  <string name="list_no_more">没有更多视频</string>
+
+  <string name="search_label">搜索词</string>
+  <string name="search_voice">语音输入</string>
+  <string name="search_system_ime">系统输入法</string>
+  <string name="search_delete">删除</string>
+  <string name="search_collapse">收起</string>
+  <string name="search_clear_input">清空输入</string>
+  <string name="search_submit">确定搜索</string>
+  <string name="search_phrase">词组</string>
+  <string name="search_single_character">单字</string>
+  <string name="search_keyboard_preview">应用键盘预览</string>
+
+  <string name="canvas_size_label">画布大小: %1$s</string>
+  <string name="display_ratio_label">显示比例: %1$s</string>
+  <string name="canvas_size_compact">紧凑</string>
+  <string name="canvas_size_standard">标准</string>
+  <string name="canvas_size_large">宽大</string>
 </resources>

@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,7 +63,7 @@ fun GlobalNavigation(isMrModeDefault: Boolean) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
       NavigationTextButton(
-          label = "ViriViri",
+          label = stringResource(R.string.nav_brand),
           onClick = {
             SpatialActivityManager.executeOnVrActivity<SpatialVideoSampleActivity> { it.openHomeCanvas() }
           },
@@ -71,13 +72,13 @@ fun GlobalNavigation(isMrModeDefault: Boolean) {
       IconButton(onClick = {
         SpatialActivityManager.executeOnVrActivity<SpatialVideoSampleActivity> { it.openSearchCanvas() }
       }) {
-        Icon(Icons.Default.Search, contentDescription = "搜索", tint = navigationContent)
+        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.nav_search), tint = navigationContent)
       }
       IconButton(onClick = {}, enabled = false) {
-        Icon(Icons.Default.AccountCircle, contentDescription = "账户暂不可用", tint = navigationContent.copy(alpha = 0.42f))
+        Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.nav_account) + "暂不可用", tint = navigationContent.copy(alpha = 0.42f))
       }
       IconButton(onClick = {}, enabled = false) {
-        Icon(Icons.Default.Settings, contentDescription = "设置暂不可用", tint = navigationContent.copy(alpha = 0.42f))
+        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.nav_settings) + "暂不可用", tint = navigationContent.copy(alpha = 0.42f))
       }
       Switch(checked = isMrMode, onCheckedChange = { enabled ->
         setMrMode(enabled)
@@ -121,16 +122,16 @@ private fun ContentNavigationSlot(
       CenterContentMode.PLAYBACK -> NavigationTextButton("视频列表", onOpenVideoList)
       CenterContentMode.VIDEO_LIST -> {
         IconButton(onClick = onBack) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = navigationContent)
+          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back), tint = navigationContent)
         }
-        NavigationTextButton("视频列表", onOpenVideoList, selected = true)
+        NavigationTextButton(stringResource(R.string.nav_video_list), onOpenVideoList, selected = true)
       }
       CenterContentMode.SEARCH -> {
         IconButton(onClick = onOpenSearch) {
-          Icon(Icons.Default.Search, contentDescription = "搜索", tint = navigationContent)
+          Icon(Icons.Default.Search, contentDescription = stringResource(R.string.nav_search), tint = navigationContent)
         }
         Text(
-            text = query.ifBlank { "搜索" },
+            text = query.ifBlank { stringResource(R.string.nav_search) },
             color = navigationContent,
             fontSize = 11.sp,
             maxLines = 1,
@@ -138,7 +139,7 @@ private fun ContentNavigationSlot(
             modifier = Modifier.width(180.dp).padding(horizontal = 6.dp),
         )
         IconButton(onClick = onBack) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = navigationContent)
+          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back), tint = navigationContent)
         }
       }
     }

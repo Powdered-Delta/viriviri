@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.viewinterop.AndroidView
@@ -321,7 +322,7 @@ internal fun VideoListPanel(
   when {
     state.isLoading ->
         Text(
-            if (state.isShowingSearchResults) "Searching Bilibili..." else "Loading recommendations...",
+            if (state.isShowingSearchResults) stringResource(R.string.list_searching) else stringResource(R.string.list_loading_recommendations),
             color = style.text,
             modifier = modifier,
         )
@@ -329,7 +330,7 @@ internal fun VideoListPanel(
         Text(state.error, color = palette.composeColor(CinemaColorRole.DANGER), modifier = modifier)
     state.recommendations.isEmpty() ->
         Text(
-            if (state.isShowingSearchResults) "No matching videos found." else "No recommendations are available.",
+            if (state.isShowingSearchResults) stringResource(R.string.list_no_results) else stringResource(R.string.list_no_recommendations),
             color = style.text,
             modifier = modifier,
         )
@@ -378,7 +379,7 @@ private fun PaginationStatus(state: ViriViriUiState, palette: CinemaPalette) {
   when {
     state.isLoadingNextPage ->
         Text(
-            "Loading more...",
+            stringResource(R.string.list_loading_more),
             color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT),
             modifier = Modifier.padding(8.dp),
         )
@@ -390,7 +391,7 @@ private fun PaginationStatus(state: ViriViriUiState, palette: CinemaPalette) {
         )
     !state.canLoadMore ->
         Text(
-            "No more videos",
+            stringResource(R.string.list_no_more),
             color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT),
             modifier = Modifier.padding(8.dp),
         )
@@ -494,9 +495,9 @@ private fun RecommendationThumbnailContent(state: ThumbnailState?, palette: Cine
         modifier = Modifier.fillMaxSize(),
     )
     ThumbnailState.Loading ->
-        Text("Loading", color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT))
+        Text(stringResource(R.string.list_loading), color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT))
     ThumbnailState.Failed, null ->
-        Text("No image", color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT))
+        Text(stringResource(R.string.list_no_image), color = palette.composeColor(CinemaColorRole.SECONDARY_TEXT))
   }
 }
 

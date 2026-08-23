@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
@@ -53,7 +54,7 @@ fun SearchQueryField(
     value: String,
     onValueChange: (String) -> Unit,
     onRequestSystemKeyboard: () -> Unit = {},
-    label: String = "搜索词",
+    label: String? = null,
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
     onRequestVoice: () -> Unit = {},
@@ -65,7 +66,7 @@ fun SearchQueryField(
       value = value,
       onValueChange = onValueChange,
       modifier = modifier.focusRequester(resolvedFocusRequester),
-      label = { Text(label) },
+      label = { Text(label ?: stringResource(R.string.search_label)) },
       colors =
           TextFieldDefaults.outlinedTextFieldColors(
               textColor = style.compositionText,
@@ -83,7 +84,7 @@ fun SearchQueryField(
       trailingIcon = {
         Row {
           IconButton(onClick = onRequestVoice) {
-            Icon(Icons.Default.Mic, contentDescription = "语音输入", tint = style.secondaryText)
+            Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.search_voice), tint = style.secondaryText)
           }
           SystemImeActionButton(
               onClick = {
@@ -201,10 +202,12 @@ fun SearchInputMethodBoard(
 fun SystemImeActionButton(
     onClick: () -> Unit,
     tint: Color,
-    contentDescription: String = "系统输入法",
+    contentDescription: String? = null,
 ) {
+  val resolvedContentDescription = contentDescription ?: stringResource(R.string.search_system_ime)
+
   IconButton(onClick = onClick) {
-    Icon(Icons.Default.Keyboard, contentDescription = contentDescription, tint = tint)
+    Icon(Icons.Default.Keyboard, contentDescription = resolvedContentDescription, tint = tint)
   }
 }
 @Composable
@@ -225,10 +228,10 @@ fun SearchActions(
       verticalAlignment = Alignment.CenterVertically,
   ) {
     IconButton(onClick = onBackspace) {
-      Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = "删除", tint = style.secondaryText)
+      Icon(Icons.AutoMirrored.Filled.Backspace, contentDescription = stringResource(R.string.search_delete), tint = style.secondaryText)
     }
     IconButton(onClick = onVoice) {
-      Icon(Icons.Default.Mic, contentDescription = "语音输入", tint = style.secondaryText)
+      Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.search_voice), tint = style.secondaryText)
     }
     SystemImeActionButton(
         onClick = {
@@ -237,7 +240,7 @@ fun SearchActions(
         },
         tint = style.secondaryText,
     )
-    IconButton(onClick = onDismiss) { Text("收起", color = style.secondaryText) }
+    IconButton(onClick = onDismiss) { Text(stringResource(R.string.search_collapse), color = style.secondaryText) }
     Button(
         onClick = onClear,
         modifier = Modifier.weight(1f),
@@ -247,7 +250,7 @@ fun SearchActions(
                 contentColor = style.actionKey.content,
             ),
     ) {
-      Text("清空输入")
+      Text(stringResource(R.string.search_clear_input))
     }
     Button(
         onClick = onSearch,
@@ -258,7 +261,7 @@ fun SearchActions(
                 contentColor = style.alphabetKey.content,
             ),
     ) {
-      Text("确定搜索")
+      Text(stringResource(R.string.search_submit))
     }
   }
 }

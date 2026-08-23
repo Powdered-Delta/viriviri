@@ -1,0 +1,14 @@
+<resources>
+  <string name="search_label">搜索词</string>
+  <string name="search_voice">语音输入</string>
+  <string name="search_system_ime">系统输入法</string>
+  <string name="search_delete">删除</string>
+  <string name="search_collapse">收起</string>
+  <string name="search_clear_input">清空输入</string>
+  <string name="search_submit">确定搜索</string>
+  <string name="search_phrase">词组</string>
+  <string name="search_single_character">单字</string>
+  <string name="search_keyboard_preview">应用键盘预览</string>
+  <string name="common_dismiss">关闭</string>
+  <string name="common_collapse">收起</string>
+</resources>
