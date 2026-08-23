@@ -68,8 +68,6 @@
   <string name="search_collapse">Collapse</string>
   <string name="search_clear_input">Clear input</string>
   <string name="search_submit">Search</string>
-  <string name="search_phrase">Phrase</string>
-  <string name="search_single_character">Character</string>
   <string name="search_keyboard_preview">Application keyboard preview</string>
   <string name="canvas_size_label">Canvas size: %1$s</string>
   <string name="display_ratio_label">Display ratio: %1$s</string>

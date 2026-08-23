@@ -61,6 +61,66 @@ Search 仍然是当前 canvas 内的 center workspace route，左右 Detail / Co
 
 数字区的运算键使用稳定的 action id：`plus`、`minus`、`multiply`、`divide`、`equals`。显示字符和提交字符必须由同一个键定义生成，避免 UI label 与实际输入不一致。
 
+## Search 路由与中心容器
+
+Search 是中心容器的独立 route，不是推荐视频列表上方附加的输入面板。
+
+```kotlin
+enum class CenterContentRoute {
+  RECOMMENDATIONS,
+  SEARCH_EMPTY,
+  SEARCH_RESULTS,
+}
+```
+
+进入 Search 后：
+
+```text
+CenterContainer
+├── SearchHeader
+│   ├── search label
+│   ├── query input
+│   ├── system IME
+│   ├── voice
+│   └── back
+└── SearchEmptyContent
+    ├── SearchHistorySection
+    └── SearchRecommendationSection
+```
+
+`SEARCH_EMPTY` 状态绝不渲染推荐视频 list、搜索结果 list 或视频分页。原本 video list 占用的中心区域由搜索历史和搜索推荐关键词接管。
+
+确认搜索后必须一次性完成：
+
+```text
+1. 固化 committed query
+2. 清空 composition
+3. 清空 candidates
+4. candidateExpanded = false
+5. keyboardVisible = false
+6. center route = SEARCH_RESULTS
+7. 发起搜索结果请求
+```
+
+结果状态结构：
+
+```text
+CenterContainer
+├── SearchResultsHeader
+└── SearchResultList
+```
+
+搜索结果 list 只在 `SEARCH_RESULTS` route 渲染。输入法收起后不得与结果 list 同时抢占中心区域。`CommitComposition` 在 composition 非空时只上屏首选候选，不触发搜索；composition 为空时才执行 SearchSubmit。
+
+返回行为：
+
+```text
+SEARCH_RESULTS -> SEARCH_EMPTY
+SEARCH_EMPTY   -> RECOMMENDATIONS
+```
+
+Search header 和 VideoList header 均属于 CenterContainer 的 header，不创建独立 panel；左右 rail 不随 Search route 替换。
+
 ## Input Console Skin Contract
 
 输入台采用类似传统输入法皮肤文件的三层拆分，但第一阶段只使用 Kotlin descriptor，不加载图片、动画、音效或外部二进制皮肤包：
@@ -72,6 +132,36 @@ Input style     -> palette-derived colors / key visual roles / disabled treatmen
 Compose         -> renders method + skin + style, emits callbacks only
 ```
 
+输入法 overlay 的实现边界：
+
+```text
+InputMethodOverlayRoot                  // 一个透明整体容器
+├── NumberPanel                         // 视觉独立 panel
+├── KeyboardPanel                       // 视觉独立 panel
+└── OptionsPanel                        // 视觉独立 panel
+```
+
+三块区域需要有独立的视觉边界、背景、间距、圆角和 hit-test 区域，但不创建三个独立的 Spatial panel：
+
+- `InputMethodOverlayRoot` 是唯一的 Compose/overlay 宿主，负责整体 anchor、层级、显隐和尺寸。
+- `NumberPanel`、`KeyboardPanel`、`OptionsPanel` 是 root 内的普通 Compose 子布局，只接收 skin geometry、style 和 key callbacks。
+- 三块 panel 共享同一个透明 root 的生命周期，不拥有独立的 Activity、Spatial Entity、Surface 或 player。
+- 候选展开层属于 `KeyboardPanel` 的内部 overlay，只覆盖主键区，不越过 `InputMethodOverlayRoot` 的边界。
+- root 的整体背景保持透明；三块视觉 panel 的背景和边框由 `InputConsoleSkin` / `InputConsoleStyle` 提供。
+- 左右 rail、Transport 和 Search body 不感知三块子 panel 的实现，只感知 `InputMethodOverlayRoot` 的可见状态和 host callbacks。
+
+```text
+WorkbenchHost
+├── LeftRail
+├── CenterContainer
+│   ├── SearchHeader
+│   ├── SearchEmptyContent / SearchResultList
+│   └── InputMethodOverlayRoot (唯一 overlay 宿主)
+│       ├── NumberPanel
+│       ├── KeyboardPanel
+│       └── OptionsPanel
+└── RightRail
+```
 `InputConsoleSkin` 是资源无关的布局文件模型，当前默认 `gboard-qwerty-v1` 必须集中定义：
 
 - 数字区、主键区、操作区的列权重。
@@ -81,7 +171,20 @@ Compose         -> renders method + skin + style, emits callbacks only
 
 它不能包含 Activity、Spatial 对象、播放器、Surface、网络、词库或业务 callback。`InputConsoleStyle` 继续从 `CinemaPalette` 解析颜色；将来导入 JSON/XML 皮肤时，只新增 parser/adaptor，不能把布局常量重新散落回 Compose。
 
-候选折叠态固定占用组合栏高度：
+符号层采用与横屏 26 键主键区一致的几何区域，但不复制左侧数字区：
+
+```text
+┌───────────────┬───────────────────────────────────────┬────────────┐
+│ 数字/运算区    │              符号主键区               │ 操作区      │
+│ 1 2 3          │ @  #  $  %  &  *  (  )  -  _         │ Backspace  │
+│ 4 5 6          │ +  =  /  \\  :  ;  ~  [  ]  {         │ Voice      │
+│ 7 8 9          │ }  <  >  "  `  ^  |  …  「  」        │ Enter      │
+│ 0 + - × / =    │ ABC  中/英  ,  .  Space  !  ?  '      │ Hide       │
+└───────────────┴───────────────────────────────────────┴────────────┘
+```
+
+左侧数字/运算区在字母层和符号层完全复用，不属于符号层候选。符号层不追求“纯凑够 26 个字符”；26 指主键区的几何容量，实际符号集合以常用性为准，空余位置可以放 `ABC`、`中/英`、空格等功能键或保持不可用。
+
 
 ```text
 +---------------------------------------------------------------------+
@@ -197,7 +300,11 @@ Search workspace 单独管理：
    - 切回中文清空未提交 composition，但保留 committed text。
    - 第一阶段不做英文预测。
 3. 实现 Shift：单次临时大写，英文模式直接输入大写字母；中文模式只影响英文/符号键显示，不改变 Pinyin 规范化结果。
-4. 实现 symbol layer 和数字/运算 action。
+4. 实现符号层和数字/运算区 action：
+   - 左侧数字/运算区独立存在，在字母层和符号层复用。
+   - 中间符号层只放非数字符号，如标点、括号、运算符、引号和常见特殊字符。
+   - 不为了填满主键区重复 `0-9`。
+   - 符号全部通过点击提交，不实现上划、下划、长按或滑动切页。
 5. 实现分词符 `'`：
    - 只允许用于 composition 内部切分。
    - 开头、结尾和连续分隔符按确定性规则清理。
@@ -213,16 +320,27 @@ Search workspace 单独管理：
 
 ### Phase 3：离线词库与候选排序
 
+候选逻辑不再提供“单字 / 词组”切换，也不允许 UI 驱动候选模式。所有候选统一由连续 composition 生成：
+
+```text
+woshi -> 我是、我时、我事...
+nishi -> 你是、你时、你事...
+nihao -> 你好...
+```
+
 1. 复用并整理现有 `DefaultOfflinePinyinLexicon` 的本地能力，不引入远程翻译或搜索服务参与 composition。
-2. 统一 Pinyin 规范化：小写、合法分隔符、无效字符过滤和分词归一化。
-3. 候选生成顺序：
-   - 完整短语优先。
-   - 常用词组优先于单字。
-   - 单字候选排在词组候选之后。
-   - 候选结果去重并限制数量。
-   - 不完整 Pinyin 前缀也必须有稳定候选。
-4. 明确多音字、分词和未消费 composition 的行为，并用固定 lexicon 测试验证。
-5. 词库接口保持纯 Kotlin，允许测试注入静态 lexicon。
+2. `OfflinePinyinLexicon` 只暴露 `candidatesFor(composition)`；删除单字候选接口、候选模式枚举和 `SetCandidateMode` action。
+3. 统一 Pinyin 规范化：小写、合法分隔符、无效字符过滤和分词归一化。
+4. 候选生成顺序：
+   - 显式完整短语优先。
+   - 对连续 Pinyin 做本地分段。
+   - 每个分段生成字符候选并组合成连续词组候选。
+   - 完整连续组合优先于单字符退化候选。
+   - 候选结果去重、限制数量并携带实际消费的 composition 长度。
+   - 不完整 Pinyin 前缀也必须保留稳定候选。
+5. `woshi`、`nishi` 必须有连续候选，不能退化成需要用户逐字选择的交互。
+6. 明确多音字、分词和未消费 composition 的行为，并用固定 lexicon 测试验证。
+7. 词库接口保持纯 Kotlin，允许测试注入静态 lexicon。
 
 ### Phase 4：Search workspace 状态和路由接入
 
@@ -285,8 +403,10 @@ Search workspace 单独管理：
 - 代码中不再存在 T9 默认实现、T9 Registry 注册和 T9 测试。
 - 26 键 QWERTY 是唯一默认输入法。
 - `nihao`、`xi'an`、`chang'an` 能稳定生成候选。
-- 候选选择不会丢失未消费 composition。
-- 中文/英文、Shift、symbol、Backspace 和 Enter 语义可由 JVM 测试覆盖。
+- 不再存在“单字 / 词组”切换 UI、状态、action 或词库接口。
+- `woshi` 可以生成连续候选 `我是`，不需要先选择 `我` 再选择 `是`。
+- `nishi` 可以生成至少一个连续候选，例如 `你是`。
+
 - 词库转换完全离线，不依赖网络。
 
 ### 搜索界面
@@ -294,6 +414,8 @@ Search workspace 单独管理：
 - Search 仍是当前 canvas 的 workspace route。
 - 输入台位于 MediaStage 下部、Transport 之前。
 - 数字/运算区、主键区、操作区三栏稳定布局。
+- 符号层与数字/运算区分离，不能重复渲染数字。
+- 三块视觉 panel 由一个透明 `InputMethodOverlayRoot` 承载，不创建三个独立 Spatial panel。
 - 布局几何由 `InputConsoleSkin` 集中配置；视觉颜色仍由 `InputConsoleStyle` / `CinemaPalette` 提供，不依赖图片或音效资源。
 - 折叠候选单行显示并有固定展开按钮。
 - 展开候选覆盖主键区并可滚动，不增加外框高度。

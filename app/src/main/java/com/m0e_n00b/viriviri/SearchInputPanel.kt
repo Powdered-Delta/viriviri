@@ -2,13 +2,11 @@ package com.m0e_n00b.viriviri
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsole
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsoleActions
 import com.m0e_n00b.spatialworkbench.compose.DefaultInputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.InputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateItem
-import com.m0e_n00b.spatialworkbench.compose.SearchCandidateModeItem
 import com.m0e_n00b.spatialworkbench.compose.SearchKeyItem
 
 @Composable
@@ -56,12 +54,6 @@ internal fun SearchInputPanel(
   CinemaInputConsole(
       query = session.committedText,
       composition = session.composition,
-      candidateModes =
-          listOf(
-              SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, stringResource(R.string.search_phrase)),
-              SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, stringResource(R.string.search_single_character)),
-          ),
-      selectedCandidateModeId = session.candidateMode.name,
       candidates =
           session.candidates.mapIndexed { index, candidate ->
             SearchCandidateItem("candidate-$index", candidate.label)
@@ -77,11 +69,6 @@ internal fun SearchInputPanel(
       actionKeys = layout.actionKeys.map { key -> SearchKeyItem(key.id, key.label, key.hint) },
       candidateExpanded = candidateExpanded,
       onQueryChanged = onSystemTextChanged,
-      onSelectCandidateMode = { mode ->
-        onInputAction(
-            SearchInputAction.SetCandidateMode(SearchCandidateMode.valueOf(mode.id))
-        )
-      },
       onSelectCandidate = { candidate ->
         candidateValues[candidate.id]?.let { onInputAction(SearchInputAction.SelectCandidate(it)) }
       },

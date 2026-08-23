@@ -72,8 +72,6 @@
   <string name="search_expand_candidates">展开</string>
   <string name="search_clear_input">清空输入</string>
   <string name="search_submit">确定搜索</string>
-  <string name="search_phrase">词组</string>
-  <string name="search_single_character">单字</string>
   <string name="search_keyboard_preview">应用键盘预览</string>
 
   <string name="canvas_size_label">画布大小: %1$s</string>

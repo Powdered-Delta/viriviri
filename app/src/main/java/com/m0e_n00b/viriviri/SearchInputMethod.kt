@@ -26,17 +26,11 @@ data class SearchInputSession(
     val committedText: String = "",
     val composition: String = "",
     val candidates: List<SearchInputCandidate> = emptyList(),
-    val candidateMode: SearchCandidateMode = SearchCandidateMode.PHRASE,
     val language: SearchInputLanguage = SearchInputLanguage.CHINESE,
     val shiftState: SearchInputShiftState = SearchInputShiftState.OFF,
     val keyboardLayer: SearchInputKeyboardLayer = SearchInputKeyboardLayer.LETTERS,
     val engineData: Map<String, String> = emptyMap(),
 )
-
-enum class SearchCandidateMode {
-  SINGLE_CHARACTER,
-  PHRASE,
-}
 
 enum class SearchInputLanguage {
   CHINESE,
@@ -79,8 +73,6 @@ sealed interface SearchInputAction {
 
   data class SelectCandidate(val value: String) : SearchInputAction
 
-  data class SetCandidateMode(val mode: SearchCandidateMode) : SearchInputAction
-
   data object Backspace : SearchInputAction
 
   data object CommitComposition : SearchInputAction
@@ -115,9 +107,6 @@ object DefaultSearchInputMethods {
 
 interface OfflinePinyinLexicon {
   fun candidatesFor(composition: String): List<SearchInputCandidate>
-
-  fun singleCharacterCandidatesFor(composition: String): List<SearchInputCandidate> =
-      candidatesFor(composition).filter { it.value.codePointCount(0, it.value.length) == 1 }
 }
 
 /** Pure Kotlin QWERTY Pinyin input method with an offline candidate source. */
@@ -149,7 +138,6 @@ class ChinesePinyinQwertyInputMethod(
       committedText: String,
   ): SearchInputSession =
       initialSession(committedText).copy(
-          candidateMode = session.candidateMode,
           language = session.language,
       )
 
@@ -157,11 +145,6 @@ class ChinesePinyinQwertyInputMethod(
       when (action) {
         is SearchInputAction.PressKey -> pressKey(session, action.keyId)
         is SearchInputAction.SelectCandidate -> commitCandidate(session, action.value)
-        is SearchInputAction.SetCandidateMode ->
-            session.copy(
-                candidateMode = action.mode,
-                candidates = candidatesFor(session.composition, action.mode),
-            )
         SearchInputAction.Backspace -> backspace(session)
         SearchInputAction.CommitComposition -> commitComposition(session)
       }
@@ -198,7 +181,7 @@ class ChinesePinyinQwertyInputMethod(
     val nextComposition = normalizeComposition(session.composition + letter)
     return session.copy(
         composition = nextComposition,
-        candidates = candidatesFor(nextComposition, session.candidateMode),
+        candidates = candidatesFor(nextComposition),
         shiftState = nextShift,
     )
   }
@@ -265,8 +248,7 @@ class ChinesePinyinQwertyInputMethod(
     val remaining = session.composition.drop(consumedLength).let(::normalizeComposition)
     return initialSession(session.committedText + value).copy(
         composition = remaining,
-        candidates = candidatesFor(remaining, session.candidateMode),
-        candidateMode = session.candidateMode,
+        candidates = candidatesFor(remaining),
         language = session.language,
         shiftState = session.shiftState,
         keyboardLayer = session.keyboardLayer,
@@ -284,21 +266,15 @@ class ChinesePinyinQwertyInputMethod(
       val nextComposition = session.composition.dropLastCodePoint().trimEnd('\'')
       return session.copy(
           composition = nextComposition,
-          candidates = candidatesFor(nextComposition, session.candidateMode),
+          candidates = candidatesFor(nextComposition),
           engineData = emptyMap(),
       )
     }
     return session.copy(committedText = session.committedText.dropLastCodePoint())
   }
 
-  private fun candidatesFor(
-      composition: String,
-      mode: SearchCandidateMode,
-  ): List<SearchInputCandidate> =
-      when (mode) {
-        SearchCandidateMode.SINGLE_CHARACTER -> lexicon.singleCharacterCandidatesFor(composition)
-        SearchCandidateMode.PHRASE -> lexicon.candidatesFor(composition)
-      }
+  private fun candidatesFor(composition: String): List<SearchInputCandidate> =
+      lexicon.candidatesFor(composition)
 
   companion object {
     private const val KEY_LANGUAGE = "language"
@@ -393,12 +369,12 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
   override fun candidatesFor(composition: String): List<SearchInputCandidate> {
     val normalized = normalizeComposition(composition)
     if (normalized.isBlank()) return emptyList()
-    val noSeparators = normalized.filterNot { it == '\'' }
-    if (noSeparators.isBlank()) return emptyList()
+    val compact = normalized.filterNot { it == '\'' }
+    if (compact.isBlank()) return emptyList()
 
-    val phrases =
+    val explicitPhraseCandidates =
         PHRASES.entries
-            .filter { noSeparators.startsWith(it.key) }
+            .filter { compact.startsWith(it.key) }
             .flatMap { entry ->
               entry.value.map { value ->
                 SearchInputCandidate(
@@ -407,46 +383,52 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
                 )
               }
             }
-    val phraseCandidates = phrases.distinctBy { it.value to it.consumedCompositionLength }
-    val singleCandidates = singleCharacterCandidatesFor(normalized)
-    return (phraseCandidates + singleCandidates)
+
+    val segmentedCandidates =
+        segment(compact, 0).flatMap { syllables ->
+          sequenceCandidates(syllables, normalized)
+        }
+
+    val prefixCandidates = prefixCandidates(normalized, compact)
+    return (explicitPhraseCandidates + segmentedCandidates + prefixCandidates)
         .distinctBy { it.value to it.consumedCompositionLength }
         .take(MAX_CANDIDATES)
   }
 
-  override fun singleCharacterCandidatesFor(composition: String): List<SearchInputCandidate> {
-    val normalized = normalizeComposition(composition)
-    val noSeparators = normalized.filterNot { it == '\'' }
-    if (noSeparators.isBlank()) return emptyList()
-    val syllable = segmentPreferred(noSeparators, 0).firstOrNull()?.firstOrNull()
-    val exactCharacters =
-        (syllable?.let { PREFERRED_CHARACTERS[it].orEmpty() }.orEmpty() +
-                reverseCharactersFor(syllable.orEmpty()))
-            .distinct()
-    val prefixCharacters =
-        (PREFERRED_CHARACTERS
-            .filterKeys { it.startsWith(noSeparators) }
-            .values
-            .flatten() +
-            reversePrefixCharacters(noSeparators))
-            .distinct()
-    val consumed = sourceLengthForLetters(normalized, syllable?.length ?: 1)
-    return (exactCharacters + prefixCharacters)
-        .distinct()
-        .take(MAX_CANDIDATES)
-        .map { SearchInputCandidate(it, consumedCompositionLength = consumed) }
+  private fun sequenceCandidates(
+      syllables: List<String>,
+      source: String,
+  ): List<SearchInputCandidate> {
+    var combinations = listOf("")
+    for (syllable in syllables) {
+      val characters = charactersFor(syllable).take(CHARACTERS_PER_SYLLABLE)
+      if (characters.isEmpty()) return emptyList()
+      combinations =
+          combinations
+              .flatMap { prefix -> characters.map { character -> prefix + character } }
+              .take(MAX_CANDIDATES)
+    }
+    val consumedLetters = syllables.sumOf(String::length)
+    val consumedLength = sourceLengthForLetters(source, consumedLetters)
+    return combinations.map { value ->
+      SearchInputCandidate(value = value, consumedCompositionLength = consumedLength)
+    }
   }
 
-  private fun reverseCharactersFor(syllable: String): List<String> =
-      runCatching { reverseIndex[syllable].orEmpty() }.getOrDefault(emptyList())
+  private fun prefixCandidates(source: String, compact: String): List<SearchInputCandidate> {
+    val prefixKeys =
+        (PREFERRED_CHARACTERS.keys + reverseIndex.keys)
+            .filter { it.startsWith(compact) || compact.startsWith(it) }
+            .sortedWith(compareBy<String> { kotlin.math.abs(it.length - compact.length) }.thenBy { it })
+    val key = prefixKeys.firstOrNull() ?: return emptyList()
+    val consumedLength = sourceLengthForLetters(source, key.length.coerceAtMost(compact.length))
+    return charactersFor(key).take(MAX_CANDIDATES).map { character ->
+      SearchInputCandidate(character, consumedCompositionLength = consumedLength)
+    }
+  }
 
-  private fun reversePrefixCharacters(prefix: String): List<String> =
-      runCatching {
-        reverseIndex
-            .filterKeys { it.startsWith(prefix) }
-            .values
-            .flatten()
-      }.getOrDefault(emptyList())
+  private fun charactersFor(syllable: String): List<String> =
+      (PREFERRED_CHARACTERS[syllable].orEmpty() + reverseIndex[syllable].orEmpty()).distinct()
 
   private fun sourceLengthForLetters(source: String, letterCount: Int): Int {
     if (letterCount <= 0) return 0
@@ -458,14 +440,14 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
     return source.length
   }
 
-  private fun segmentPreferred(composition: String, start: Int): List<List<String>> {
+  private fun segment(composition: String, start: Int): List<List<String>> {
     if (start == composition.length) return listOf(emptyList())
     val result = mutableListOf<List<String>>()
     val maxEnd = minOf(composition.length, start + MAX_SYLLABLE_LENGTH)
     for (end in maxEnd downTo start + 1) {
       val syllable = composition.substring(start, end)
-      if (syllable !in PREFERRED_CHARACTERS) continue
-      for (tail in segmentPreferred(composition, end)) {
+      if (charactersFor(syllable).isEmpty()) continue
+      for (tail in segment(composition, end)) {
         result += listOf(syllable) + tail
         if (result.size >= MAX_SEGMENTATIONS) return result
       }
@@ -474,23 +456,26 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
   }
 
   private val reverseIndex: Map<String, List<String>> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-    val hanToLatin = Transliterator.getInstance("Han-Latin")
-    val index = linkedMapOf<String, MutableList<String>>()
-    for (codePoint in CJK_UNIFIED_IDEOGRAPHS) {
-      val character = codePoint.toChar().toString()
-      val pinyin =
-          Normalizer.normalize(hanToLatin.transliterate(character), Normalizer.Form.NFD)
-              .lowercase(Locale.ROOT)
-              .filter { it in 'a'..'z' }
-      if (pinyin.isNotEmpty()) index.getOrPut(pinyin) { mutableListOf() }.add(character)
-    }
-    index
+    runCatching {
+      val hanToLatin = Transliterator.getInstance("Han-Latin")
+      val index = linkedMapOf<String, MutableList<String>>()
+      for (codePoint in CJK_UNIFIED_IDEOGRAPHS) {
+        val character = codePoint.toChar().toString()
+        val pinyin =
+            Normalizer.normalize(hanToLatin.transliterate(character), Normalizer.Form.NFD)
+                .lowercase(Locale.ROOT)
+                .filter { it in 'a'..'z' }
+        if (pinyin.isNotEmpty()) index.getOrPut(pinyin) { mutableListOf() }.add(character)
+      }
+      index
+    }.getOrDefault(emptyMap())
   }
 
   companion object {
     private const val MAX_CANDIDATES = 8
-    private const val MAX_SEGMENTATIONS = 4
+    private const val MAX_SEGMENTATIONS = 8
     private const val MAX_SYLLABLE_LENGTH = 6
+    private const val CHARACTERS_PER_SYLLABLE = 4
     private val CJK_UNIFIED_IDEOGRAPHS = 0x4E00..0x9FFF
 
     private val PHRASES =
@@ -558,6 +543,7 @@ class DefaultOfflinePinyinLexicon : OfflinePinyinLexicon {
             "mei" to listOf("美", "没", "每"),
             "an" to listOf("安", "按", "暗"),
             "chang" to listOf("长", "常", "场"),
+            "wo" to listOf("我", "窝", "握"),
         )
   }
 }

@@ -1,7 +1,6 @@
 package com.m0e_n00b.viriviri
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,7 +19,7 @@ class SearchInputMethodTest {
   }
 
   @Test
-  fun qwertyLettersBuildChineseCompositionAndPhraseCandidatesFirst() {
+  fun qwertyLettersBuildContinuousChineseComposition() {
     var session = method.initialSession()
     for (letter in "nihao") {
       session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
@@ -28,7 +27,31 @@ class SearchInputMethodTest {
 
     assertEquals("nihao", session.composition)
     assertEquals("你好", session.candidates.first().value)
-    assertTrue(session.candidates.first().consumedCompositionLength > 0)
+    assertEquals(5, session.candidates.first().consumedCompositionLength)
+  }
+
+  @Test
+  fun continuousPinyinProducesWholeWordCandidatesInsteadOfSingleCharacterSteps() {
+    var session = method.initialSession()
+    for (letter in "woshi") {
+      session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+    }
+
+    assertEquals("woshi", session.composition)
+    assertTrue(session.candidates.any { it.value == "我是" })
+    assertTrue(session.candidates.first().value.length >= 2)
+  }
+
+  @Test
+  fun continuousPinyinWithNoExplicitPhraseStillProducesCandidates() {
+    var session = method.initialSession()
+    for (letter in "nishi") {
+      session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+    }
+
+    assertEquals("nishi", session.composition)
+    assertTrue(session.candidates.isNotEmpty())
+    assertTrue(session.candidates.any { it.value == "你是" })
   }
 
   @Test
@@ -144,18 +167,6 @@ class SearchInputMethodTest {
 
     assertEquals("前缀你好", session.committedText)
     assertTrue(session.composition.isEmpty())
-  }
-
-  @Test
-  fun phraseModePlacesSingleCharacterSamplesAfterPhraseCandidates() {
-    var session = method.initialSession()
-    for (letter in "ni") {
-      session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
-    }
-
-    assertFalse(session.candidates.isEmpty())
-    assertTrue(session.candidates.all { it.value.isNotBlank() })
-    assertTrue(session.candidates.first().consumedCompositionLength >= 1)
   }
 
   @Test

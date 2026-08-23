@@ -45,8 +45,6 @@ val DefaultInputConsoleStyle: InputConsoleStyle =
 
 data class SearchCandidateItem(val id: String, val label: String)
 
-data class SearchCandidateModeItem(val id: String, val label: String)
-
 data class SearchKeyItem(val id: String, val label: String, val hint: String = "")
 
 @Composable
@@ -96,44 +94,6 @@ fun SearchQueryField(
         }
       },
   )
-}
-
-@Composable
-fun SearchCandidateModeSwitcher(
-    modes: List<SearchCandidateModeItem>,
-    selectedId: String,
-    onSelect: (SearchCandidateModeItem) -> Unit,
-    modifier: Modifier = Modifier,
-    style: InputConsoleStyle = DefaultInputConsoleStyle,
-) {
-  Row(
-      modifier = modifier.fillMaxWidth().height(36.dp),
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-  ) {
-    modes.forEach { mode ->
-      Button(
-          onClick = { onSelect(mode) },
-          modifier = Modifier.weight(1f),
-          colors =
-              ButtonDefaults.buttonColors(
-                  backgroundColor =
-                      if (mode.id == selectedId) {
-                        style.candidate.selectedBackground
-                      } else {
-                        style.candidate.background
-                      },
-                  contentColor =
-                      if (mode.id == selectedId) {
-                        style.candidate.selectedContent
-                      } else {
-                        style.candidate.content
-                      },
-              ),
-      ) {
-        Text(if (mode.id == selectedId) "✓ ${mode.label}" else mode.label)
-      }
-    }
-  }
 }
 
 @Composable
@@ -336,13 +296,10 @@ fun SearchActions(
 fun CinemaInputConsole(
     query: String,
     composition: String,
-    candidateModes: List<SearchCandidateModeItem>,
-    selectedCandidateModeId: String,
     candidates: List<SearchCandidateItem>,
     keyboardRows: List<List<SearchKeyItem>>,
     candidateExpanded: Boolean,
     onQueryChanged: (String) -> Unit,
-    onSelectCandidateMode: (SearchCandidateModeItem) -> Unit,
     onSelectCandidate: (SearchCandidateItem) -> Unit,
     onToggleCandidates: () -> Unit,
     onKeyPress: (SearchKeyItem) -> Unit,
@@ -375,26 +332,16 @@ fun CinemaInputConsole(
       },
       mainArea = {
         Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
-          Box(
-              modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight),
-          ) {
+          Box(modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight)) {
             Text(
                 text = composition.ifBlank { " " },
                 color = style.compositionText,
                 modifier = Modifier.align(Alignment.CenterStart),
             )
           }
-          SearchCandidateModeSwitcher(
-              modes = candidateModes,
-              selectedId = selectedCandidateModeId,
-              onSelect = onSelectCandidateMode,
-              style = style,
-          )
           Box(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
-              Box(
-                  modifier = Modifier.fillMaxWidth().height(style.skin.candidateStripHeight),
-              ) {
+              Box(modifier = Modifier.fillMaxWidth().height(style.skin.candidateStripHeight)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                   SearchCandidateStrip(
                       candidates = candidates,
@@ -450,9 +397,7 @@ fun CinemaInputConsole(
                       Text(stringResource(R.string.search_collapse), color = style.secondaryText)
                     }
                   }
-                  LazyColumn(
-                      modifier = Modifier.fillMaxWidth().weight(1f),
-                  ) {
+                  LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     items(candidates, key = SearchCandidateItem::id) { candidate ->
                       TextButton(
                           onClick = { onSelectCandidate(candidate) },
