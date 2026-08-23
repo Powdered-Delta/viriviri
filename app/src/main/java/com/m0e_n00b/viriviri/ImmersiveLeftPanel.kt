@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.m0e_n00b.spatialworkbench.compose.DefaultWorkbenchPanelStyle
 import com.m0e_n00b.spatialworkbench.compose.WorkbenchActionItem
@@ -68,25 +69,25 @@ private fun ImmersiveVideoDetailPanel(
           modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
       ) {
         WorkbenchSection(style = style) {
-          WorkbenchTitle(selected?.title ?: "未选择视频", style = style)
+          WorkbenchTitle(selected?.title ?: stringResource(R.string.detail_no_video), style = style)
           WorkbenchSecondaryText(videoMetrics(selected), style = style)
           WorkbenchActionStrip(
               actions =
                   listOf(
                       WorkbenchActionItem(
-                          label = "点赞暂不可用",
+                          label = stringResource(R.string.detail_like_unavailable),
                           value = compactCount(selected?.likeCount),
                           icon = Icons.Default.ThumbUp,
                           enabled = false,
                       ),
                       WorkbenchActionItem(
-                          label = "投币暂不可用",
+                          label = stringResource(R.string.detail_coin_unavailable),
                           value = "--",
                           icon = Icons.Default.MonetizationOn,
                           enabled = false,
                       ),
                       WorkbenchActionItem(
-                          label = "收藏暂不可用",
+                          label = stringResource(R.string.detail_favorite_unavailable),
                           value = "--",
                           icon = Icons.Default.Star,
                           enabled = false,
@@ -97,16 +98,16 @@ private fun ImmersiveVideoDetailPanel(
         }
         WorkbenchCreatorRow(
             name = selected?.authorName ?: "未知作者",
-            detail = "作者投稿入口暂不可用",
+            detail = stringResource(R.string.detail_author_unavailable),
             style = style,
             enabled = false,
         )
         WorkbenchSection(style = style) {
-          WorkbenchSecondaryText("暂无视频简介", style = style)
+          WorkbenchSecondaryText(stringResource(R.string.detail_no_description), style = style)
         }
       }
       WorkbenchFooterAction(
-          label = "评论",
+          label = stringResource(R.string.detail_comments),
           icon = Icons.Default.Comment,
           style = style,
           onClick = { commentsOpen = true },
@@ -131,9 +132,9 @@ private fun CommentsUnavailableCollapse(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Text("评论服务尚未接入", color = style.text, fontWeight = FontWeight.Bold)
+      Text(stringResource(R.string.comments_unavailable), color = style.text, fontWeight = FontWeight.Bold)
       WorkbenchSecondaryText(
-          text = "回复、点赞和点踩需要登录与已验证的服务接口。",
+          text = stringResource(R.string.comments_write_unavailable),
           style = style,
           modifier = Modifier.padding(top = 8.dp),
       )
@@ -143,27 +144,28 @@ private fun CommentsUnavailableCollapse(
           verticalAlignment = Alignment.CenterVertically,
       ) {
         IconButton(onClick = {}, enabled = false) {
-          Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = "回复暂不可用")
+          Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.comments_reply_unavailable))
         }
         Spacer(Modifier.weight(1f))
         IconButton(onClick = {}, enabled = false) {
-          Icon(Icons.Default.ThumbDown, contentDescription = "点踩暂不可用")
+          Icon(Icons.Default.ThumbDown, contentDescription = stringResource(R.string.comments_dislike_unavailable))
         }
         IconButton(onClick = {}, enabled = false) {
-          Icon(Icons.Default.ThumbUp, contentDescription = "点赞暂不可用")
+          Icon(Icons.Default.ThumbUp, contentDescription = stringResource(R.string.comments_like_unavailable))
         }
       }
     }
   }
 }
 
+@Composable
 private fun videoMetrics(selected: Recommendation?): String {
-  if (selected == null) return "暂无播放数据"
+  if (selected == null) return stringResource(R.string.detail_no_metrics)
   return listOfNotNull(
-          selected.viewCount?.let { "播放 ${compactCount(it)}" },
+          selected.viewCount?.let { stringResource(R.string.detail_views, compactCount(it)) },
           selected.durationSeconds?.let { formatTransportTimecode(it * 1_000L) },
       )
-      .ifEmpty { listOf("暂无播放数据") }
+      .ifEmpty { listOf(stringResource(R.string.detail_no_metrics)) }
       .joinToString(" · ")
 }
 

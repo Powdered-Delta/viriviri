@@ -2,6 +2,7 @@ package com.m0e_n00b.viriviri
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsole
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsoleActions
 import com.m0e_n00b.spatialworkbench.compose.DefaultInputConsoleStyle
@@ -40,8 +41,8 @@ internal fun SearchInputPanel(
       composition = session.composition,
       candidateModes =
           listOf(
-              SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, "词组"),
-              SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, "单字"),
+              SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, stringResource(R.string.search_phrase)),
+              SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, stringResource(R.string.search_single_character)),
           ),
       selectedCandidateModeId = session.candidateMode.name,
       candidates =

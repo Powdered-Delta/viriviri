@@ -15,7 +15,7 @@
     android:ellipsize="end"
     android:gravity="center"
     android:lines="1"
-    android:text="No video selected"
+    android:text="@string/detail_no_video"
     android:textColor="@android:color/white"
     android:textSize="18sp"
     android:textStyle="bold"
@@ -28,7 +28,7 @@
     android:ellipsize="end"
     android:gravity="center"
     android:lines="1"
-    android:text="Browse to choose a video"
+    android:text="@string/detail_browse_choose"
     android:textColor="#B3FFFFFF"
     android:textSize="12sp"
   />
@@ -37,7 +37,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginTop="6dp"
-    android:text="Retry"
+    android:text="@string/retry"
     android:visibility="gone"
   />
   <Button
@@ -45,14 +45,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="8dp"
-    android:text="Display ratio: Auto"
+    android:text="@string/display_ratio_auto"
   />
   <Button
     android:id="@+id/canvas_size_button"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="4dp"
-    android:text="Canvas size: Standard"
+    android:text="@string/canvas_size_standard_label"
   />
   <TextView
     android:id="@+id/debug_build_label"
@@ -103,6 +103,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="16dp"
-    android:text="Open 2D Window"
+    android:text="@string/open_2d"
   />
 </LinearLayout>
