@@ -1271,8 +1271,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   fun openHomeCanvas() {
     CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
+    val wasShowingSearchResults = appState.state.value.isShowingSearchResults
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
-    if (appState.state.value.isShowingSearchResults) appState.returnToRecommendationsFeed()
+    appState.closeSearchWorkspace()
+    if (wasShowingSearchResults) appState.returnToRecommendationsFeed()
     else appState.returnToRecommendations()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
@@ -1281,6 +1283,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
+    appState.closeSearchWorkspace()
     appState.returnToRecommendations()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
@@ -1289,7 +1292,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     CenterContentSession.show(CenterContentMode.SEARCH)
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
-    appState.returnToRecommendations()
+    appState.openSearchWorkspace()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
 

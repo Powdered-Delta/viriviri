@@ -73,6 +73,12 @@
   <string name="search_clear_input">清空输入</string>
   <string name="search_submit">确定搜索</string>
   <string name="search_keyboard_preview">应用键盘预览</string>
+  <string name="search_history">搜索历史</string>
+  <string name="search_history_empty">暂无搜索历史</string>
+  <string name="search_recommendations">搜索推荐</string>
+  <string name="search_refresh">刷新</string>
+  <string name="search_unfold">展开</string>
+  <string name="search_remove_history">删除历史记录</string>
 
   <string name="canvas_size_label">画布大小: %1$s</string>
   <string name="display_ratio_label">显示比例: %1$s</string>

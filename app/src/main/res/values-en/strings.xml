@@ -69,6 +69,12 @@
   <string name="search_clear_input">Clear input</string>
   <string name="search_submit">Search</string>
   <string name="search_keyboard_preview">Application keyboard preview</string>
+  <string name="search_history">Search history</string>
+  <string name="search_history_empty">No search history</string>
+  <string name="search_recommendations">Search recommendations</string>
+  <string name="search_refresh">Refresh</string>
+  <string name="search_unfold">Expand</string>
+  <string name="search_remove_history">Remove search history item</string>
   <string name="canvas_size_label">Canvas size: %1$s</string>
   <string name="display_ratio_label">Display ratio: %1$s</string>
   <string name="canvas_size_compact">Compact</string>

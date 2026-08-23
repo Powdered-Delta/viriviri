@@ -304,6 +304,7 @@ fun CinemaInputConsole(
     onToggleCandidates: () -> Unit,
     onKeyPress: (SearchKeyItem) -> Unit,
     actions: CinemaInputConsoleActions,
+    showQueryField: Boolean = true,
     numberRows: List<List<SearchKeyItem>> = emptyList(),
     actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
@@ -320,15 +321,17 @@ fun CinemaInputConsole(
       modifier = modifier,
       style = style.shell.copy(sectionSpacing = style.skin.sectionSpacing),
       header = {
-        SearchQueryField(
-            value = query,
-            onValueChange = onQueryChanged,
-            onRequestSystemKeyboard = requestSystemIme,
-            onRequestVoice = actions.onVoice,
-            focusRequester = focusRequester,
-            style = style,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showQueryField) {
+          SearchQueryField(
+              value = query,
+              onValueChange = onQueryChanged,
+              onRequestSystemKeyboard = requestSystemIme,
+              onRequestVoice = actions.onVoice,
+              focusRequester = focusRequester,
+              style = style,
+              modifier = Modifier.fillMaxWidth(),
+          )
+        }
       },
       mainArea = {
         Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {

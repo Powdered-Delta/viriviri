@@ -27,6 +27,10 @@ import com.m0e_n00b.spatialworkbench.core.TransientMessageReducer
 import com.m0e_n00b.spatialworkbench.core.TransientMessageSeverity
 import com.m0e_n00b.spatialworkbench.core.TransientMessageState
 
+private val DEFAULT_SEARCH_SUGGESTIONS =
+    listOf("动画", "番剧", "音乐", "游戏", "科技", "美食", "影视", "知识")
+private const val MAX_SEARCH_HISTORY = 12
+
 enum class ViriViriDestination { RECOMMENDATIONS, VIEWER }
 
 internal fun enqueueErrorMessage(
@@ -45,9 +49,18 @@ internal fun enqueueErrorMessage(
         ),
     )
 
+enum class SearchWorkspaceRoute {
+  RECOMMENDATIONS,
+  SEARCH_EMPTY,
+  SEARCH_RESULTS,
+}
+
 data class SearchWorkspaceState(
+    val route: SearchWorkspaceRoute = SearchWorkspaceRoute.RECOMMENDATIONS,
     val input: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
-    val isShowingResults: Boolean = false,
+    val history: List<String> = emptyList(),
+    val suggestedQueries: List<String> = DEFAULT_SEARCH_SUGGESTIONS,
+    val isHistoryExpanded: Boolean = false,
     val isKeyboardVisible: Boolean = false,
     val isKeyboardDismissed: Boolean = false,
     val isCandidatesExpanded: Boolean = false,
@@ -83,7 +96,10 @@ internal val ViriViriUiState.searchInput: SearchInputSession
   get() = searchWorkspace.input
 
 internal val ViriViriUiState.isShowingSearchResults: Boolean
-  get() = searchWorkspace.isShowingResults
+  get() = searchWorkspace.route == SearchWorkspaceRoute.SEARCH_RESULTS
+
+internal val ViriViriUiState.isSearchEmpty: Boolean
+  get() = searchWorkspace.route == SearchWorkspaceRoute.SEARCH_EMPTY
 
 internal val ViriViriUiState.isSearchKeyboardVisible: Boolean
   get() = searchWorkspace.isKeyboardVisible
@@ -217,7 +233,7 @@ class ViriViriAppState(
                   error = null,
                   searchWorkspace =
                       mutableState.value.searchWorkspace.copy(
-                          isShowingResults = false,
+                          route = SearchWorkspaceRoute.RECOMMENDATIONS,
                           isKeyboardDismissed = false,
                           isCandidatesExpanded = false,
                       ),
@@ -249,6 +265,86 @@ class ViriViriAppState(
                 }
               }
         }
+  }
+
+  fun openSearchWorkspace() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = SearchWorkspaceRoute.SEARCH_EMPTY,
+                    isKeyboardVisible = true,
+                    isKeyboardDismissed = false,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun returnToSearchEmpty() {
+    val current = mutableState.value
+    if (current.searchWorkspace.route != SearchWorkspaceRoute.SEARCH_RESULTS) return
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = SearchWorkspaceRoute.SEARCH_EMPTY,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun closeSearchWorkspace() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = SearchWorkspaceRoute.RECOMMENDATIONS,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun selectSearchHistory(query: String) {
+    updateSearchQuery(query)
+    setSearchKeyboardVisible(true)
+  }
+
+  fun removeSearchHistory(query: String) {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(searchWorkspace = current.searchWorkspace.copy(history = current.searchWorkspace.history - query))
+  }
+
+  fun toggleSearchHistoryExpanded() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(isHistoryExpanded = !current.searchWorkspace.isHistoryExpanded)
+        )
+  }
+
+  fun refreshSearchSuggestions() {
+    val current = mutableState.value
+    val suggestions = current.searchWorkspace.suggestedQueries
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    suggestedQueries = if (suggestions.size < 2) suggestions else suggestions.drop(1) + suggestions.first()
+                )
+        )
+  }
+
+  fun selectSearchSuggestion(query: String) {
+    updateSearchQuery(query)
+    setSearchKeyboardVisible(true)
   }
 
   fun updateSearchQuery(query: String) {
@@ -332,7 +428,8 @@ class ViriViriAppState(
               searchWorkspace =
                   mutableState.value.searchWorkspace.copy(
                       input = inputMethods.initialSession(),
-                      isShowingResults = false,
+                      route = SearchWorkspaceRoute.SEARCH_EMPTY,
+                      isKeyboardVisible = false,
                       isKeyboardDismissed = false,
                       isCandidatesExpanded = false,
                   ),
@@ -355,8 +452,12 @@ class ViriViriAppState(
                   searchWorkspace =
                       mutableState.value.searchWorkspace.copy(
                           input = inputMethods.replaceCommittedText(mutableState.value.searchInput, normalizedQuery),
-                          isShowingResults = true,
-                          isKeyboardDismissed = false,
+                          route = SearchWorkspaceRoute.SEARCH_RESULTS,
+                          isKeyboardVisible = false,
+                          isKeyboardDismissed = true,
+                          history = (listOf(normalizedQuery) + mutableState.value.searchWorkspace.history)
+                              .distinct()
+                              .take(MAX_SEARCH_HISTORY),
                           isCandidatesExpanded = false,
                           scrollPosition = ListScrollPosition(),
                           options = options,
@@ -470,7 +571,8 @@ class ViriViriAppState(
             searchWorkspace =
                 mutableState.value.searchWorkspace.copy(
                     input = inputMethods.initialSession(),
-                    isShowingResults = false,
+                    route = SearchWorkspaceRoute.RECOMMENDATIONS,
+                    isKeyboardVisible = false,
                     isKeyboardDismissed = false,
                     isCandidatesExpanded = false,
                 )

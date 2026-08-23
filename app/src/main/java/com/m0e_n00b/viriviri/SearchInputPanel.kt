@@ -83,6 +83,7 @@ internal fun SearchInputPanel(
               onSystemIme = onSystemIme,
               onDismiss = onDismiss,
           ),
+      showQueryField = false,
       style = style,
   )
 }
