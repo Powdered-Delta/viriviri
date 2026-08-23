@@ -147,6 +147,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var danmakuOverlayEntity: Entity? = null
   private var stageBackdropEntity: Entity? = null
   private var centerContentEntity: Entity? = null
+  private var inputMethodPanelEntity: Entity? = null
   private var outerDismissEntity: Entity? = null
   private var outerDismissInputAttached = false
   private var hasWorkbenchDataSource = false
@@ -321,6 +322,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             syncPlaybackCanvasSizeLabel(appState.playbackCanvasSize)
             applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
             applyPlaybackCanvasSize(appState.playbackCanvasSize)
+            syncInputMethodPanelVisibility(appState)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
@@ -382,6 +384,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         mrPanelRegistration(),
         modePanelRegistration(),
         centerContentPanelRegistration(),
+        inputMethodPanelRegistration(),
         stageBackdropPanelRegistration(),
         danmakuOverlayPanelRegistration(),
     )
@@ -570,6 +573,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      createInputMethodPanel()
       createStageBackdropPanel()
       createDanmakuOverlayPanel()
       canvasHandler.post { traceStageInputTargets() }
@@ -922,6 +926,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           },
       )
 
+  private fun inputMethodPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.input_method_panel,
+          composeViewCreator = { _, context ->
+            ComposeView(context).apply { setContent { ImmersiveInputMethodPanel() } }
+          },
+          settingsCreator = {
+            UIPanelSettings(
+                shape = QuadShapeOptions(width = 1.42f, height = 0.56f),
+                display = DpDisplayOptions(width = 720f, height = 284f, dpi = 512),
+                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+            )
+          },
+      )
+
   private fun stageBackdropPanelRegistration(): PanelRegistration =
       ComposeViewPanelRegistration(
           R.id.stage_backdrop_panel,
@@ -945,6 +964,33 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           input = PanelInputOptions(0),
           style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
       )
+
+  private fun createInputMethodPanel() {
+    if (inputMethodPanelEntity != null) return
+    inputMethodPanelEntity =
+        Entity.createPanelEntity(
+                R.id.input_method_panel,
+                // Above and closer than Transport: this panel is a near-field UI layer, never video output.
+                Transform(Pose(Vector3(0f, -0.36f, -0.28f), Quaternion(20f, 0f, 0f))),
+                TransformParent(Entity(R.id.spatialized_video_panel)),
+                Visible(false),
+            )
+            .also { it.setComponent(Panel(R.id.input_method_panel)) }
+    syncInputMethodPanelVisibility(ViriViriApplication.appState.state.value)
+  }
+
+  private fun syncInputMethodPanelVisibility(appState: ViriViriUiState) {
+    val entity = inputMethodPanelEntity ?: return
+    val visible =
+        appState.searchWorkspace.route == SearchWorkspaceRoute.SEARCH_EMPTY &&
+            appState.searchWorkspace.isKeyboardVisible &&
+            !appState.searchWorkspace.isKeyboardDismissed
+    if (::spatialPanelVisibilityController.isInitialized) {
+      spatialPanelVisibilityController.setVisible(PanelSlot.ACTION_SHEET, entity, visible)
+    } else {
+      entity.setComponent(Visible(visible))
+    }
+  }
 
   private fun createStageBackdropPanel() {
     if (stageBackdropEntity != null) return

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -138,33 +139,62 @@ fun SearchInputMethodBoard(
       modifier = modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
   ) {
-    KeyboardRows(
-        rows = numberRows,
-        onKeyPress = onKeyPress,
-        style = style,
-        keyStyle = style.numberKey,
+    InputConsoleZone(
+        background = style.numberKey.background,
+        border = style.popupBorder,
         modifier = Modifier.weight(style.skin.numberColumnWeight),
-    )
-    KeyboardRows(
-        rows = rows,
-        onKeyPress = onKeyPress,
-        style = style,
-        keyStyle = style.alphabetKey,
-        modifier = Modifier.weight(style.skin.mainColumnWeight),
-    )
-    Column(
-        modifier = Modifier.weight(style.skin.actionColumnWeight).fillMaxHeight(),
-        verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
     ) {
-      actionKeys.forEach { key ->
-        InputConsoleKeyButton(
-            key = key,
-            onClick = { onKeyPress(key) },
-            style = style.actionKey,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        )
+      KeyboardRows(
+          rows = numberRows,
+          onKeyPress = onKeyPress,
+          style = style,
+          keyStyle = style.numberKey,
+      )
+    }
+    InputConsoleZone(
+        background = style.compositionBackground,
+        border = style.popupBorder,
+        modifier = Modifier.weight(style.skin.mainColumnWeight),
+    ) {
+      KeyboardRows(
+          rows = rows,
+          onKeyPress = onKeyPress,
+          style = style,
+          keyStyle = style.alphabetKey,
+      )
+    }
+    InputConsoleZone(
+        background = style.actionKey.background,
+        border = style.popupBorder,
+        modifier = Modifier.weight(style.skin.actionColumnWeight).fillMaxHeight(),
+    ) {
+      Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
+        actionKeys.forEach { key ->
+          InputConsoleKeyButton(
+              key = key,
+              onClick = { onKeyPress(key) },
+              style = style.actionKey,
+              modifier = Modifier.fillMaxWidth().weight(1f),
+          )
+        }
       }
     }
+  }
+}
+
+@Composable
+private fun InputConsoleZone(
+    background: Color,
+    border: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+  Surface(
+      color = background,
+      shape = RoundedCornerShape(4.dp),
+      modifier = modifier.border(1.dp, border, RoundedCornerShape(4.dp)),
+  ) {
+    Box(modifier = Modifier.padding(4.dp)) { content() }
   }
 }
 
@@ -305,6 +335,7 @@ fun CinemaInputConsole(
     onKeyPress: (SearchKeyItem) -> Unit,
     actions: CinemaInputConsoleActions,
     showQueryField: Boolean = true,
+    transparentRoot: Boolean = false,
     numberRows: List<List<SearchKeyItem>> = emptyList(),
     actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
@@ -319,7 +350,11 @@ fun CinemaInputConsole(
   }
   SpatialPanelShell(
       modifier = modifier,
-      style = style.shell.copy(sectionSpacing = style.skin.sectionSpacing),
+      style =
+          style.shell.copy(
+              background = if (transparentRoot) Color.Transparent else style.shell.background,
+              sectionSpacing = style.skin.sectionSpacing,
+          ),
       header = {
         if (showQueryField) {
           SearchQueryField(

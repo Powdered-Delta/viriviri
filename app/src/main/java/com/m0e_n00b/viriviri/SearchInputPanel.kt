@@ -22,6 +22,7 @@ internal fun SearchInputPanel(
     onVoice: () -> Unit = {},
     onSystemIme: () -> Unit = {},
     onDismiss: () -> Unit = {},
+    transparentRoot: Boolean = false,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
   val layout = method.keyboardLayout(session)
@@ -84,6 +85,7 @@ internal fun SearchInputPanel(
               onDismiss = onDismiss,
           ),
       showQueryField = false,
+      transparentRoot = transparentRoot,
       style = style,
   )
 }

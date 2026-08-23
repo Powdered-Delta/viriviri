@@ -8,7 +8,8 @@
 
 ## 非目标与边界
 
-- 不创建第二个播放器、MediaStage、视频 Surface、Spatial Entity 或独立 Spatial Panel。
+- 不创建第二个播放器、MediaStage、视频 Surface 或 Spatial Entity。
+- 允许创建唯一的 `input_method_panel` Compose Spatial panel：它是 MediaStage 的近距 UI 子层，位于 Transport 前方，不是视频输出，不拥有播放器或 Surface。
 - 不修改 PlayerSession、Media3 播放生命周期和 Surface handoff 契约。
 - 输入法核心不得依赖 Activity、Context、Meta Spatial SDK、Media3、网络或语音服务。
 - 共享 Compose 组件只接收 state、style、modifier 和 callbacks。
@@ -144,6 +145,7 @@ InputMethodOverlayRoot                  // 一个透明整体容器
 三块区域需要有独立的视觉边界、背景、间距、圆角和 hit-test 区域，但不创建三个独立的 Spatial panel：
 
 - `InputMethodOverlayRoot` 是唯一的 Compose/overlay 宿主，负责整体 anchor、层级、显隐和尺寸。
+- 在沉浸式宿主中，`InputMethodOverlayRoot` 对应唯一的 `input_method_panel` Spatial Compose panel；它作为 MediaStage 子层定位在 Transport 上方且更靠近用户。
 - `NumberPanel`、`KeyboardPanel`、`OptionsPanel` 是 root 内的普通 Compose 子布局，只接收 skin geometry、style 和 key callbacks。
 - 三块 panel 共享同一个透明 root 的生命周期，不拥有独立的 Activity、Spatial Entity、Surface 或 player。
 - 候选展开层属于 `KeyboardPanel` 的内部 overlay，只覆盖主键区，不越过 `InputMethodOverlayRoot` 的边界。
@@ -267,6 +269,7 @@ Search workspace 单独管理：
 - Pinyin lexicon 是独立纯 Kotlin 组件；输入法只依赖 `OfflinePinyinLexicon`，词库可以替换、注入和单独测试。
 - `SearchInputPanel` / `CinemaInputConsole` 只负责呈现输入台，不直接访问 `ViriViriAppState`、播放器、Spatial host、Detail 或 Context 数据。
 - Search workspace 只向输入台提供 `SearchInputSession`、keyboard visibility、candidate expanded、style 和 callbacks；输入台不能反向读取 Search history、recommendations 或 result list。
+- `input_method_panel` 的 Spatial lifecycle 由 `SpatialVideoSampleActivity` 管理；其 Compose 内容不得通过中心 panel 的 dismiss callback、全局 singleton 或 hit target 改变 Workbench 可见性。
 - 左右 rail 使用 slot/contract 接入：Detail、Context、推荐/结果列表分别接收自己的 immutable state 和 callbacks。它们不能 import 输入法实现，也不能通过输入法 action 修改彼此状态。
 - MediaStage、Transport、Detail rail、Context rail 和 Search workspace 由 host 组合；Search keyboard 只是 MediaStage 内部 UI layer，不拥有 rail、Surface 或 Transport 生命周期。
 - 左右 rail 的显隐、折叠和内容切换由 Workbench/App host 决定，输入法只通知 `onDismiss`、`onSearch`、`onSystemIme`、`onVoice` 等中立 callback。

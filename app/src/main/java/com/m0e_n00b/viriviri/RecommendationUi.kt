@@ -70,7 +70,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Refresh
 import androidx.media3.common.Player
 import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
-import com.m0e_n00b.spatialworkbench.compose.InputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.MediaThumbnailFrame
 import com.m0e_n00b.spatialworkbench.compose.TransientMessageHost
 import com.m0e_n00b.spatialworkbench.compose.WorkbenchPanelStyle
@@ -211,10 +210,6 @@ private fun CenterContentWorkspace(
       )
   val thumbnailStates by appState.thumbnailStates.collectAsState()
   val route = state.searchWorkspace.route
-  val searchConsoleVisible =
-      route == SearchWorkspaceRoute.SEARCH_EMPTY &&
-          state.isSearchKeyboardVisible &&
-          !state.isSearchKeyboardDismissed
   var isGridView by rememberSaveable { mutableStateOf(true) }
   var filterState by remember { mutableStateOf(VideoListFilterState()) }
   var moreFiltersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -225,7 +220,6 @@ private fun CenterContentWorkspace(
   }
 
   val panelStyle = remember(palette) { WorkbenchPanelStyle.fromPalette(palette) }
-  val inputStyle = remember(palette) { InputConsoleStyle.fromPalette(palette) }
   val selectRecommendation: (Recommendation) -> Unit = { recommendation ->
     val position =
         if (isGridView) {
@@ -260,48 +254,44 @@ private fun CenterContentWorkspace(
               .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    CenterWorkspaceHeader(
-        state = state,
-        route = route,
-        appState = appState,
-        style = panelStyle,
-    )
+    when (route) {
+      SearchWorkspaceRoute.RECOMMENDATIONS,
+      SearchWorkspaceRoute.SEARCH_RESULTS ->
+          VideoListFilterBar(
+              state = filterState,
+              isGridView = isGridView,
+              moreExpanded = moreFiltersExpanded,
+              style = panelStyle,
+              onSortChanged = { applyFilter(filterState.copy(sort = it)) },
+              onDateChanged = { applyFilter(filterState.copy(date = it)) },
+              onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
+              onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
+              remoteFilteringAvailable = route == SearchWorkspaceRoute.SEARCH_RESULTS,
+              onToggleLayout = { isGridView = !isGridView },
+              isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
+              onTopOrRefresh = {
+                if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
+                  if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                    appState.submitSearch(filterState.toBilibiliSearchOptions())
+                  } else {
+                    appState.refreshRecommendations()
+                  }
+                } else if (isGridView) {
+                  coroutineScope.launch { gridState.animateScrollToItem(0) }
+                } else {
+                  coroutineScope.launch { listState.animateScrollToItem(0) }
+                }
+              },
+              modifier = Modifier.fillMaxWidth(),
+          )
+      SearchWorkspaceRoute.SEARCH_EMPTY ->
+          CenterWorkspaceHeader(state = state, route = route, appState = appState, style = panelStyle)
+    }
     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
       when (route) {
         SearchWorkspaceRoute.RECOMMENDATIONS,
         SearchWorkspaceRoute.SEARCH_RESULTS -> {
-          Column(
-              modifier = Modifier.fillMaxSize(),
-              verticalArrangement = Arrangement.spacedBy(8.dp),
-          ) {
-            VideoListFilterBar(
-                state = filterState,
-                isGridView = isGridView,
-                moreExpanded = moreFiltersExpanded,
-                style = panelStyle,
-                onSortChanged = { applyFilter(filterState.copy(sort = it)) },
-                onDateChanged = { applyFilter(filterState.copy(date = it)) },
-                onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
-                onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
-                remoteFilteringAvailable = route == SearchWorkspaceRoute.SEARCH_RESULTS,
-                onToggleLayout = { isGridView = !isGridView },
-                isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
-                onTopOrRefresh = {
-                  if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
-                    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
-                      appState.submitSearch(filterState.toBilibiliSearchOptions())
-                    } else {
-                      appState.refreshRecommendations()
-                    }
-                  } else if (isGridView) {
-                    coroutineScope.launch { gridState.animateScrollToItem(0) }
-                  } else {
-                    coroutineScope.launch { listState.animateScrollToItem(0) }
-                  }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            VideoListPanel(
+          VideoListPanel(
                 state = state,
                 thumbnailStates = thumbnailStates,
                 isGridView = isGridView,
@@ -311,9 +301,8 @@ private fun CenterContentWorkspace(
                 palette = palette,
                 onSelect = selectRecommendation,
                 onToggleLayout = { isGridView = !isGridView },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
             )
-          }
         }
         SearchWorkspaceRoute.SEARCH_EMPTY -> {
           SearchDiscoveryContent(
@@ -325,26 +314,6 @@ private fun CenterContentWorkspace(
               onSelectSuggestion = appState::selectSearchSuggestion,
               onRefreshSuggestions = appState::refreshSearchSuggestions,
               modifier = Modifier.fillMaxSize(),
-          )
-          SearchPanel(
-              session = state.searchInput,
-              method = appState.inputMethods.methodFor(state.searchInput),
-              actions =
-                  SearchPanelActions(
-                      onQueryChanged = appState::updateSearchQuery,
-                      onInputAction = appState::applySearchInputAction,
-                      candidateExpanded = state.isSearchCandidatesExpanded,
-                      onToggleCandidates = appState::toggleSearchCandidates,
-                      onClear = appState::clearSearchInput,
-                      onSubmit = appState::submitSearch,
-                      onVoice = { appState.setSearchKeyboardVisible(true) },
-                      onSystemIme = { appState.setSearchKeyboardVisible(true) },
-                      onDismiss = { appState.setSearchKeyboardVisible(false) },
-                  ),
-              style = panelStyle,
-              inputStyle = inputStyle,
-              visible = searchConsoleVisible,
-              modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
           )
         }
       }
@@ -365,17 +334,7 @@ private fun CenterWorkspaceHeader(
       horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     when (route) {
-      SearchWorkspaceRoute.RECOMMENDATIONS -> {
-        Text(
-            text = stringResource(R.string.nav_video_list),
-            color = style.text,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = appState::openSearchWorkspace) {
-          Icon(Icons.Default.Search, contentDescription = stringResource(R.string.nav_search), tint = style.secondaryText)
-        }
-      }
+      SearchWorkspaceRoute.RECOMMENDATIONS -> Unit
       SearchWorkspaceRoute.SEARCH_EMPTY,
       SearchWorkspaceRoute.SEARCH_RESULTS -> {
         Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
