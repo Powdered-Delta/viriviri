@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查共享 Compose 输入台是否只接收 props/callback、是否误引入平台或播放器依赖，以及候选展开层是否仍属于现有 panel 内部。"}
+{"file":".trellis/spec/frontend/media3-surface-handoff.md","reason":"检查 Search UI 改造没有改变唯一 ExoPlayer、MediaStage 和 Surface handoff 生命周期。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查 Search workspace reducer/state 与纯输入法 reducer 的边界，避免把业务路由状态塞进输入法 session。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查测试覆盖、颜色 token、不可接受的硬编码和跨层依赖。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核输入法 action、workspace state、Compose callbacks、system IME/voice callbacks 的完整数据流和边界。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"检查 Detail、Context、推荐/结果 rail 与 Search/输入法模块的依赖方向和 host contract 归属。"}

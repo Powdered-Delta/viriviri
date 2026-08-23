@@ -1,14 +1,20 @@
 package com.m0e_n00b.spatialworkbench.compose
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
@@ -16,6 +22,7 @@ import androidx.compose.material.IconButton
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -32,22 +39,19 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
 
 val DefaultInputConsoleStyle: InputConsoleStyle =
     InputConsoleStyle.fromPalette(com.m0e_n00b.spatialworkbench.core.CinemaPalette.DARK)
 
 data class SearchCandidateItem(val id: String, val label: String)
 
-data class SearchCandidateModeItem(val id: String, val label: String)
-
-data class SearchKeyItem(val id: String, val label: String, val hint: String = "")
+data class SearchKeyItem(
+    val id: String,
+    val label: String,
+    val hint: String = "",
+    val widthWeight: Float = 1f,
+)
 
 @Composable
 fun SearchQueryField(
@@ -99,62 +103,23 @@ fun SearchQueryField(
 }
 
 @Composable
-fun SearchCandidateModeSwitcher(
-    modes: List<SearchCandidateModeItem>,
-    selectedId: String,
-    onSelect: (SearchCandidateModeItem) -> Unit,
-    modifier: Modifier = Modifier,
-    style: InputConsoleStyle = DefaultInputConsoleStyle,
-) {
-  Row(
-      modifier = modifier.fillMaxWidth().height(36.dp),
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
-  ) {
-    modes.forEach { mode ->
-      Button(
-          onClick = { onSelect(mode) },
-          modifier = Modifier.weight(1f),
-          colors =
-              ButtonDefaults.buttonColors(
-                  backgroundColor =
-                      if (mode.id == selectedId) {
-                        style.candidate.selectedBackground
-                      } else {
-                        style.candidate.background
-                      },
-                  contentColor =
-                      if (mode.id == selectedId) {
-                        style.candidate.selectedContent
-                      } else {
-                        style.candidate.content
-                      },
-              ),
-      ) {
-        Text(if (mode.id == selectedId) "✓ ${mode.label}" else mode.label)
-      }
-    }
-  }
-}
-
-@Composable
 fun SearchCandidateStrip(
     candidates: List<SearchCandidateItem>,
     onSelect: (SearchCandidateItem) -> Unit,
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
-  Box(modifier = modifier.fillMaxWidth().height(style.candidateStripHeight)) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+  Box(modifier = modifier.fillMaxWidth().height(style.skin.candidateStripHeight)) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
       items(candidates, key = SearchCandidateItem::id) { candidate ->
-        Button(
+        TextButton(
             onClick = { onSelect(candidate) },
-            colors =
-                ButtonDefaults.buttonColors(
-                    backgroundColor = style.candidate.background,
-                    contentColor = style.candidate.content,
-                ),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
         ) {
-          Text(candidate.label)
+          Text(candidate.label, color = style.candidate.content, maxLines = 1)
         }
       }
     }
@@ -165,35 +130,131 @@ fun SearchCandidateStrip(
 fun SearchInputMethodBoard(
     rows: List<List<SearchKeyItem>>,
     onKeyPress: (SearchKeyItem) -> Unit,
+    numberRows: List<List<SearchKeyItem>> = emptyList(),
+    actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
+  if (numberRows.isEmpty() && actionKeys.isEmpty()) {
+    KeyboardRows(rows = rows, onKeyPress = onKeyPress, style = style, modifier = modifier)
+    return
+  }
+
+  Row(
+      modifier = modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
+  ) {
+    InputConsoleZone(
+        background = style.numberKey.background,
+        border = style.popupBorder,
+        modifier = Modifier.weight(style.skin.numberColumnWeight),
+    ) {
+      KeyboardRows(
+          rows = numberRows,
+          onKeyPress = onKeyPress,
+          style = style,
+          keyStyle = style.numberKey,
+      )
+    }
+    InputConsoleZone(
+        background = style.compositionBackground,
+        border = style.popupBorder,
+        modifier = Modifier.weight(style.skin.mainColumnWeight),
+    ) {
+      KeyboardRows(
+          rows = rows,
+          onKeyPress = onKeyPress,
+          style = style,
+          keyStyle = style.alphabetKey,
+      )
+    }
+    InputConsoleZone(
+        background = style.actionKey.background,
+        border = style.popupBorder,
+        modifier = Modifier.weight(style.skin.actionColumnWeight).fillMaxHeight(),
+    ) {
+      Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
+        actionKeys.forEach { key ->
+          InputConsoleKeyButton(
+              key = key,
+              onClick = { onKeyPress(key) },
+              style = style.actionKey,
+              modifier = Modifier.fillMaxWidth().weight(1f),
+          )
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun InputConsoleZone(
+    background: Color,
+    border: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+  Surface(
+      color = background,
+      shape = RoundedCornerShape(4.dp),
+      modifier = modifier.border(1.dp, border, RoundedCornerShape(4.dp)),
+  ) {
+    Box(modifier = Modifier.padding(4.dp)) { content() }
+  }
+}
+
+@Composable
+private fun KeyboardRows(
+    rows: List<List<SearchKeyItem>>,
+    onKeyPress: (SearchKeyItem) -> Unit,
+    style: InputConsoleStyle,
+    keyStyle: InputConsoleKeyStyle = style.alphabetKey,
+    modifier: Modifier = Modifier,
+) {
   Column(
       modifier = modifier,
-      verticalArrangement = Arrangement.spacedBy(6.dp),
+      verticalArrangement = Arrangement.spacedBy(style.skin.keyRowSpacing),
   ) {
     rows.forEach { row ->
       Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+          horizontalArrangement = Arrangement.spacedBy(style.skin.keyRowSpacing),
       ) {
         row.forEach { key ->
-          Button(
+          InputConsoleKeyButton(
+              key = key,
               onClick = { onKeyPress(key) },
-              modifier = Modifier.weight(1f).height(style.alphabetKey.height),
-              colors =
-                  ButtonDefaults.buttonColors(
-                      backgroundColor = style.alphabetKey.background,
-                      contentColor = style.alphabetKey.content,
-                  ),
-          ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-              Text(key.label)
-              if (key.hint.isNotEmpty()) Text(key.hint)
-            }
-          }
+              style = keyStyle,
+              modifier = Modifier.weight(key.widthWeight),
+          )
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun InputConsoleKeyButton(
+    key: SearchKeyItem,
+    onClick: () -> Unit,
+    style: InputConsoleKeyStyle,
+    modifier: Modifier = Modifier,
+) {
+  Button(
+      onClick = onClick,
+      modifier = modifier.height(style.height),
+      contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp),
+      colors =
+          ButtonDefaults.buttonColors(
+              backgroundColor = style.background,
+              contentColor = style.content,
+              disabledBackgroundColor = style.disabledBackground,
+              disabledContentColor = style.disabledContent,
+          ),
+  ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+      Text(key.label, maxLines = 1)
+      if (key.hint.isNotEmpty()) Text(key.hint, maxLines = 1)
     }
   }
 }
@@ -266,24 +327,22 @@ fun SearchActions(
   }
 }
 
-/**
- * Theme convenience group. It owns layout only; all state transitions are supplied by callbacks.
- */
 @Composable
 fun CinemaInputConsole(
     query: String,
     composition: String,
-    candidateModes: List<SearchCandidateModeItem>,
-    selectedCandidateModeId: String,
     candidates: List<SearchCandidateItem>,
     keyboardRows: List<List<SearchKeyItem>>,
     candidateExpanded: Boolean,
     onQueryChanged: (String) -> Unit,
-    onSelectCandidateMode: (SearchCandidateModeItem) -> Unit,
     onSelectCandidate: (SearchCandidateItem) -> Unit,
     onToggleCandidates: () -> Unit,
     onKeyPress: (SearchKeyItem) -> Unit,
     actions: CinemaInputConsoleActions,
+    showQueryField: Boolean = true,
+    transparentRoot: Boolean = false,
+    numberRows: List<List<SearchKeyItem>> = emptyList(),
+    actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
@@ -296,73 +355,103 @@ fun CinemaInputConsole(
   }
   SpatialPanelShell(
       modifier = modifier,
-      style = style.shell.copy(sectionSpacing = style.sectionSpacing),
+      style =
+          style.shell.copy(
+              background = if (transparentRoot) Color.Transparent else style.shell.background,
+              sectionSpacing = style.skin.sectionSpacing,
+          ),
       header = {
-        SearchQueryField(
-            value = query,
-            onValueChange = onQueryChanged,
-            onRequestSystemKeyboard = requestSystemIme,
-            onRequestVoice = actions.onVoice,
-            focusRequester = focusRequester,
-            style = style,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (showQueryField) {
+          SearchQueryField(
+              value = query,
+              onValueChange = onQueryChanged,
+              onRequestSystemKeyboard = requestSystemIme,
+              onRequestVoice = actions.onVoice,
+              focusRequester = focusRequester,
+              style = style,
+              modifier = Modifier.fillMaxWidth(),
+          )
+        }
       },
       mainArea = {
-        Column(verticalArrangement = Arrangement.spacedBy(style.sectionSpacing)) {
-          Box(
-              modifier =
-                  Modifier.fillMaxWidth()
-                      .height(style.compositionHeight),
-          ) {
+        Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
+          Box(modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight)) {
             Text(
                 text = composition.ifBlank { " " },
                 color = style.compositionText,
                 modifier = Modifier.align(Alignment.CenterStart),
             )
           }
-          SearchCandidateModeSwitcher(
-              modes = candidateModes,
-              selectedId = selectedCandidateModeId,
-              onSelect = onSelectCandidateMode,
-              style = style,
-          )
-          Box(
-              modifier = Modifier.fillMaxWidth().height(style.candidateStripHeight),
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              SearchCandidateStrip(
-                  candidates = candidates,
-                  onSelect = onSelectCandidate,
-                  style = style,
-                  modifier = Modifier.weight(1f),
-              )
-              IconButton(onClick = onToggleCandidates, enabled = candidates.isNotEmpty()) {
-                Text(if (candidateExpanded) "收起" else "更多", color = style.secondaryText)
-              }
-            }
-            if (candidateExpanded && candidates.isNotEmpty()) {
-              Popup(
-                  popupPositionProvider = AboveAnchorPopupPositionProvider,
-              ) {
-                Surface(
-                    color = style.popupBackground,
-                    contentColor = style.popupContent,
-                ) {
-                  LazyColumn(
-                      modifier = Modifier.fillMaxWidth().height(style.candidatePopupHeight),
+          Box(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
+              Box(modifier = Modifier.fillMaxWidth().height(style.skin.candidateStripHeight)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  SearchCandidateStrip(
+                      candidates = candidates,
+                      onSelect = onSelectCandidate,
+                      style = style,
+                      modifier = Modifier.weight(1f),
+                  )
+                  TextButton(
+                      onClick = onToggleCandidates,
+                      enabled = candidates.isNotEmpty(),
+                      contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                   ) {
+                    Text(
+                        if (candidateExpanded) stringResource(R.string.search_collapse)
+                        else stringResource(R.string.search_expand_candidates),
+                        color = style.secondaryText,
+                    )
+                  }
+                }
+              }
+              SearchInputMethodBoard(
+                  rows = keyboardRows,
+                  numberRows = numberRows,
+                  actionKeys = actionKeys,
+                  onKeyPress = onKeyPress,
+                  style = style,
+                  modifier = Modifier.fillMaxWidth(),
+              )
+            }
+            if (candidateExpanded && candidates.isNotEmpty() && style.skin.expandedCandidatesCoverBoard) {
+              Surface(
+                  color = style.popupBackground,
+                  contentColor = style.popupContent,
+                  shape = RoundedCornerShape(4.dp),
+                  modifier =
+                      Modifier.fillMaxSize()
+                          .border(1.dp, style.popupBorder, RoundedCornerShape(4.dp)),
+              ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight),
+                      verticalAlignment = Alignment.CenterVertically,
+                  ) {
+                    Text(
+                        text = composition.ifBlank { " " },
+                        color = style.compositionText,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = onToggleCandidates,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    ) {
+                      Text(stringResource(R.string.search_collapse), color = style.secondaryText)
+                    }
+                  }
+                  LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     items(candidates, key = SearchCandidateItem::id) { candidate ->
-                      Button(
+                      TextButton(
                           onClick = { onSelectCandidate(candidate) },
                           modifier = Modifier.fillMaxWidth(),
-                          colors =
-                              ButtonDefaults.buttonColors(
-                                  backgroundColor = style.popupBackground,
-                                  contentColor = style.popupContent,
-                              ),
+                          contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
                       ) {
-                        Text(candidate.label)
+                        Text(
+                            candidate.label,
+                            color = style.popupContent,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                       }
                     }
                   }
@@ -370,37 +459,22 @@ fun CinemaInputConsole(
               }
             }
           }
-          SearchInputMethodBoard(rows = keyboardRows, onKeyPress = onKeyPress, style = style)
         }
       },
       footer = {
-        SearchActions(
-            onBackspace = actions.onBackspace,
-            onClear = actions.onClear,
-            onSearch = actions.onSearch,
-            onVoice = actions.onVoice,
-            onSystemIme = requestSystemIme,
-            onDismiss = actions.onDismiss,
-            focusRequester = focusRequester,
-            style = style,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (actionKeys.isEmpty()) {
+          SearchActions(
+              onBackspace = actions.onBackspace,
+              onClear = actions.onClear,
+              onSearch = actions.onSearch,
+              onVoice = actions.onVoice,
+              onSystemIme = requestSystemIme,
+              onDismiss = actions.onDismiss,
+              focusRequester = focusRequester,
+              style = style,
+              modifier = Modifier.fillMaxWidth(),
+          )
+        }
       },
   )
-}
-
-private object AboveAnchorPopupPositionProvider : PopupPositionProvider {
-  override fun calculatePosition(
-      anchorBounds: IntRect,
-      windowSize: IntSize,
-      layoutDirection: LayoutDirection,
-      popupContentSize: IntSize,
-  ): IntOffset {
-    val centeredX = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
-    val aboveY = anchorBounds.top - popupContentSize.height - 4
-    return IntOffset(
-        x = centeredX.coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
-        y = aboveY.coerceAtLeast(0),
-    )
-  }
 }

@@ -9,8 +9,13 @@ import com.m0e_n00b.spatialworkbench.compose.WorkbenchSection
 internal data class SearchPanelActions(
     val onQueryChanged: (String) -> Unit,
     val onInputAction: (SearchInputAction) -> Unit,
+    val candidateExpanded: Boolean,
+    val onToggleCandidates: () -> Unit,
     val onClear: () -> Unit,
     val onSubmit: () -> Unit,
+    val onVoice: () -> Unit = {},
+    val onSystemIme: () -> Unit = {},
+    val onDismiss: () -> Unit = {},
 )
 
 @Composable
@@ -29,10 +34,15 @@ internal fun SearchPanel(
     SearchInputPanel(
         session = session,
         method = method,
+        candidateExpanded = actions.candidateExpanded,
         onSystemTextChanged = actions.onQueryChanged,
         onInputAction = actions.onInputAction,
+        onToggleCandidates = actions.onToggleCandidates,
         onClear = actions.onClear,
         onSearch = actions.onSubmit,
+        onVoice = actions.onVoice,
+        onSystemIme = actions.onSystemIme,
+        onDismiss = actions.onDismiss,
         style = inputStyle,
     )
   }

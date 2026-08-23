@@ -41,7 +41,7 @@ entities:
         translation:
         - 0
         - 0
-        - -0.059999998658895493
+        - -0.11999999731779099
         componentVersion: 1
       com.meta.components.Visibility:
         visible: true

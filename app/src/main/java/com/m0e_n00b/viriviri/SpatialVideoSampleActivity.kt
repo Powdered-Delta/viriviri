@@ -20,6 +20,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.m0e_n00b.spatialworkbench.core.PanelSlot
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvas
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvasEvent
@@ -147,10 +148,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var danmakuOverlayEntity: Entity? = null
   private var stageBackdropEntity: Entity? = null
   private var centerContentEntity: Entity? = null
+  private var inputMethodPanelEntity: Entity? = null
   private var outerDismissEntity: Entity? = null
   private var outerDismissInputAttached = false
+  private var suppressOuterDismissUntilMs = 0L
   private var hasWorkbenchDataSource = false
-  private var appliedCanvasSize: PlaybackCanvasSize? = null
+  private var appliedStageScale: Float? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -320,7 +323,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
             syncPlaybackCanvasSizeLabel(appState.playbackCanvasSize)
             applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
-            applyPlaybackCanvasSize(appState.playbackCanvasSize)
+            applyPlaybackStageScale(appState.playbackStageScale)
+            syncInputMethodPanelVisibility(appState)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
@@ -382,6 +386,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         mrPanelRegistration(),
         modePanelRegistration(),
         centerContentPanelRegistration(),
+        inputMethodPanelRegistration(),
         stageBackdropPanelRegistration(),
         danmakuOverlayPanelRegistration(),
     )
@@ -429,6 +434,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     componentManager.registerComponent<WristAttached>(WristAttached.Companion)
     systemManager.registerSystem(PanelLayerAlphaSystem(systemManager.findSystem()))
     systemManager.registerSystem(WristAttachedSystem())
+    val pointerInfoSystem = PointerInfoSystem()
+    systemManager.registerSystem(pointerInfoSystem)
+    systemManager.registerSystem(
+        AnalogMediaStageScaleSystem(
+            pointerInfo = pointerInfoSystem,
+            mediaStageEntity = Entity(R.id.spatialized_video_panel),
+            onScaleDelta = ViriViriApplication.appState::adjustPlaybackStageScale,
+            onInteractionFinished = {},
+        )
+    )
 
     scene.isSystemPassthroughEnabled().let { isMrMode ->
       scene.enablePassthrough(isMrMode)
@@ -477,6 +492,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 hitInfo: HitInfo,
                 sourceOfInput: Entity,
             ) {
+              if (SystemClock.uptimeMillis() < suppressOuterDismissUntilMs) {
+                suppressOuterDismissUntilMs = 0L
+                return
+              }
               if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
                 dismissWorkbenchFromCenterContent()
               }
@@ -570,6 +589,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      createInputMethodPanel()
       createStageBackdropPanel()
       createDanmakuOverlayPanel()
       canvasHandler.post { traceStageInputTargets() }
@@ -735,10 +755,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 override fun onHoverStart(
                     receiver: SceneObject,
                     sourceOfInput: Entity,
-                ) {
-                  openPlaybackCanvasIfQuiet()
-                  showTransportOverlay()
-                }
+                ) = Unit
 
                 override fun onClick(
                     receiver: SceneObject,
@@ -751,8 +768,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                           "workbench=${if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.state else "uninitialized"}",
                   )
                   if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
-                    dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)
-                    animateControllerVisibility(false)
+                    // Workbench dismissal belongs exclusively to WorkbenchOuterDismiss.
+                    // A MediaStage click must not cancel a just-opened panel route.
+                    showTransportOverlay()
                   } else {
                     dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
                     when (ImmersiveTransportOverlayPolicy.primaryAction()) {
@@ -768,10 +786,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     changed: Int,
                     clicked: Int,
                     downTime: Long,
-                ): Boolean {
-                  resetControllerFadeOutTimer()
-                  return false
-                }
+                ): Boolean = false
               }
           )
 
@@ -825,13 +840,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
                   if (fromUser) {
-                    // in range [0, 1]
-                    val normalized = progress.toDouble() / scaleMax
-                    // in range [-1.5, 1.5]
-                    val expRange = normalized * 3 - 1.5
-                    val newScale = Math.pow(10.0, expRange).toFloat()
+                    val normalized = progress.toFloat() / scaleMax.coerceAtLeast(1)
+                    val newScale =
+                        PlaybackCanvasSize.MIN_STAGE_SCALE +
+                            normalized * (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)
                     scaleText?.text = "Scale: %.2f".format(newScale)
-                    Entity(R.id.spatialized_video_panel).setComponent(Scale(newScale))
+                    ViriViriApplication.appState.setPlaybackStageScale(newScale)
                   }
                 }
 
@@ -922,6 +936,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           },
       )
 
+  private fun inputMethodPanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.input_method_panel,
+          composeViewCreator = { _, context ->
+            ComposeView(context).apply { setContent { ImmersiveInputMethodPanel() } }
+          },
+          settingsCreator = {
+            UIPanelSettings(
+                shape = QuadShapeOptions(width = 1.62f, height = 0.68f),
+                display = DpDisplayOptions(width = 832f, height = 348f, dpi = 512),
+                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+            )
+          },
+      )
+
   private fun stageBackdropPanelRegistration(): PanelRegistration =
       ComposeViewPanelRegistration(
           R.id.stage_backdrop_panel,
@@ -945,6 +974,33 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           input = PanelInputOptions(0),
           style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
       )
+
+  private fun createInputMethodPanel() {
+    if (inputMethodPanelEntity != null) return
+    inputMethodPanelEntity =
+        Entity.createPanelEntity(
+                R.id.input_method_panel,
+                // Below the center content and farther forward than Transport for near-field typing.
+                Transform(Pose(Vector3(0f, -0.48f, -0.42f), Quaternion(20f, 0f, 0f))),
+                TransformParent(Entity(R.id.spatialized_video_panel)),
+                Visible(false),
+            )
+            .also { it.setComponent(Panel(R.id.input_method_panel)) }
+    syncInputMethodPanelVisibility(ViriViriApplication.appState.state.value)
+  }
+
+  private fun syncInputMethodPanelVisibility(appState: ViriViriUiState) {
+    val entity = inputMethodPanelEntity ?: return
+    val visible =
+        appState.searchWorkspace.route == SearchWorkspaceRoute.SEARCH_EMPTY &&
+            appState.searchWorkspace.isKeyboardVisible &&
+            !appState.searchWorkspace.isKeyboardDismissed
+    if (::spatialPanelVisibilityController.isInitialized) {
+      spatialPanelVisibilityController.setVisible(PanelSlot.ACTION_SHEET, entity, visible)
+    } else {
+      entity.setComponent(Visible(visible))
+    }
+  }
 
   private fun createStageBackdropPanel() {
     if (stageBackdropEntity != null) return
@@ -1269,33 +1325,33 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun openHomeCanvas() {
-    CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
+    val wasShowingSearchResults = appState.state.value.isShowingSearchResults
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
-    if (appState.state.value.isShowingSearchResults) appState.returnToRecommendationsFeed()
+    appState.closeSearchWorkspace()
+    if (wasShowingSearchResults) appState.returnToRecommendationsFeed()
     else appState.returnToRecommendations()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
 
   fun openBrowseCanvas() {
-    CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
+    appState.closeSearchWorkspace()
     appState.returnToRecommendations()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
 
   fun openSearchCanvas() {
-    CenterContentSession.show(CenterContentMode.SEARCH)
+    suppressOuterDismissUntilMs = SystemClock.uptimeMillis() + OUTER_DISMISS_SUPPRESSION_MS
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
-    appState.returnToRecommendations()
+    appState.openSearchWorkspace()
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenBrowse)
   }
 
   private fun returnToPlaybackFromCenterContent() {
     // UX: selection hides the center layer immediately; the existing app state continues sole-player playback resolution.
-    CenterContentSession.show(CenterContentMode.PLAYBACK)
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
   }
@@ -1307,7 +1363,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun dismissWorkbenchFromCenterContent() {
     // UX: non-action center content clicks share the established canvas dismissal behavior.
-    CenterContentSession.show(CenterContentMode.PLAYBACK)
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)
     animateControllerVisibility(false)
@@ -1316,6 +1371,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
     Log.d(WORKBENCH_TRACE_TAG, "applyPlaybackCanvasSlots slots=$visibleSlots")
     if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.applyCanvasSlots(visibleSlots)
+    val appState = ViriViriApplication.appState
+    if (PanelSlot.BROWSE !in visibleSlots && PanelSlot.TRANSPORT in visibleSlots && appState.state.value.selected != null) {
+      appState.openWorkbenchEmpty()
+    }
   }
 
   private fun applyWorkbenchModules(visibleModules: Set<WorkbenchModule>) {
@@ -1340,6 +1399,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           PanelSlot.BROWSE,
           entity,
           WorkbenchModule.CENTER_CONTENT in visibleModules,
+      )
+    }
+    stageBackdropEntity?.let { entity ->
+      // The only translucent layer: dim MediaStage whenever a Workbench surface is present.
+      spatialPanelVisibilityController.setVisible(
+          PanelSlot.MEDIA_STAGE,
+          entity,
+          visibleModules.isNotEmpty(),
       )
     }
   }
@@ -1415,11 +1482,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     canvasSizeButton.thenAccept { it.text = "Canvas size: ${canvasSize.label}" }
   }
 
-  private fun applyPlaybackCanvasSize(canvasSize: PlaybackCanvasSize) {
-    if (appliedCanvasSize == canvasSize) return
-    appliedCanvasSize = canvasSize
-    // UX: canvas size scales the one existing MediaStage; a future curved canvas replaces only this presentation adapter.
-    Entity(R.id.spatialized_video_panel).setComponent(Scale(canvasSize.scale))
+  private fun applyPlaybackStageScale(stageScale: Float) {
+    val normalizedScale = PlaybackCanvasSize.clampStageScale(stageScale)
+    if (appliedStageScale == normalizedScale) return
+    appliedStageScale = normalizedScale
+    // Preset selection and future thumbstick input both scale the one existing MediaStage.
+    Entity(R.id.spatialized_video_panel).setComponent(Scale(normalizedScale))
   }
 
   private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
@@ -1851,6 +1919,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val LIGHTS_DOWN_SCALE: Float = 0.25f
     const val TRANSPORT_FADE_DURATION_MS: Long = 200L
     const val TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS: Long = 500L
+    const val OUTER_DISMISS_SUPPRESSION_MS: Long = 500L
     const val WRIST_DEBUG_PANEL_WIDTH: Float = 0.14f
     const val WRIST_DEBUG_PANEL_HEIGHT: Float = 0.05f
 

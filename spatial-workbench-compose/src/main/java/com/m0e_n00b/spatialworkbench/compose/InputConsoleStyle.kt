@@ -39,10 +39,7 @@ data class InputConsoleStyle(
     val numberKey: InputConsoleKeyStyle,
     val alphabetKey: InputConsoleKeyStyle,
     val actionKey: InputConsoleKeyStyle,
-    val compositionHeight: Dp = 20.dp,
-    val candidateStripHeight: Dp = 48.dp,
-    val candidatePopupHeight: Dp = 180.dp,
-    val sectionSpacing: Dp = 6.dp,
+    val skin: InputConsoleSkin = GboardQwertyInputConsoleSkin,
 ) {
   companion object {
     fun fromPalette(
@@ -82,6 +79,7 @@ data class InputConsoleStyle(
           numberKey = InputConsoleKeyStyle(secondary, secondaryLabel, disabled, disabledContent),
           alphabetKey = InputConsoleKeyStyle(primary, primaryLabel, disabled, disabledContent),
           actionKey = InputConsoleKeyStyle(secondary, secondaryLabel, disabled, disabledContent),
+          skin = GboardQwertyInputConsoleSkin,
       )
     }
   }

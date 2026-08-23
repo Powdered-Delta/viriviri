@@ -3,9 +3,11 @@ package com.m0e_n00b.viriviri
 import android.graphics.Matrix
 import android.view.TextureView
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,11 +31,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -45,10 +52,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,15 +67,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Refresh
 import androidx.media3.common.Player
 import com.m0e_n00b.spatialworkbench.compose.ContentAccessBadge
-import com.m0e_n00b.spatialworkbench.compose.InputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.MediaThumbnailFrame
 import com.m0e_n00b.spatialworkbench.compose.TransientMessageHost
 import com.m0e_n00b.spatialworkbench.compose.WorkbenchPanelStyle
@@ -111,7 +124,6 @@ fun RecommendationContent(
     showPlayer: Boolean,
     onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
-    showSearchConsoleByDefault: Boolean = !showPlayer,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
     onDismissWorkbench: (() -> Unit)? = null,
@@ -123,8 +135,6 @@ fun RecommendationContent(
               state = state,
               appState = appState,
               palette = palette,
-              showSearchConsoleByDefault = showSearchConsoleByDefault,
-              onReturnToPlayback = onReturnToPlayback,
               onVideoSelected = onVideoSelected,
               onDismissWorkbench = onDismissWorkbench,
           )
@@ -136,8 +146,6 @@ fun RecommendationContent(
               state = state,
               appState = appState,
               palette = palette,
-              showSearchConsoleByDefault = showSearchConsoleByDefault,
-              onReturnToPlayback = onReturnToPlayback,
               onVideoSelected = onVideoSelected,
               onDismissWorkbench = onDismissWorkbench,
           )
@@ -159,21 +167,19 @@ fun RecommendationPanel(
     appState: ViriViriAppState = ViriViriApplication.appState,
     onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
-    searchOpenByDefault: Boolean = false,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
     onDismissWorkbench: (() -> Unit)? = null,
 ) {
   val state by appState.state.collectAsState()
   // UX: Browse and Detail share one semantic palette while occupying the same angled panel.
-  Box(modifier = Modifier.fillMaxSize().background(palette.composeColor(CinemaColorRole.BACKGROUND))) {
+  Box(modifier = Modifier.fillMaxSize()) {
     RecommendationContent(
         state = state,
         appState = appState,
         showPlayer = false,
         onReturnToPlayback = onReturnToPlayback,
         palette = palette,
-        showSearchConsoleByDefault = searchOpenByDefault,
         showViewerContent = showViewerContent,
         onVideoSelected = onVideoSelected,
         onDismissWorkbench = onDismissWorkbench,
@@ -186,8 +192,6 @@ private fun CenterContentWorkspace(
     state: ViriViriUiState,
     appState: ViriViriAppState,
     palette: CinemaPalette,
-    showSearchConsoleByDefault: Boolean,
-    onReturnToPlayback: (() -> Unit)?,
     onVideoSelected: (() -> Unit)?,
     onDismissWorkbench: (() -> Unit)?,
 ) {
@@ -204,7 +208,7 @@ private fun CenterContentWorkspace(
           initialFirstVisibleItemScrollOffset = savedScrollPosition.firstVisibleItemScrollOffset,
       )
   val thumbnailStates by appState.thumbnailStates.collectAsState()
-  val searchConsoleVisible = showSearchConsoleByDefault || state.isShowingSearchResults
+  val route = state.searchWorkspace.route
   var isGridView by rememberSaveable { mutableStateOf(true) }
   var filterState by remember { mutableStateOf(VideoListFilterState()) }
   var moreFiltersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -215,7 +219,16 @@ private fun CenterContentWorkspace(
   }
 
   val panelStyle = remember(palette) { WorkbenchPanelStyle.fromPalette(palette) }
-  val inputStyle = remember(palette) { InputConsoleStyle.fromPalette(palette) }
+  val selectRecommendation: (Recommendation) -> Unit = { recommendation ->
+    val position =
+        if (isGridView) {
+          ListScrollPosition(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset)
+        } else {
+          ListScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+        }
+    appState.selectRecommendation(recommendation, position)
+    onVideoSelected?.invoke()
+  }
   LaunchedEffect(listState, gridState, isGridView, state.recommendations.size, state.canLoadMore, state.isLoadingNextPage) {
     snapshotFlow {
           val lastVisible =
@@ -231,79 +244,289 @@ private fun CenterContentWorkspace(
           if (nearEnd) appState.loadNextPage()
         }
   }
-  // UX: card/input actions consume their own click; only unclaimed center-panel background clicks dismiss Workbench.
+  // UX: only the active center route owns the list body; Search empty replaces it with discovery content.
   Column(
       modifier =
           Modifier.fillMaxSize()
-              .background(palette.composeColor(CinemaColorRole.BACKGROUND))
               .clickable(enabled = onDismissWorkbench != null) { onDismissWorkbench?.invoke() }
               .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    VideoListFilterBar(
-        state = filterState,
-        isGridView = isGridView,
-        moreExpanded = moreFiltersExpanded,
-        style = panelStyle,
-        onSortChanged = { applyFilter(filterState.copy(sort = it)) },
-        onDateChanged = { applyFilter(filterState.copy(date = it)) },
-        onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
-        onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
-        remoteFilteringAvailable = state.isShowingSearchResults,
-        onToggleLayout = { isGridView = !isGridView },
-        isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
-        onTopOrRefresh = {
-          if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
-            if (state.isShowingSearchResults) appState.submitSearch(filterState.toBilibiliSearchOptions())
-            else appState.refreshRecommendations()
-          } else if (isGridView) {
-            coroutineScope.launch { gridState.animateScrollToItem(0) }
-          } else {
-            coroutineScope.launch { listState.animateScrollToItem(0) }
+    when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY ->
+          Surface(
+              color = panelStyle.surface,
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            TextButton(
+                onClick = appState::openPlaybackReturnRoute,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+              Text(
+                  text =
+                      when (state.searchWorkspace.workbenchReturnTarget) {
+                        WorkbenchReturnTarget.VIDEO_LIST -> stringResource(R.string.nav_video_list)
+                        WorkbenchReturnTarget.SEARCH_RESULTS -> stringResource(R.string.search_results)
+                      },
+                  color = panelStyle.text,
+              )
+            }
           }
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    SearchPanel(
-        session = state.searchInput,
-        method = appState.inputMethods.methodFor(state.searchInput),
-        actions =
-            SearchPanelActions(
-                onQueryChanged = appState::updateSearchQuery,
-                onInputAction = appState::applySearchInputAction,
-                onClear = appState::clearSearchInput,
-                onSubmit = appState::submitSearch,
-            ),
-        style = panelStyle,
-        inputStyle = inputStyle,
-        visible = searchConsoleVisible,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    val selectRecommendation: (Recommendation) -> Unit = { recommendation ->
-      val position =
-          if (isGridView) {
-            ListScrollPosition(gridState.firstVisibleItemIndex, gridState.firstVisibleItemScrollOffset)
-          } else {
-            ListScrollPosition(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)
+      SearchWorkspaceRoute.RECOMMENDATIONS,
+      SearchWorkspaceRoute.SEARCH_RESULTS ->
+          Surface(
+              color = panelStyle.surface,
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            VideoListFilterBar(
+                state = filterState,
+                isGridView = isGridView,
+                moreExpanded = moreFiltersExpanded,
+                style = panelStyle,
+                onSortChanged = { applyFilter(filterState.copy(sort = it)) },
+                onDateChanged = { applyFilter(filterState.copy(date = it)) },
+                onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
+                onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
+                onToggleLayout = { isGridView = !isGridView },
+                isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
+                onTopOrRefresh = {
+                  if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
+                    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                      appState.submitSearch(filterState.toBilibiliSearchOptions())
+                    } else {
+                      appState.refreshRecommendations()
+                    }
+                  } else if (isGridView) {
+                    coroutineScope.launch { gridState.animateScrollToItem(0) }
+                  } else {
+                    coroutineScope.launch { listState.animateScrollToItem(0) }
+                  }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            )
           }
-      appState.selectRecommendation(recommendation, position)
-      // UX: selection immediately closes center content so Viewer fallback content can never flash over MediaStage.
-      onVideoSelected?.invoke()
+      SearchWorkspaceRoute.SEARCH_EMPTY ->
+          Surface(
+              color = panelStyle.surface,
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            CenterWorkspaceHeader(
+                state = state,
+                route = route,
+                appState = appState,
+                style = panelStyle,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+          }
     }
-    VideoListPanel(
-        state = state,
-        thumbnailStates = thumbnailStates,
-        isGridView = isGridView,
-        listState = listState,
-        gridState = gridState,
-        style = panelStyle,
-        palette = palette,
-        onSelect = selectRecommendation,
-        onToggleLayout = { isGridView = !isGridView },
-        modifier = Modifier.weight(1f),
-    )
+    when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY -> Unit
+      SearchWorkspaceRoute.RECOMMENDATIONS,
+      SearchWorkspaceRoute.SEARCH_RESULTS ->
+          Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            VideoListPanel(
+                state = state,
+                thumbnailStates = thumbnailStates,
+                isGridView = isGridView,
+                listState = listState,
+                gridState = gridState,
+                style = panelStyle,
+                palette = palette,
+                onSelect = selectRecommendation,
+                onToggleLayout = { isGridView = !isGridView },
+                localFilter = if (route == SearchWorkspaceRoute.RECOMMENDATIONS) filterState else null,
+                modifier = Modifier.fillMaxSize(),
+            )
+          }
+      SearchWorkspaceRoute.SEARCH_EMPTY ->
+          Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Surface(
+                color = panelStyle.surface.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+              SearchDiscoveryContent(
+                  workspace = state.searchWorkspace,
+                  style = panelStyle,
+                  onSelectHistory = appState::selectSearchHistory,
+                  onRemoveHistory = appState::removeSearchHistory,
+                  onToggleHistory = appState::toggleSearchHistoryExpanded,
+                  onSelectSuggestion = appState::selectSearchSuggestion,
+                  onRefreshSuggestions = appState::refreshSearchSuggestions,
+                  modifier = Modifier.padding(12.dp),
+              )
+            }
+          }
+    }
   }
 }
+
+@Composable
+private fun CenterWorkspaceHeader(
+    state: ViriViriUiState,
+    route: SearchWorkspaceRoute,
+    appState: ViriViriAppState,
+    style: WorkbenchPanelStyle,
+    modifier: Modifier = Modifier,
+) {
+  Row(
+      modifier = modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY,
+      SearchWorkspaceRoute.RECOMMENDATIONS -> Unit
+      SearchWorkspaceRoute.SEARCH_EMPTY,
+      SearchWorkspaceRoute.SEARCH_RESULTS -> {
+        val systemFocusRequester = remember { FocusRequester() }
+        val systemKeyboardController = LocalSoftwareKeyboardController.current
+        Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
+        Surface(
+            color = style.surface,
+            shape = RoundedCornerShape(20.dp),
+            modifier =
+                Modifier.weight(1f)
+                    .height(40.dp)
+                    .border(1.dp, style.border, RoundedCornerShape(20.dp))
+                    .clickable { appState.requestInternalSearchInput() },
+        ) {
+          Row(
+              modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+              verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+                text = state.searchInput.committedText.ifBlank { stringResource(R.string.nav_search) },
+                color = if (state.searchInput.committedText.isBlank()) style.secondaryText else style.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+          }
+        }
+        Box(modifier = Modifier.size(1.dp).alpha(0f)) {
+          BasicTextField(
+              value = state.searchInput.committedText,
+              onValueChange = appState::updateSearchQuery,
+              modifier = Modifier.fillMaxSize().focusRequester(systemFocusRequester),
+              singleLine = true,
+          )
+        }
+        IconButton(
+            onClick = {
+              appState.requestSystemSearchInput()
+              systemFocusRequester.requestFocus()
+              systemKeyboardController?.show()
+            }
+        ) {
+          Icon(Icons.Default.Keyboard, contentDescription = stringResource(R.string.search_system_ime), tint = style.secondaryText)
+        }
+        IconButton(onClick = { appState.requestInternalSearchInput() }) {
+          Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.search_voice), tint = style.secondaryText)
+        }
+        IconButton(
+            onClick =
+                if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                  appState::returnToSearchEmpty
+                } else {
+                  appState::closeSearchWorkspace
+                }
+        ) {
+          Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.nav_back), tint = style.secondaryText)
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun SearchDiscoveryContent(
+    workspace: SearchWorkspaceState,
+    style: WorkbenchPanelStyle,
+    onSelectHistory: (String) -> Unit,
+    onRemoveHistory: (String) -> Unit,
+    onToggleHistory: () -> Unit,
+    onSelectSuggestion: (String) -> Unit,
+    onRefreshSuggestions: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+  val visibleHistory =
+      if (workspace.isHistoryExpanded) workspace.history else workspace.history.take(MAX_VISIBLE_SEARCH_HISTORY)
+  Column(
+      modifier = modifier,
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    SearchDiscoverySectionHeader(
+        title = stringResource(R.string.search_history),
+        action = if (workspace.history.size > MAX_VISIBLE_SEARCH_HISTORY) {
+          if (workspace.isHistoryExpanded) stringResource(R.string.search_collapse) else stringResource(R.string.search_unfold)
+        } else {
+          null
+        },
+        onAction = onToggleHistory,
+        style = style,
+    )
+    if (visibleHistory.isEmpty()) {
+      Text(stringResource(R.string.search_history_empty), color = style.secondaryText)
+    } else {
+      Row(
+          modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+          horizontalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        visibleHistory.forEach { query ->
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { onSelectHistory(query) }) {
+              Text(query, color = style.text, maxLines = 1)
+            }
+            IconButton(onClick = { onRemoveHistory(query) }, modifier = Modifier.size(28.dp)) {
+              Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_remove_history), tint = style.secondaryText)
+            }
+          }
+        }
+      }
+    }
+    SearchDiscoverySectionHeader(
+        title = stringResource(R.string.search_recommendations),
+        action = stringResource(R.string.search_refresh),
+        onAction = onRefreshSuggestions,
+        style = style,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+      workspace.suggestedQueries.forEach { query ->
+        TextButton(onClick = { onSelectSuggestion(query) }) {
+          Text(query, color = style.text, maxLines = 1)
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun SearchDiscoverySectionHeader(
+    title: String,
+    action: String?,
+    onAction: () -> Unit,
+    style: WorkbenchPanelStyle,
+) {
+  Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(title, color = style.text, fontWeight = FontWeight.Medium)
+    Spacer(Modifier.weight(1f))
+    action?.let {
+      TextButton(onClick = onAction) {
+        Text(it, color = style.secondaryText)
+      }
+    }
+  }
+}
+
 
 @Composable
 internal fun VideoListPanel(
@@ -316,9 +539,10 @@ internal fun VideoListPanel(
     palette: CinemaPalette,
     onSelect: (Recommendation) -> Unit,
     onToggleLayout: () -> Unit,
+    localFilter: VideoListFilterState? = null,
     modifier: Modifier = Modifier,
 ) {
-  // UX: VideoList is a standardized center-content module and never owns player or Spatial state.
+  val recommendations = localFilter?.filterRecommendations(state.recommendations) ?: state.recommendations
   when {
     state.isLoading ->
         Text(
@@ -326,9 +550,9 @@ internal fun VideoListPanel(
             color = style.text,
             modifier = modifier,
         )
-    state.recommendations.isEmpty() && state.error != null ->
+    recommendations.isEmpty() && state.error != null ->
         Text(state.error, color = palette.composeColor(CinemaColorRole.DANGER), modifier = modifier)
-    state.recommendations.isEmpty() ->
+    recommendations.isEmpty() ->
         Text(
             if (state.isShowingSearchResults) stringResource(R.string.list_no_results) else stringResource(R.string.list_no_recommendations),
             color = style.text,
@@ -336,14 +560,13 @@ internal fun VideoListPanel(
         )
     isGridView ->
         LazyVerticalGrid(
-            // UX: the center content plane uses the approved three-column video grid.
             columns = GridCells.Fixed(CENTER_VIDEO_GRID_COLUMNS),
             state = gridState,
             modifier = modifier,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          items(state.recommendations, key = { it.videoId }) { recommendation ->
+          items(recommendations, key = { it.videoId }) { recommendation ->
             RecommendationCard(
                 recommendation = recommendation,
                 thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],
@@ -361,7 +584,7 @@ internal fun VideoListPanel(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          items(state.recommendations, key = { it.videoId }) { recommendation ->
+          items(recommendations, key = { it.videoId }) { recommendation ->
             RecommendationRow(
                 recommendation = recommendation,
                 thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],
@@ -613,6 +836,7 @@ private fun PlayerOutput(session: PlayerSession) {
 }
 
 private const val PAGINATION_PREFETCH_DISTANCE = 4
+private const val MAX_VISIBLE_SEARCH_HISTORY = 5
 internal const val CENTER_VIDEO_GRID_COLUMNS = 3
 
 private class AspectRatioTextureView(context: android.content.Context) : TextureView(context) {

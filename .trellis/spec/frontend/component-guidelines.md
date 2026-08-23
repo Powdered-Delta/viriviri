@@ -35,28 +35,57 @@ fun BrowseScreen(
 }
 ```
 
-### Convention: Extensible Offline Input Methods
+### Convention: Offline QWERTY Input Method and Search Routes
 
-**What**: Search input methods implement the pure Kotlin `SearchInputMethod`
-contract and are registered through `SearchInputMethodRegistry`. The shared
-`SearchInputPanel` only renders the method-provided session, candidates, and
-keyboard rows.
+**What**: Search input uses a pure Kotlin `SearchInputMethod` contract. The
+first-party implementation is `ChinesePinyinQwertyInputMethod`, registered
+through `SearchInputMethodRegistry`. It owns Pinyin composition, continuous
+candidate generation, key semantics, and candidate consumption; shared Compose
+UI only renders the method-provided session and keyboard layout.
 
-**Why**: Chinese T9, Japanese kana, Korean, and future language layouts can use
-separate offline dictionaries without adding language conditionals to Compose
-browse UI, `ViriViriAppState`, or the Bilibili provider.
+**Why**: QWERTY Pinyin can evolve independently from Compose browse UI,
+`ViriViriAppState`, the Bilibili provider, player ownership, and Spatial panel
+lifecycle. Candidate generation remains offline and produces continuous
+composition candidates such as `woshi -> 我是` rather than requiring a user to
+commit each character separately.
 
 **Example**:
 
 ```kotlin
-val methods = SearchInputMethodRegistry(listOf(MyKanaInputMethod(), ChineseT9InputMethod()))
+val methods = SearchInputMethodRegistry(listOf(ChinesePinyinQwertyInputMethod()))
 val appState = ViriViriAppState(context, inputMethods = methods)
 ```
 
-A method must keep text conversion and candidate generation offline unless its
-own documented contract explicitly says otherwise. System IME input is an
-optional fallback that updates the same committed query but must not silently
-start a search.
+The input-method session must not expose a single-character/phrase UI mode.
+`OfflinePinyinLexicon.candidatesFor()` is the single candidate contract and
+returns ordered continuous candidates with consumed-composition metadata.
+
+Search itself is a center-workspace route:
+
+```text
+RECOMMENDATIONS -> SEARCH_EMPTY -> SEARCH_RESULTS
+```
+
+- `SEARCH_EMPTY` renders search history and recommended keywords, never a
+  video list. Opening this route does not show the keyboard; the near-field panel
+  appears only after the query field receives focus or the explicit keyboard action
+  is used.
+- `SEARCH_RESULTS` renders the result list after committing a query and
+  synchronously hides the app-owned keyboard panel.
+- The query field belongs in the center workspace header, not inside the
+  keyboard panel. A regular query-field click is intercepted for the internal
+  keyboard; only the explicit `[IME]` action can request Android system IME focus.
+
+- The keyboard panel is a single near-field `input_method_panel` Spatial Compose
+  panel. It is parented to MediaStage and positioned below the center content,
+  above and in front of Transport, but it is never a video Surface or player owner.
+  Its number, keyboard, and options surfaces are Compose children inside that one panel.
+- Keyboard geometry follows the active `InputConsoleSkin`: the number zone uses
+  a calculator-oriented `7-9/+`, `4-6/-`, `1-3/x`, `0/./=/÷` grid and the
+  QWERTY/symbol space key has a wider weight than adjacent punctuation keys.
+
+System IME input is an optional host callback that updates the same committed
+query but must not silently start a search.
 
 ### Convention: Transient Messages
 

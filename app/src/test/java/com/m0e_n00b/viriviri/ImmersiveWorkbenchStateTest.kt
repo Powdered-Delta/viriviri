@@ -5,18 +5,26 @@ import org.junit.Test
 
 class ImmersiveWorkbenchStateTest {
   @Test
-  fun normalPlaybackShowsTheExistingAngledLeftPanel() {
+  fun playbackReturnTargetRestoresTheOriginatingCenterRoute() {
+    assertEquals(SearchWorkspaceRoute.RECOMMENDATIONS, playbackReturnRoute(WorkbenchReturnTarget.VIDEO_LIST))
+    assertEquals(SearchWorkspaceRoute.SEARCH_RESULTS, playbackReturnRoute(WorkbenchReturnTarget.SEARCH_RESULTS))
+  }
+
+  @Test
+  fun normalPlaybackShowsTheExistingAngledLeftPanelAndEmptyCenterHeader() {
     val playback =
         ImmersiveWorkbenchReducer.reduce(
             ImmersiveWorkbenchState(),
             WorkbenchEvent.RevealTransport,
         )
 
+    assertEquals(WorkbenchContent.WORKBENCH_EMPTY, playback.content)
     assertEquals(
         setOf(
             WorkbenchModule.NAVIGATION,
             WorkbenchModule.TRANSPORT,
             WorkbenchModule.DETAIL_RAIL,
+            WorkbenchModule.CENTER_CONTENT,
             WorkbenchModule.VIDEO_CONTEXT,
         ),
         ImmersiveWorkbenchReducer.modules(playback),

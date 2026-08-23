@@ -2,69 +2,45 @@ package com.m0e_n00b.viriviri
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsole
 import com.m0e_n00b.spatialworkbench.compose.CinemaInputConsoleActions
 import com.m0e_n00b.spatialworkbench.compose.DefaultInputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.InputConsoleStyle
 import com.m0e_n00b.spatialworkbench.compose.SearchCandidateItem
-import com.m0e_n00b.spatialworkbench.compose.SearchCandidateModeItem
 import com.m0e_n00b.spatialworkbench.compose.SearchKeyItem
 
 @Composable
 internal fun SearchInputPanel(
     session: SearchInputSession,
     method: SearchInputMethod,
+    candidateExpanded: Boolean,
     onSystemTextChanged: (String) -> Unit,
     onInputAction: (SearchInputAction) -> Unit,
+    onToggleCandidates: () -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
+    onVoice: () -> Unit = {},
+    onSystemIme: () -> Unit = {},
+    onDismiss: () -> Unit = {},
+    transparentRoot: Boolean = false,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
-  val keyboardRows =
-      method.keyboard(session).mapIndexed { rowIndex, row ->
-        row.mapIndexed { keyIndex, key ->
-          SearchKeyItem(
-              id = "$rowIndex-$keyIndex",
-              label = key.label,
-              hint = key.hint,
-          )
-        }
-      }
-  val keyActions =
-      method.keyboard(session).flatMapIndexed { rowIndex, row ->
-        row.mapIndexed { keyIndex, key -> "$rowIndex-$keyIndex" to key.action }
+  val layout = method.keyboardLayout(session)
+  val allKeys = layout.numberRows.flatten() + layout.mainRows.flatten()
+  val keyActions = allKeys.associateBy(SearchInputKey::id).mapValues { it.value.action }
+  val candidateValues =
+      session.candidates.mapIndexed { index, candidate ->
+        "candidate-$index" to candidate.value
       }.toMap()
 
-  CinemaInputConsole(
-      query = session.committedText,
-      composition = session.composition,
-      candidateModes =
-          listOf(
-              SearchCandidateModeItem(SearchCandidateMode.PHRASE.name, stringResource(R.string.search_phrase)),
-              SearchCandidateModeItem(SearchCandidateMode.SINGLE_CHARACTER.name, stringResource(R.string.search_single_character)),
-          ),
-      selectedCandidateModeId = session.candidateMode.name,
-      candidates =
-          session.candidates.map { candidate ->
-            SearchCandidateItem(candidate.value, candidate.label)
-          },
-      keyboardRows = keyboardRows,
-      candidateExpanded = false,
-      onQueryChanged = onSystemTextChanged,
-      onSelectCandidateMode = { mode ->
-        onInputAction(
-            SearchInputAction.SetCandidateMode(
-                SearchCandidateMode.valueOf(mode.id),
-            )
-        )
-      },
-      onSelectCandidate = { candidate ->
-        onInputAction(SearchInputAction.SelectCandidate(candidate.id))
-      },
-      onToggleCandidates = {},
-      onKeyPress = { key ->
-        val action = keyActions.getValue(key.id)
+  fun dispatchKey(key: SearchKeyItem) {
+    when (key.id) {
+      "backspace" -> onInputAction(SearchInputAction.Backspace)
+      "enter" -> onInputAction(SearchInputAction.CommitComposition)
+      "voice" -> onVoice()
+      "hide" -> onDismiss()
+      else -> {
+        val action = keyActions[key.id] ?: return
         onInputAction(
             if (action is SearchInputAction.PressKey) {
               action.copy(eventTimeMs = System.currentTimeMillis())
@@ -72,13 +48,44 @@ internal fun SearchInputPanel(
               action
             }
         )
+      }
+    }
+  }
+
+  CinemaInputConsole(
+      query = session.committedText,
+      composition = session.composition,
+      candidates =
+          session.candidates.mapIndexed { index, candidate ->
+            SearchCandidateItem("candidate-$index", candidate.label)
+          },
+      numberRows =
+          layout.numberRows.map { row ->
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) }
+          },
+      keyboardRows =
+          layout.mainRows.map { row ->
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) }
+          },
+      actionKeys = layout.actionKeys.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) },
+      candidateExpanded = candidateExpanded,
+      onQueryChanged = onSystemTextChanged,
+      onSelectCandidate = { candidate ->
+        candidateValues[candidate.id]?.let { onInputAction(SearchInputAction.SelectCandidate(it)) }
       },
+      onToggleCandidates = onToggleCandidates,
+      onKeyPress = ::dispatchKey,
       actions =
           CinemaInputConsoleActions(
               onBackspace = { onInputAction(SearchInputAction.Backspace) },
               onClear = onClear,
               onSearch = onSearch,
+              onVoice = onVoice,
+              onSystemIme = onSystemIme,
+              onDismiss = onDismiss,
           ),
+      showQueryField = false,
+      transparentRoot = transparentRoot,
       style = style,
   )
 }

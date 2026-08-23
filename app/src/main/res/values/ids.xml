@@ -10,4 +10,5 @@
   <item type="id" name="danmaku_overlay_panel" />
   <item type="id" name="stage_backdrop_panel" />
   <item type="id" name="center_content_panel" />
+  <item type="id" name="input_method_panel" />
 </resources>

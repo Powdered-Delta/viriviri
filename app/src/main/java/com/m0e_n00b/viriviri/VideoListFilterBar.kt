@@ -37,7 +37,6 @@ internal fun VideoListFilterBar(
     onDateChanged: (VideoListDateFilter) -> Unit,
     onDurationChanged: (VideoListDurationFilter) -> Unit,
     onToggleMore: () -> Unit,
-    remoteFilteringAvailable: Boolean,
     onToggleLayout: () -> Unit,
     isAtTop: Boolean,
     onTopOrRefresh: () -> Unit,
@@ -59,7 +58,7 @@ internal fun VideoListFilterBar(
         FilterButton(
             label = option.label,
             selected = state.sort == option.value,
-            enabled = option.value == VideoListSort.COMPREHENSIVE,
+            enabled = true,
             style = style,
             onClick = { onSortChanged(option.value) },
         )
@@ -67,7 +66,7 @@ internal fun VideoListFilterBar(
       FilterButton(
           label = stringResource(R.string.list_filter_more),
           selected = state.date != VideoListDateFilter.ANY || state.duration != VideoListDurationFilter.ANY,
-          enabled = remoteFilteringAvailable,
+          enabled = true,
           style = style,
           onClick = onToggleMore,
       )
@@ -97,7 +96,7 @@ internal fun VideoListFilterBar(
             VideoListFilterOption(VideoListDateFilter.THIS_WEEK, stringResource(R.string.list_date_week)),
             VideoListFilterOption(VideoListDateFilter.THIS_MONTH, stringResource(R.string.list_date_month)),
         ).forEach { option ->
-          FilterButton(option.label, state.date == option.value, remoteFilteringAvailable, style) { onDateChanged(option.value) }
+          FilterButton(option.label, state.date == option.value, true, style) { onDateChanged(option.value) }
         }
         listOf(
             VideoListFilterOption(VideoListDurationFilter.ANY, stringResource(R.string.list_duration_any)),
@@ -105,7 +104,7 @@ internal fun VideoListFilterBar(
             VideoListFilterOption(VideoListDurationFilter.MEDIUM, stringResource(R.string.list_duration_medium)),
             VideoListFilterOption(VideoListDurationFilter.LONG, stringResource(R.string.list_duration_long)),
         ).forEach { option ->
-          FilterButton(option.label, state.duration == option.value, remoteFilteringAvailable, style) { onDurationChanged(option.value) }
+          FilterButton(option.label, state.duration == option.value, true, style) { onDurationChanged(option.value) }
         }
       }
     }
