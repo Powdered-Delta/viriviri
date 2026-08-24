@@ -15,7 +15,26 @@ class SearchInputMethodTest {
     assertEquals(4, layout.mainRows.size)
     assertEquals(4, layout.actionKeys.size)
     assertEquals("letter:q", layout.mainRows.first().first().id)
-    assertEquals("digit:1", layout.numberRows.first().first().id)
+    assertEquals("digit:7", layout.numberRows.first().first().id)
+    assertEquals(listOf("digit:7", "digit:8", "digit:9", "operator:plus"), layout.numberRows.first().map { it.id })
+    assertEquals(listOf("digit:0", "period", "operator:equals", "operator:divide"), layout.numberRows.last().map { it.id })
+  }
+
+  @Test
+  fun bottomRowGivesSpaceTheWidestTouchTarget() {
+    val bottomRow = method.keyboardLayout(method.initialSession()).mainRows.last()
+    val space = bottomRow.single { it.id == "space" }
+
+    assertEquals(4f, space.widthWeight, 0f)
+    assertTrue(bottomRow.filter { it.id != "space" }.all { it.widthWeight < space.widthWeight })
+  }
+
+  @Test
+  fun symbolLayerKeepsTheWideSpaceTouchTarget() {
+    val symbolSession = method.reduce(method.initialSession(), SearchInputAction.PressKey("symbols", 0L))
+    val symbolSpace = method.keyboardLayout(symbolSession).mainRows.last().single { it.id == "space" }
+
+    assertEquals(4f, symbolSpace.widthWeight, 0f)
   }
 
   @Test

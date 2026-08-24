@@ -37,9 +37,9 @@ data class InputConsoleSkin(
 val GboardQwertyInputConsoleSkin =
     InputConsoleSkin(
         id = "gboard-qwerty-v1",
-        numberColumnWeight = 0.28f,
+        numberColumnWeight = 0.34f,
         mainColumnWeight = 1f,
-        actionColumnWeight = 0.2f,
+        actionColumnWeight = 0.22f,
         sectionSpacing = 6.dp,
         keyRowSpacing = 6.dp,
         compositionHeight = 20.dp,

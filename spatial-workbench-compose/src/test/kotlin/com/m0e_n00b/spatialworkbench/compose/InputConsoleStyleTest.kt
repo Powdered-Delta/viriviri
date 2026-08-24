@@ -28,7 +28,8 @@ class InputConsoleStyleTest {
     assertEquals("gboard-qwerty-v1", skin.id)
     assertEquals(20f, skin.compositionHeight.value, 0.001f)
     assertEquals(48f, skin.candidateStripHeight.value, 0.001f)
-    assertTrue(skin.numberColumnWeight > 0f)
+    assertEquals(0.34f, skin.numberColumnWeight, 0.001f)
+    assertEquals(0.22f, skin.actionColumnWeight, 0.001f)
     assertTrue(skin.mainColumnWeight > skin.numberColumnWeight)
     assertTrue(skin.expandedCandidatesCoverBoard)
   }

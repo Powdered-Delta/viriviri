@@ -145,6 +145,7 @@ InputMethodOverlayRoot                  // 一个透明整体容器
 三块区域需要有独立的视觉边界、背景、间距、圆角和 hit-test 区域，但不创建三个独立的 Spatial panel：
 
 - `InputMethodOverlayRoot` 是唯一的 Compose/overlay 宿主，负责整体 anchor、层级、显隐和尺寸。
+- 打开 `SEARCH_EMPTY` 时 root 默认隐藏；只有 query 输入框获得焦点或用户显式请求键盘时，才显示近距输入法 panel。
 - 在沉浸式宿主中，`InputMethodOverlayRoot` 对应唯一的 `input_method_panel` Spatial Compose panel；它作为 MediaStage 子层定位在 Transport 上方且更靠近用户。
 - `NumberPanel`、`KeyboardPanel`、`OptionsPanel` 是 root 内的普通 Compose 子布局，只接收 skin geometry、style 和 key callbacks。
 - 三块 panel 共享同一个透明 root 的生命周期，不拥有独立的 Activity、Spatial Entity、Surface 或 player。
@@ -185,7 +186,7 @@ WorkbenchHost
 └───────────────┴───────────────────────────────────────┴────────────┘
 ```
 
-左侧数字/运算区在字母层和符号层完全复用，不属于符号层候选。符号层不追求“纯凑够 26 个字符”；26 指主键区的几何容量，实际符号集合以常用性为准，空余位置可以放 `ABC`、`中/英`、空格等功能键或保持不可用。
+左侧数字/运算区在字母层和符号层完全复用，不属于符号层候选。数字区采用计算器顺序 `7 8 9 + / 4 5 6 - / 1 2 3 × / 0 . = ÷`。符号层不追求“纯凑够 26 个字符”；26 指主键区的几何容量，实际符号集合以常用性为准，空余位置可以放 `ABC`、`中/英`、加宽空格等功能键或保持不可用。
 
 
 ```text

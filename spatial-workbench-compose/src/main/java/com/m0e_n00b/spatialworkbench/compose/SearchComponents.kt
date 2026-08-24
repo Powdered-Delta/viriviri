@@ -46,7 +46,12 @@ val DefaultInputConsoleStyle: InputConsoleStyle =
 
 data class SearchCandidateItem(val id: String, val label: String)
 
-data class SearchKeyItem(val id: String, val label: String, val hint: String = "")
+data class SearchKeyItem(
+    val id: String,
+    val label: String,
+    val hint: String = "",
+    val widthWeight: Float = 1f,
+)
 
 @Composable
 fun SearchQueryField(
@@ -220,7 +225,7 @@ private fun KeyboardRows(
               key = key,
               onClick = { onKeyPress(key) },
               style = keyStyle,
-              modifier = Modifier.weight(1f),
+              modifier = Modifier.weight(key.widthWeight),
           )
         }
       }

@@ -61,13 +61,13 @@ internal fun SearchInputPanel(
           },
       numberRows =
           layout.numberRows.map { row ->
-            row.map { key -> SearchKeyItem(key.id, key.label, key.hint) }
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) }
           },
       keyboardRows =
           layout.mainRows.map { row ->
-            row.map { key -> SearchKeyItem(key.id, key.label, key.hint) }
+            row.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) }
           },
-      actionKeys = layout.actionKeys.map { key -> SearchKeyItem(key.id, key.label, key.hint) },
+      actionKeys = layout.actionKeys.map { key -> SearchKeyItem(key.id, key.label, key.hint, key.widthWeight) },
       candidateExpanded = candidateExpanded,
       onQueryChanged = onSystemTextChanged,
       onSelectCandidate = { candidate ->

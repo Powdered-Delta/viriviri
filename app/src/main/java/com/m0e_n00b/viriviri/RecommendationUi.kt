@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -341,7 +342,9 @@ private fun CenterWorkspaceHeader(
         OutlinedTextField(
             value = state.searchInput.committedText,
             onValueChange = appState::updateSearchQuery,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).onFocusChanged { focusState ->
+              if (focusState.isFocused) appState.setSearchKeyboardVisible(true)
+            },
             label = { Text(stringResource(R.string.nav_search)) },
             singleLine = true,
         )

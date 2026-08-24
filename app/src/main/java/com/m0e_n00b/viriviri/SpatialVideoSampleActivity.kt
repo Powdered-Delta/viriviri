@@ -934,8 +934,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           },
           settingsCreator = {
             UIPanelSettings(
-                shape = QuadShapeOptions(width = 1.42f, height = 0.56f),
-                display = DpDisplayOptions(width = 720f, height = 284f, dpi = 512),
+                shape = QuadShapeOptions(width = 1.62f, height = 0.68f),
+                display = DpDisplayOptions(width = 832f, height = 348f, dpi = 512),
                 style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
             )
           },
@@ -970,8 +970,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     inputMethodPanelEntity =
         Entity.createPanelEntity(
                 R.id.input_method_panel,
-                // Above and closer than Transport: this panel is a near-field UI layer, never video output.
-                Transform(Pose(Vector3(0f, -0.36f, -0.28f), Quaternion(20f, 0f, 0f))),
+                // Below the center content and farther forward than Transport for near-field typing.
+                Transform(Pose(Vector3(0f, -0.48f, -0.42f), Quaternion(20f, 0f, 0f))),
                 TransformParent(Entity(R.id.spatialized_video_panel)),
                 Visible(false),
             )

@@ -59,6 +59,7 @@ data class SearchInputKey(
     val id: String,
     val label: String,
     val hint: String = "",
+    val widthWeight: Float = 1f,
     val action: SearchInputAction,
 )
 
@@ -289,16 +290,29 @@ class ChinesePinyinQwertyInputMethod(
 
     private val NUMBER_ROWS =
         listOf(
-            listOf(key("digit:1", "1"), key("digit:2", "2"), key("digit:3", "3")),
-            listOf(key("digit:4", "4"), key("digit:5", "5"), key("digit:6", "6")),
-            listOf(key("digit:7", "7"), key("digit:8", "8"), key("digit:9", "9")),
+            listOf(
+                key("digit:7", "7"),
+                key("digit:8", "8"),
+                key("digit:9", "9"),
+                key("operator:plus", "+"),
+            ),
+            listOf(
+                key("digit:4", "4"),
+                key("digit:5", "5"),
+                key("digit:6", "6"),
+                key("operator:minus", "-"),
+            ),
+            listOf(
+                key("digit:1", "1"),
+                key("digit:2", "2"),
+                key("digit:3", "3"),
+                key("operator:multiply", "×"),
+            ),
             listOf(
                 key("digit:0", "0"),
-                key("operator:plus", "+"),
-                key("operator:minus", "-"),
-                key("operator:multiply", "*"),
-                key("operator:divide", "/"),
+                key(KEY_PERIOD, "."),
                 key("operator:equals", "="),
+                key("operator:divide", "÷"),
             ),
         )
 
@@ -318,7 +332,13 @@ class ChinesePinyinQwertyInputMethod(
                     listOf(key("symbol:[", "["), key("symbol:]", "]"), key("symbol:{", "{"), key("symbol:}", "}"), key("symbol:#", "#")),
                     listOf(key("symbol:@", "@"), key("symbol:%", "%"), key("symbol:&", "&"), key("symbol:*", "*"), key("symbol:+", "+")),
                     listOf(key("symbol:-", "-"), key("symbol:=", "="), key("symbol:/", "/"), key("symbol:\\", "\\"), key("symbol:|", "|")),
-                    listOf(key(KEY_SYMBOLS, "ABC"), key(KEY_LANGUAGE, "中/英"), key(KEY_SPACE, "空格"), key(KEY_PERIOD, "."), key(KEY_QUESTION, "?")),
+                    listOf(
+                        key(KEY_SYMBOLS, "ABC"),
+                        key(KEY_LANGUAGE, "中/英"),
+                        key(KEY_SPACE, "空格", widthWeight = 4f),
+                        key(KEY_PERIOD, "."),
+                        key(KEY_QUESTION, "?"),
+                    ),
                 ),
             actionKeys = ACTION_KEYS,
         )
@@ -337,7 +357,7 @@ class ChinesePinyinQwertyInputMethod(
               key(KEY_LANGUAGE, if (session.language == SearchInputLanguage.CHINESE) "中/英" else "英/中"),
               key(KEY_COMMA, ","),
               key(KEY_PERIOD, "."),
-              key(KEY_SPACE, "空格"),
+              key(KEY_SPACE, "空格", widthWeight = 4f),
               key(KEY_EXCLAMATION, "!"),
               key(KEY_QUESTION, "?"),
               key(KEY_APOSTROPHE, "'"),
@@ -355,8 +375,12 @@ class ChinesePinyinQwertyInputMethod(
           else -> ""
         }
 
-    private fun key(id: String, label: String, hint: String = "") =
-        SearchInputKey(id, label, hint, SearchInputAction.PressKey(id, 0L))
+    private fun key(
+        id: String,
+        label: String,
+        hint: String = "",
+        widthWeight: Float = 1f,
+    ) = SearchInputKey(id, label, hint, widthWeight, SearchInputAction.PressKey(id, 0L))
   }
 }
 

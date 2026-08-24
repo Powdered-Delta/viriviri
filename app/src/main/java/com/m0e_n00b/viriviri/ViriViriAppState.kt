@@ -274,8 +274,8 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.SEARCH_EMPTY,
-                    isKeyboardVisible = true,
-                    isKeyboardDismissed = false,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
                 )
         )
@@ -312,7 +312,6 @@ class ViriViriAppState(
 
   fun selectSearchHistory(query: String) {
     updateSearchQuery(query)
-    setSearchKeyboardVisible(true)
   }
 
   fun removeSearchHistory(query: String) {
@@ -344,7 +343,6 @@ class ViriViriAppState(
 
   fun selectSearchSuggestion(query: String) {
     updateSearchQuery(query)
-    setSearchKeyboardVisible(true)
   }
 
   fun updateSearchQuery(query: String) {

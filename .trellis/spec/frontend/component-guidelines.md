@@ -67,15 +67,20 @@ RECOMMENDATIONS -> SEARCH_EMPTY -> SEARCH_RESULTS
 ```
 
 - `SEARCH_EMPTY` renders search history and recommended keywords, never a
-  video list.
+  video list. Opening this route does not show the keyboard; the near-field panel
+  appears only after the query field receives focus or the explicit keyboard action
+  is used.
 - `SEARCH_RESULTS` renders the result list after committing a query and
   synchronously hides the app-owned keyboard panel.
 - The query field belongs in the center workspace header, not inside the
   keyboard panel.
 - The keyboard panel is a single near-field `input_method_panel` Spatial Compose
-  panel. It is parented to MediaStage and positioned above and in front of
-  Transport, but it is never a video Surface or player owner. Its number,
-  keyboard, and options surfaces are Compose children inside that one panel.
+  panel. It is parented to MediaStage and positioned below the center content,
+  above and in front of Transport, but it is never a video Surface or player owner.
+  Its number, keyboard, and options surfaces are Compose children inside that one panel.
+- Keyboard geometry follows the active `InputConsoleSkin`: the number zone uses
+  a calculator-oriented `7-9/+`, `4-6/-`, `1-3/x`, `0/./=/÷` grid and the
+  QWERTY/symbol space key has a wider weight than adjacent punctuation keys.
 
 System IME input is an optional host callback that updates the same committed
 query but must not silently start a search.
