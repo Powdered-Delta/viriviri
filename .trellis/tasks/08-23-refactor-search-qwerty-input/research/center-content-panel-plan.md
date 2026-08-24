@@ -188,7 +188,33 @@ Device inspection is still required to validate the perceived forward offset and
    - recommendations/search routes retain their existing body contracts
 8. Validate with Windows build script.
 
-## Non-Goals
+## Filter and Video List Follow-up
+
+Implemented after the initial empty-route pass:
+
+```text
+WORKBENCH_EMPTY Header
+  -> explicit [视频列表] action
+  -> RECOMMENDATIONS
+  -> content body expands into the recommendation list
+
+Filter Header
+  -> all sort tabs and additional date/duration filters are enabled
+  -> RECOMMENDATIONS applies the filter locally
+  -> SEARCH_RESULTS maps the filter to Bilibili remote search options
+```
+
+Local recommendation filtering supports:
+
+```text
+综合排序: preserve provider order
+最新发布: publishedAt descending
+最多弹幕: danmakuCount descending
+最多收藏: favoriteCount descending
+日期: 今天 / 本周 / 本月
+时长: 短片 / 中等 / 长视频
+```
+
 
 - Do not create a second video Surface or player.
 - Do not create a separate Spatial panel for the center header.

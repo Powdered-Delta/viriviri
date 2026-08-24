@@ -265,33 +265,42 @@ private fun CenterContentWorkspace(
               shape = RoundedCornerShape(6.dp),
               modifier = Modifier.fillMaxWidth(),
           ) {
-            VideoListFilterBar(
-                state = filterState,
-                isGridView = isGridView,
-                moreExpanded = moreFiltersExpanded,
-                style = panelStyle,
-                onSortChanged = { applyFilter(filterState.copy(sort = it)) },
-                onDateChanged = { applyFilter(filterState.copy(date = it)) },
-                onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
-                onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
-                remoteFilteringAvailable = route == SearchWorkspaceRoute.SEARCH_RESULTS,
-                onToggleLayout = { isGridView = !isGridView },
-                isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
-                onTopOrRefresh = {
-                  if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
-                    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
-                      appState.submitSearch(filterState.toBilibiliSearchOptions())
-                    } else if (route == SearchWorkspaceRoute.RECOMMENDATIONS) {
-                      appState.refreshRecommendations()
-                    }
-                  } else if (isGridView) {
-                    coroutineScope.launch { gridState.animateScrollToItem(0) }
-                  } else {
-                    coroutineScope.launch { listState.animateScrollToItem(0) }
-                  }
-                },
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            )
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+              if (route == SearchWorkspaceRoute.WORKBENCH_EMPTY) {
+                TextButton(onClick = appState::openRecommendationList) {
+                  Text(stringResource(R.string.nav_video_list), color = panelStyle.text)
+                }
+              }
+              VideoListFilterBar(
+                  state = filterState,
+                  isGridView = isGridView,
+                  moreExpanded = moreFiltersExpanded,
+                  style = panelStyle,
+                  onSortChanged = { applyFilter(filterState.copy(sort = it)) },
+                  onDateChanged = { applyFilter(filterState.copy(date = it)) },
+                  onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
+                  onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
+                  onToggleLayout = { isGridView = !isGridView },
+                  isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
+                  onTopOrRefresh = {
+                    if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
+                      if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                        appState.submitSearch(filterState.toBilibiliSearchOptions())
+                      } else if (route == SearchWorkspaceRoute.RECOMMENDATIONS) {
+                        appState.refreshRecommendations()
+                      }
+                    } else if (isGridView) {
+                      coroutineScope.launch { gridState.animateScrollToItem(0) }
+                    } else {
+                      coroutineScope.launch { listState.animateScrollToItem(0) }
+                    }
+                  },
+                  modifier = Modifier.fillMaxWidth(),
+              )
+            }
           }
       SearchWorkspaceRoute.SEARCH_EMPTY ->
           Surface(
@@ -323,6 +332,7 @@ private fun CenterContentWorkspace(
                 palette = palette,
                 onSelect = selectRecommendation,
                 onToggleLayout = { isGridView = !isGridView },
+                localFilter = if (route == SearchWorkspaceRoute.RECOMMENDATIONS) filterState else null,
                 modifier = Modifier.fillMaxSize(),
             )
           }
@@ -496,8 +506,10 @@ internal fun VideoListPanel(
     palette: CinemaPalette,
     onSelect: (Recommendation) -> Unit,
     onToggleLayout: () -> Unit,
+    localFilter: VideoListFilterState? = null,
     modifier: Modifier = Modifier,
 ) {
+  val recommendations = localFilter?.filterRecommendations(state.recommendations) ?: state.recommendations
   when {
     state.isLoading ->
         Text(
@@ -505,9 +517,9 @@ internal fun VideoListPanel(
             color = style.text,
             modifier = modifier,
         )
-    state.recommendations.isEmpty() && state.error != null ->
+    recommendations.isEmpty() && state.error != null ->
         Text(state.error, color = palette.composeColor(CinemaColorRole.DANGER), modifier = modifier)
-    state.recommendations.isEmpty() ->
+    recommendations.isEmpty() ->
         Text(
             if (state.isShowingSearchResults) stringResource(R.string.list_no_results) else stringResource(R.string.list_no_recommendations),
             color = style.text,
@@ -521,7 +533,7 @@ internal fun VideoListPanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          items(state.recommendations, key = { it.videoId }) { recommendation ->
+          items(recommendations, key = { it.videoId }) { recommendation ->
             RecommendationCard(
                 recommendation = recommendation,
                 thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],
@@ -539,7 +551,7 @@ internal fun VideoListPanel(
             modifier = modifier,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-          items(state.recommendations, key = { it.videoId }) { recommendation ->
+          items(recommendations, key = { it.videoId }) { recommendation ->
             RecommendationRow(
                 recommendation = recommendation,
                 thumbnailState = thumbnailStates[normalizedThumbnailUrl(recommendation.coverUrl)],

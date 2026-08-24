@@ -268,6 +268,20 @@ class ViriViriAppState(
         }
   }
 
+  fun openRecommendationList() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = SearchWorkspaceRoute.RECOMMENDATIONS,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
   fun openWorkbenchEmpty() {
     val current = mutableState.value
     mutableState.value =
