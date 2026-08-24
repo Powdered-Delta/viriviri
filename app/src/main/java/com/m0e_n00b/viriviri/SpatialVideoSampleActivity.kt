@@ -1395,6 +1395,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           WorkbenchModule.CENTER_CONTENT in visibleModules,
       )
     }
+    stageBackdropEntity?.let { entity ->
+      // The only translucent layer: dim MediaStage whenever a Workbench surface is present.
+      spatialPanelVisibilityController.setVisible(
+          PanelSlot.MEDIA_STAGE,
+          entity,
+          visibleModules.isNotEmpty(),
+      )
+    }
   }
 
   private fun WorkbenchModule.toPanelSlot(): PanelSlot =

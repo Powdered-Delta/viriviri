@@ -26,7 +26,7 @@ private const val DANMAKU_FRAME_INTERVAL_MS = 33L
 @Composable
 internal fun StageBackdrop() {
   Canvas(modifier = Modifier.fillMaxSize()) {
-    drawRect(Color.Black.copy(alpha = 0.58f))
+    drawRect(Color.Black.copy(alpha = 0.42f))
   }
 }
 

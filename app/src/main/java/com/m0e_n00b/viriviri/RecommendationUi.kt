@@ -6,8 +6,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +28,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.Button
 import androidx.compose.material.Icon
@@ -50,11 +50,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -377,20 +379,35 @@ private fun CenterWorkspaceHeader(
       SearchWorkspaceRoute.RECOMMENDATIONS -> Unit
       SearchWorkspaceRoute.SEARCH_EMPTY,
       SearchWorkspaceRoute.SEARCH_RESULTS -> {
+        val systemFocusRequester = remember { FocusRequester() }
+        val systemKeyboardController = LocalSoftwareKeyboardController.current
         Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
-        OutlinedTextField(
-            value = state.searchInput.committedText,
-            onValueChange = appState::updateSearchQuery,
-            modifier = Modifier.weight(1f).onFocusChanged { focusState ->
-              if (focusState.isFocused) appState.setSearchKeyboardVisible(true)
-            },
-            label = { Text(stringResource(R.string.nav_search)) },
-            singleLine = true,
-        )
-        IconButton(onClick = { appState.setSearchKeyboardVisible(true) }) {
+        Box(modifier = Modifier.weight(1f)) {
+          OutlinedTextField(
+              value = state.searchInput.committedText,
+              onValueChange = appState::updateSearchQuery,
+              readOnly = state.searchWorkspace.textInputTarget != SearchTextInputTarget.SYSTEM,
+              modifier = Modifier.fillMaxWidth().focusRequester(systemFocusRequester),
+              label = { Text(stringResource(R.string.nav_search)) },
+              singleLine = true,
+          )
+          if (state.searchWorkspace.textInputTarget != SearchTextInputTarget.SYSTEM) {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().clickable { appState.requestInternalSearchInput() }
+            )
+          }
+        }
+        IconButton(
+            onClick = {
+              appState.requestSystemSearchInput()
+              systemFocusRequester.requestFocus()
+              systemKeyboardController?.show()
+            }
+        ) {
           Icon(Icons.Default.Keyboard, contentDescription = stringResource(R.string.search_system_ime), tint = style.secondaryText)
         }
-        IconButton(onClick = { appState.setSearchKeyboardVisible(true) }) {
+        IconButton(onClick = { appState.requestInternalSearchInput() }) {
           Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.search_voice), tint = style.secondaryText)
         }
         IconButton(

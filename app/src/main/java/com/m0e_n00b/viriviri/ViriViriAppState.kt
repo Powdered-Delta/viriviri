@@ -56,9 +56,15 @@ enum class SearchWorkspaceRoute {
   SEARCH_RESULTS,
 }
 
+enum class SearchTextInputTarget {
+  INTERNAL,
+  SYSTEM,
+}
+
 data class SearchWorkspaceState(
     val route: SearchWorkspaceRoute = SearchWorkspaceRoute.RECOMMENDATIONS,
     val input: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
+    val textInputTarget: SearchTextInputTarget = SearchTextInputTarget.INTERNAL,
     val history: List<String> = emptyList(),
     val suggestedQueries: List<String> = DEFAULT_SEARCH_SUGGESTIONS,
     val isHistoryExpanded: Boolean = false,
@@ -275,6 +281,7 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.RECOMMENDATIONS,
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -289,6 +296,7 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.WORKBENCH_EMPTY,
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -303,6 +311,7 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.SEARCH_EMPTY,
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -318,6 +327,7 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.SEARCH_EMPTY,
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -332,6 +342,7 @@ class ViriViriAppState(
             searchWorkspace =
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.RECOMMENDATIONS,
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -403,12 +414,41 @@ class ViriViriAppState(
         )
   }
 
+  fun requestInternalSearchInput() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    textInputTarget = SearchTextInputTarget.INTERNAL,
+                    isKeyboardVisible = true,
+                    isKeyboardDismissed = false,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun requestSystemSearchInput() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    textInputTarget = SearchTextInputTarget.SYSTEM,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
   fun setSearchKeyboardVisible(visible: Boolean) {
     val current = mutableState.value
     mutableState.value =
         current.copy(
             searchWorkspace =
                 current.searchWorkspace.copy(
+                    textInputTarget = if (visible) SearchTextInputTarget.INTERNAL else current.searchWorkspace.textInputTarget,
                     isKeyboardVisible = visible,
                     isKeyboardDismissed = !visible,
                     isCandidatesExpanded = if (visible) current.isSearchCandidatesExpanded else false,

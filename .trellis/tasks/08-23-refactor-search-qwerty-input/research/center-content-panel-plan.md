@@ -157,7 +157,154 @@ Two Spatial panels would introduce unnecessary coordination for:
 
 One transparent root panel with two internal Compose surfaces gives the desired visual separation while preserving one owner and one lifecycle.
 
-## Implementation Status
+## Reference Screens: Application Home vs Creator Home
+
+The supplied YTBVR screenshots establish two distinct center-workspace routes. They must not be treated as variants of one generic recommendation list.
+
+### Application Home
+
+The first supplied expanded-workbench screenshot is the **application home**. It is the canonical visual reference for all of these entry points:
+
+```text
+- first startup
+- video playback -> click [视频列表]
+- click the top ViriViri / Home logo
+```
+
+Expected composition:
+
+```text
+transparent floating workbench
+├── left current-video detail rail
+├── center application-home content
+│   ├── top application navigation / category tabs
+│   ├── recommendation video rows or cards
+│   └── optional local home actions
+├── right up-next / related rail
+└── MediaStage remains behind the workbench with only the stage backdrop dimmed
+```
+
+`RECOMMENDATIONS` is the application-home route and must be entered by all three actions above. It must not render creator-banner data or creator-specific tabs.
+
+### Creator Home
+
+The later supplied screenshot with the HIMEHINA banner and channel tabs is the **creator home**. It is a separate route, not an application-home filter state.
+
+Expected composition:
+
+```text
+transparent floating workbench
+├── left current-video detail rail
+├── center creator-home content
+│   ├── creator-specific navigation: 首页 / 视频 / 播放列表 / 简介
+│   ├── creator banner
+│   ├── creator identity / subscribe state
+│   └── creator videos, live items, and playlists
+└── right up-next / related rail
+```
+
+Creator home must preserve the MediaStage, Transport, and existing left/right rail ownership. It may reuse the center panel shell and route-body contract, but it must own distinct creator state and data bindings.
+
+### Search Input Target Contract
+
+The Search header has two explicit input targets:
+
+```text
+click query field
+  -> INTERNAL
+  -> query text is read-only at the Android TextField layer
+  -> click is intercepted
+  -> show app-owned input_method_panel
+
+click [IME] icon
+  -> SYSTEM
+  -> hide input_method_panel
+  -> request Compose focus
+  -> show Android system IME
+```
+
+The default route-enter and route-return target is `INTERNAL`. This prevents a normal search-field click from accidentally invoking the system keyboard. Both targets update the same committed query through `updateSearchQuery`.
+
+
+## Transparency Contract
+
+The YTBVR reference corrects an earlier assumption: the Workbench is not a semi-transparent panel system.
+
+```text
+Workbench root panel      -> transparent
+Workbench UI surfaces     -> opaque
+Left / center / right UI  -> opaque floating surfaces
+MediaStage                -> remains behind the UI
+StageBackdrop             -> the only translucent dim layer
+```
+
+Implemented behavior:
+
+```text
+SpatialPanelVisibilityController.visibleAlpha = 1.0
+StageBackdrop alpha = 0.42
+StageBackdrop visible = Workbench visible
+```
+
+Do not apply shared compositor alpha to Workbench UI panels. Do not use a semi-transparent center root or semi-transparent Header/Content surfaces to simulate MediaStage dimming.
+
+## Reference Usage
+
+These screenshots are primarily **spatial and state-transition references**, not a requirement to reproduce YouTube's visual assets, navigation labels, or data model.
+
+Use them to preserve:
+
+```text
+- the shallow curved relationship between left rail, center content, and right rail
+- MediaStage behind all workbench UI
+- a backdrop-only dim layer over MediaStage
+- opaque floating UI surfaces rather than a semi-transparent workbench root
+- a center Header whose state changes with the active content route
+- a body route that changes below the Header without rebuilding the spatial shell
+```
+
+The key Filter Header contract is:
+
+```text
+WORKBENCH_EMPTY
+  -> application-level filter header remains visible
+  -> body omitted
+
+RECOMMENDATIONS / application home
+  -> application-level filter header remains visible
+  -> application recommendation body visible
+
+SEARCH_EMPTY / SEARCH_RESULTS
+  -> header changes to search input/navigation state
+  -> body changes to search discovery or search result state
+
+CREATOR_HOME
+  -> header changes to creator-level navigation state
+  -> body changes to creator banner and creator content
+```
+
+The left rail, right rail, MediaStage, and Transport remain spatially stable across these center Header/body transitions.
+
+
+```text
+WORKBENCH_EMPTY
+  -> filter header only; no body
+
+RECOMMENDATIONS
+  -> application home
+
+SEARCH_EMPTY
+  -> history + recommended search terms
+
+SEARCH_RESULTS
+  -> search results
+
+CREATOR_HOME (future dedicated route)
+  -> creator banner + creator navigation + creator content
+```
+
+Do not map application-home actions (`first startup`, `[视频列表]`, `logo`) to `CREATOR_HOME`.
+
 
 Implemented in the current branch:
 

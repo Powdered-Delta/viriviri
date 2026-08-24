@@ -10,6 +10,7 @@ internal class SpatialPanelVisibilityController(
     private val handler: Handler,
     private val fadeDurationMs: Long = 200L,
     private val fadeSteps: Int = 4,
+    // Panel layers are fully opaque when visible. MediaStage dimming belongs only to StageBackdrop.
     private val visibleAlpha: Float = WORKBENCH_PANEL_VISIBLE_ALPHA,
     private val trace: (String) -> Unit = {},
 ) {
@@ -59,6 +60,7 @@ internal class SpatialPanelVisibilityController(
   }
 
   private companion object {
-    const val WORKBENCH_PANEL_VISIBLE_ALPHA = 0.88f
+    // Workbench UI is opaque; only the MediaStage backdrop carries a translucent dim layer.
+    const val WORKBENCH_PANEL_VISIBLE_ALPHA = 1f
   }
 }

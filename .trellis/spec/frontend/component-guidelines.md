@@ -73,7 +73,9 @@ RECOMMENDATIONS -> SEARCH_EMPTY -> SEARCH_RESULTS
 - `SEARCH_RESULTS` renders the result list after committing a query and
   synchronously hides the app-owned keyboard panel.
 - The query field belongs in the center workspace header, not inside the
-  keyboard panel.
+  keyboard panel. A regular query-field click is intercepted for the internal
+  keyboard; only the explicit `[IME]` action can request Android system IME focus.
+
 - The keyboard panel is a single near-field `input_method_panel` Spatial Compose
   panel. It is parented to MediaStage and positioned below the center content,
   above and in front of Transport, but it is never a video Surface or player owner.
