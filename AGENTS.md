@@ -18,7 +18,87 @@ If you're using Codex or another agent-capable tool, additional project-scoped h
 
 Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
 
-<!-- TRELLIS:END -->
+
+# Execution Efficiency
+
+## Scope Before Tools
+
+Before editing, state one concrete acceptance target for the current patch. Do not combine unrelated follow-up ideas into a half-finished patch.
+
+For a narrowly scoped issue, inspect only the direct call chain first:
+
+```text
+state/reducer -> host callback -> UI component -> tests
+```
+
+Use direct file reads and targeted searches for a few known files. Reserve context indexing, repository-wide inventory, or broad architecture research for unknown, cross-cutting, or genuinely large areas.
+
+## Complete Vertical Slice
+
+For a behavior change, prepare one coherent patch across every required boundary before compiling:
+
+```text
+state contract -> reducer/host -> UI -> tests
+```
+
+Do not repeatedly build after each small edit. Compile after the whole vertical slice is present; fix all compilation failures in that pass; run the full Windows verification only after the slice is coherent.
+
+When a new user instruction changes the intended behavior, stop extending the old patch. Re-state the new acceptance target, update the task/design record when required, then make a fresh coherent patch.
+
+## Verification Cadence
+
+Use the cheapest verification that can catch the current risk:
+
+```text
+pure reducer / utility change
+  -> targeted JVM test task
+
+shared Compose change
+  -> :spatial-workbench-compose:testDebugUnitTest
+
+app behavior, resources, Spatial panel registration, scene export, or cross-module change
+  -> .\scripts\build-windows-debug.ps1
+```
+
+Do not re-run the complete Windows build after every individual edit. Run it once after the related changes and targeted tests are complete, and again only when a subsequent patch changes build-relevant behavior.
+
+All Android verification commands must run in the Windows environment. Do not install, deploy, or launch the APK unless the user explicitly asks.
+
+## Edit Hygiene
+
+- Read the exact target block before an exact edit; merge nearby changes into one edit.
+- Check a file's line endings before editing it. Preserve its existing convention unless intentionally normalizing the entire file with user-aware review.
+- If a CRLF file produces `git diff --check` noise, fix the changed lines or perform a deliberate, isolated newline normalization. Do not hide a whole-file newline rewrite inside a feature patch.
+- Run `git diff --check` before builds and before commits.
+- Treat pre-existing modified and untracked files as user-owned unless they are directly in scope. Do not stage unrelated files.
+
+## Spatial UI Boundaries
+
+For spatial UI changes, separate these concerns before implementation:
+
+```text
+static spatial placement
+  -> Meta Spatial Editor / mse-agent scene data
+
+dynamic panel visibility, input, and lifecycle
+  -> Kotlin host / system state
+
+Compose visual state and callbacks
+  -> Compose components
+```
+
+A single user interaction must have one owner. Do not let stage click listeners, outer-dismiss geometry, panel callbacks, and hover/touch fallback handlers independently perform the same show/hide transition.
+
+When adding or changing a panel, document:
+
+```text
+owner
+parent / anchor
+visibility state
+input / hit-test ownership
+relative depth
+video-surface ownership (normally none)
+```
 
 # Meta Spatial SDK
 
