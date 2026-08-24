@@ -50,6 +50,7 @@ internal fun enqueueErrorMessage(
     )
 
 enum class SearchWorkspaceRoute {
+  WORKBENCH_EMPTY,
   RECOMMENDATIONS,
   SEARCH_EMPTY,
   SEARCH_RESULTS,
@@ -265,6 +266,20 @@ class ViriViriAppState(
                 }
               }
         }
+  }
+
+  fun openWorkbenchEmpty() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = SearchWorkspaceRoute.WORKBENCH_EMPTY,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
   }
 
   fun openSearchWorkspace() {

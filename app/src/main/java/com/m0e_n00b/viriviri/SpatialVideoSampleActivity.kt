@@ -1365,6 +1365,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
     Log.d(WORKBENCH_TRACE_TAG, "applyPlaybackCanvasSlots slots=$visibleSlots")
     if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.applyCanvasSlots(visibleSlots)
+    val appState = ViriViriApplication.appState
+    if (PanelSlot.BROWSE !in visibleSlots && PanelSlot.TRANSPORT in visibleSlots && appState.state.value.selected != null) {
+      appState.openWorkbenchEmpty()
+    }
   }
 
   private fun applyWorkbenchModules(visibleModules: Set<WorkbenchModule>) {

@@ -15,6 +15,7 @@ internal enum class WorkbenchPresentation {
 
 internal enum class WorkbenchContent {
   NONE,
+  WORKBENCH_EMPTY,
   BROWSE,
   VIDEO_CONTEXT,
   FOCUS,
@@ -56,7 +57,7 @@ internal object ImmersiveWorkbenchReducer {
             state.copy(
                 visible = true,
                 presentation = WorkbenchPresentation.NORMAL,
-                content = WorkbenchContent.NONE,
+                content = WorkbenchContent.WORKBENCH_EMPTY,
                 isPlaybackConfigVisible = false,
             )
         WorkbenchEvent.OpenShortsControls -> state.copy(visible = true, presentation = WorkbenchPresentation.SHORTS)
@@ -86,6 +87,7 @@ internal object ImmersiveWorkbenchReducer {
         add(WorkbenchModule.VIDEO_CONTEXT)
       }
       when (state.content) {
+        WorkbenchContent.WORKBENCH_EMPTY,
         WorkbenchContent.BROWSE, WorkbenchContent.FOCUS -> add(WorkbenchModule.CENTER_CONTENT)
         WorkbenchContent.VIDEO_CONTEXT -> add(WorkbenchModule.VIDEO_CONTEXT)
         WorkbenchContent.NONE -> Unit

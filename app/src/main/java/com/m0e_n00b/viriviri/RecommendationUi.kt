@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.runtime.Composable
@@ -172,7 +174,7 @@ fun RecommendationPanel(
 ) {
   val state by appState.state.collectAsState()
   // UX: Browse and Detail share one semantic palette while occupying the same angled panel.
-  Box(modifier = Modifier.fillMaxSize().background(palette.composeColor(CinemaColorRole.BACKGROUND))) {
+  Box(modifier = Modifier.fillMaxSize()) {
     RecommendationContent(
         state = state,
         appState = appState,
@@ -250,49 +252,68 @@ private fun CenterContentWorkspace(
   Column(
       modifier =
           Modifier.fillMaxSize()
-              .background(palette.composeColor(CinemaColorRole.BACKGROUND))
               .clickable(enabled = onDismissWorkbench != null) { onDismissWorkbench?.invoke() }
               .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY,
       SearchWorkspaceRoute.RECOMMENDATIONS,
       SearchWorkspaceRoute.SEARCH_RESULTS ->
-          VideoListFilterBar(
-              state = filterState,
-              isGridView = isGridView,
-              moreExpanded = moreFiltersExpanded,
-              style = panelStyle,
-              onSortChanged = { applyFilter(filterState.copy(sort = it)) },
-              onDateChanged = { applyFilter(filterState.copy(date = it)) },
-              onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
-              onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
-              remoteFilteringAvailable = route == SearchWorkspaceRoute.SEARCH_RESULTS,
-              onToggleLayout = { isGridView = !isGridView },
-              isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
-              onTopOrRefresh = {
-                if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
-                  if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
-                    appState.submitSearch(filterState.toBilibiliSearchOptions())
-                  } else {
-                    appState.refreshRecommendations()
-                  }
-                } else if (isGridView) {
-                  coroutineScope.launch { gridState.animateScrollToItem(0) }
-                } else {
-                  coroutineScope.launch { listState.animateScrollToItem(0) }
-                }
-              },
+          Surface(
+              color = panelStyle.surface.copy(alpha = 0.92f),
+              shape = RoundedCornerShape(6.dp),
               modifier = Modifier.fillMaxWidth(),
-          )
+          ) {
+            VideoListFilterBar(
+                state = filterState,
+                isGridView = isGridView,
+                moreExpanded = moreFiltersExpanded,
+                style = panelStyle,
+                onSortChanged = { applyFilter(filterState.copy(sort = it)) },
+                onDateChanged = { applyFilter(filterState.copy(date = it)) },
+                onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
+                onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
+                remoteFilteringAvailable = route == SearchWorkspaceRoute.SEARCH_RESULTS,
+                onToggleLayout = { isGridView = !isGridView },
+                isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
+                onTopOrRefresh = {
+                  if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
+                    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                      appState.submitSearch(filterState.toBilibiliSearchOptions())
+                    } else if (route == SearchWorkspaceRoute.RECOMMENDATIONS) {
+                      appState.refreshRecommendations()
+                    }
+                  } else if (isGridView) {
+                    coroutineScope.launch { gridState.animateScrollToItem(0) }
+                  } else {
+                    coroutineScope.launch { listState.animateScrollToItem(0) }
+                  }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+          }
       SearchWorkspaceRoute.SEARCH_EMPTY ->
-          CenterWorkspaceHeader(state = state, route = route, appState = appState, style = panelStyle)
+          Surface(
+              color = panelStyle.surface.copy(alpha = 0.92f),
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            CenterWorkspaceHeader(
+                state = state,
+                route = route,
+                appState = appState,
+                style = panelStyle,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+          }
     }
-    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-      when (route) {
-        SearchWorkspaceRoute.RECOMMENDATIONS,
-        SearchWorkspaceRoute.SEARCH_RESULTS -> {
-          VideoListPanel(
+    when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY -> Unit
+      SearchWorkspaceRoute.RECOMMENDATIONS,
+      SearchWorkspaceRoute.SEARCH_RESULTS ->
+          Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            VideoListPanel(
                 state = state,
                 thumbnailStates = thumbnailStates,
                 isGridView = isGridView,
@@ -304,20 +325,26 @@ private fun CenterContentWorkspace(
                 onToggleLayout = { isGridView = !isGridView },
                 modifier = Modifier.fillMaxSize(),
             )
-        }
-        SearchWorkspaceRoute.SEARCH_EMPTY -> {
-          SearchDiscoveryContent(
-              workspace = state.searchWorkspace,
-              style = panelStyle,
-              onSelectHistory = appState::selectSearchHistory,
-              onRemoveHistory = appState::removeSearchHistory,
-              onToggleHistory = appState::toggleSearchHistoryExpanded,
-              onSelectSuggestion = appState::selectSearchSuggestion,
-              onRefreshSuggestions = appState::refreshSearchSuggestions,
-              modifier = Modifier.fillMaxSize(),
-          )
-        }
-      }
+          }
+      SearchWorkspaceRoute.SEARCH_EMPTY ->
+          Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Surface(
+                color = panelStyle.surface.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+              SearchDiscoveryContent(
+                  workspace = state.searchWorkspace,
+                  style = panelStyle,
+                  onSelectHistory = appState::selectSearchHistory,
+                  onRemoveHistory = appState::removeSearchHistory,
+                  onToggleHistory = appState::toggleSearchHistoryExpanded,
+                  onSelectSuggestion = appState::selectSearchSuggestion,
+                  onRefreshSuggestions = appState::refreshSearchSuggestions,
+                  modifier = Modifier.padding(12.dp),
+              )
+            }
+          }
     }
   }
 }
@@ -328,13 +355,15 @@ private fun CenterWorkspaceHeader(
     route: SearchWorkspaceRoute,
     appState: ViriViriAppState,
     style: WorkbenchPanelStyle,
+    modifier: Modifier = Modifier,
 ) {
   Row(
-      modifier = Modifier.fillMaxWidth(),
+      modifier = modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     when (route) {
+      SearchWorkspaceRoute.WORKBENCH_EMPTY,
       SearchWorkspaceRoute.RECOMMENDATIONS -> Unit
       SearchWorkspaceRoute.SEARCH_EMPTY,
       SearchWorkspaceRoute.SEARCH_RESULTS -> {

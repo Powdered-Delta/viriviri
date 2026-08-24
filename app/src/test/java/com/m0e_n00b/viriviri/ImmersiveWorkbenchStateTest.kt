@@ -5,18 +5,20 @@ import org.junit.Test
 
 class ImmersiveWorkbenchStateTest {
   @Test
-  fun normalPlaybackShowsTheExistingAngledLeftPanel() {
+  fun normalPlaybackShowsTheExistingAngledLeftPanelAndEmptyCenterHeader() {
     val playback =
         ImmersiveWorkbenchReducer.reduce(
             ImmersiveWorkbenchState(),
             WorkbenchEvent.RevealTransport,
         )
 
+    assertEquals(WorkbenchContent.WORKBENCH_EMPTY, playback.content)
     assertEquals(
         setOf(
             WorkbenchModule.NAVIGATION,
             WorkbenchModule.TRANSPORT,
             WorkbenchModule.DETAIL_RAIL,
+            WorkbenchModule.CENTER_CONTENT,
             WorkbenchModule.VIDEO_CONTEXT,
         ),
         ImmersiveWorkbenchReducer.modules(playback),
