@@ -75,6 +75,7 @@
   <string name="search_refresh">Refresh</string>
   <string name="search_unfold">Expand</string>
   <string name="search_remove_history">Remove search history item</string>
+  <string name="search_results">Search results</string>
   <string name="canvas_size_label">Canvas size: %1$s</string>
   <string name="display_ratio_label">Display ratio: %1$s</string>
   <string name="canvas_size_compact">Compact</string>

@@ -61,8 +61,20 @@ enum class SearchTextInputTarget {
   SYSTEM,
 }
 
+enum class WorkbenchReturnTarget {
+  VIDEO_LIST,
+  SEARCH_RESULTS,
+}
+
+internal fun playbackReturnRoute(target: WorkbenchReturnTarget): SearchWorkspaceRoute =
+    when (target) {
+      WorkbenchReturnTarget.VIDEO_LIST -> SearchWorkspaceRoute.RECOMMENDATIONS
+      WorkbenchReturnTarget.SEARCH_RESULTS -> SearchWorkspaceRoute.SEARCH_RESULTS
+    }
+
 data class SearchWorkspaceState(
     val route: SearchWorkspaceRoute = SearchWorkspaceRoute.RECOMMENDATIONS,
+    val workbenchReturnTarget: WorkbenchReturnTarget = WorkbenchReturnTarget.VIDEO_LIST,
     val input: SearchInputSession = DefaultSearchInputMethods.registry.initialSession(),
     val textInputTarget: SearchTextInputTarget = SearchTextInputTarget.INTERNAL,
     val history: List<String> = emptyList(),
@@ -282,6 +294,20 @@ class ViriViriAppState(
                 current.searchWorkspace.copy(
                     route = SearchWorkspaceRoute.RECOMMENDATIONS,
                     textInputTarget = SearchTextInputTarget.INTERNAL,
+                    isKeyboardVisible = false,
+                    isKeyboardDismissed = true,
+                    isCandidatesExpanded = false,
+                )
+        )
+  }
+
+  fun openPlaybackReturnRoute() {
+    val current = mutableState.value
+    mutableState.value =
+        current.copy(
+            searchWorkspace =
+                current.searchWorkspace.copy(
+                    route = playbackReturnRoute(current.searchWorkspace.workbenchReturnTarget),
                     isKeyboardVisible = false,
                     isKeyboardDismissed = true,
                     isCandidatesExpanded = false,
@@ -656,7 +682,11 @@ class ViriViriAppState(
               destination = ViriViriDestination.VIEWER,
               isResolvingPlayback = true,
               error = null,
-              searchWorkspace = current.searchWorkspace.copy(scrollPosition = scrollPosition),
+              searchWorkspace =
+                  current.searchWorkspace.copy(
+                      scrollPosition = scrollPosition,
+                      workbenchReturnTarget = WorkbenchReturnTarget.SEARCH_RESULTS,
+                  ),
           )
         } else {
           current.copy(
@@ -665,6 +695,10 @@ class ViriViriAppState(
               isResolvingPlayback = true,
               error = null,
               recommendationScrollPosition = scrollPosition,
+              searchWorkspace =
+                  current.searchWorkspace.copy(
+                      workbenchReturnTarget = WorkbenchReturnTarget.VIDEO_LIST,
+                  ),
           )
         }
     startPlaybackResolution(recommendation)

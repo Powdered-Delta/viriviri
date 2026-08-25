@@ -335,7 +335,42 @@ Device inspection is still required to validate the perceived forward offset and
    - recommendations/search routes retain their existing body contracts
 8. Validate with Windows build script.
 
-## Filter and Video List Follow-up
+## Workbench Empty Return Header Repair
+
+The previous `WORKBENCH_EMPTY` implementation incorrectly rendered a legacy combination of return action, Search action, and list Filter Header. That combination is removed.
+
+```text
+WORKBENCH_EMPTY
+  -> exactly one context-return button
+  -> VIDEO_LIST source: [视频列表]
+  -> SEARCH_RESULTS source: [搜索结果]
+  -> no Filter Header
+  -> no Search button
+  -> no body route surface
+```
+
+Playback source is recorded when a recommendation is selected:
+
+```text
+RECOMMENDATIONS selection
+  -> WorkbenchReturnTarget.VIDEO_LIST
+
+SEARCH_RESULTS selection
+  -> WorkbenchReturnTarget.SEARCH_RESULTS
+```
+
+The legacy `CenterContentSession` bridge was removed from the runtime center-panel decision path. `SearchWorkspaceRoute` is now the only center content visual route source.
+
+MediaStage behavior while Workbench is visible is also constrained:
+
+```text
+MediaStage click
+  -> keeps Workbench visible and reveals Transport
+
+WorkbenchOuterDismiss click
+  -> the only Workbench dismiss owner
+```
+
 
 Implemented after the initial empty-route pass:
 

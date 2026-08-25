@@ -752,8 +752,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                           "workbench=${if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.state else "uninitialized"}",
                   )
                   if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
-                    dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)
-                    animateControllerVisibility(false)
+                    // Workbench dismissal belongs exclusively to WorkbenchOuterDismiss.
+                    // A MediaStage click must not cancel a just-opened panel route.
+                    showTransportOverlay()
                   } else {
                     dispatchPlaybackCanvas(PlaybackCanvasEvent.PrimaryStageAction)
                     when (ImmersiveTransportOverlayPolicy.primaryAction()) {
@@ -1309,7 +1310,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun openHomeCanvas() {
-    CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
     val wasShowingSearchResults = appState.state.value.isShowingSearchResults
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
@@ -1320,7 +1320,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun openBrowseCanvas() {
-    CenterContentSession.show(CenterContentMode.VIDEO_LIST)
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.closeSearchWorkspace()
@@ -1329,7 +1328,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun openSearchCanvas() {
-    CenterContentSession.show(CenterContentMode.SEARCH)
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.openSearchWorkspace()
@@ -1338,7 +1336,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun returnToPlaybackFromCenterContent() {
     // UX: selection hides the center layer immediately; the existing app state continues sole-player playback resolution.
-    CenterContentSession.show(CenterContentMode.PLAYBACK)
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
   }
@@ -1350,7 +1347,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun dismissWorkbenchFromCenterContent() {
     // UX: non-action center content clicks share the established canvas dismissal behavior.
-    CenterContentSession.show(CenterContentMode.PLAYBACK)
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)
     animateControllerVisibility(false)

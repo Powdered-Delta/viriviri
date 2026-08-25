@@ -5,6 +5,12 @@ import org.junit.Test
 
 class ImmersiveWorkbenchStateTest {
   @Test
+  fun playbackReturnTargetRestoresTheOriginatingCenterRoute() {
+    assertEquals(SearchWorkspaceRoute.RECOMMENDATIONS, playbackReturnRoute(WorkbenchReturnTarget.VIDEO_LIST))
+    assertEquals(SearchWorkspaceRoute.SEARCH_RESULTS, playbackReturnRoute(WorkbenchReturnTarget.SEARCH_RESULTS))
+  }
+
+  @Test
   fun normalPlaybackShowsTheExistingAngledLeftPanelAndEmptyCenterHeader() {
     val playback =
         ImmersiveWorkbenchReducer.reduce(

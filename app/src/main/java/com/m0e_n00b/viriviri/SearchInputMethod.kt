@@ -122,7 +122,7 @@ class ChinesePinyinQwertyInputMethod(
 
   override fun keyboardLayout(session: SearchInputSession): SearchInputKeyboard =
       if (session.keyboardLayer == SearchInputKeyboardLayer.SYMBOLS) {
-        SYMBOL_KEYBOARD
+        symbolKeyboard(session)
       } else {
         SearchInputKeyboard(
             numberRows = NUMBER_ROWS,
@@ -324,7 +324,7 @@ class ChinesePinyinQwertyInputMethod(
             key("hide", "收起"),
         )
 
-    private val SYMBOL_KEYBOARD =
+    private fun symbolKeyboard(session: SearchInputSession) =
         SearchInputKeyboard(
             numberRows = NUMBER_ROWS,
             mainRows =
@@ -367,7 +367,7 @@ class ChinesePinyinQwertyInputMethod(
                         key("symbol:，", "，"),
                         key("symbol:。", "。"),
                         key("symbol:、", "、"),
-                        key(KEY_SPACE, "空格", widthWeight = 4f),
+                        key(KEY_SPACE, spaceKeyLabel(session), widthWeight = 4f),
                         key("symbol:！", "！"),
                         key("symbol:？", "？"),
                         key(KEY_APOSTROPHE, "'"),
@@ -387,16 +387,30 @@ class ChinesePinyinQwertyInputMethod(
               listOf("z", "x", "c", "v", "b", "n", "m").map { key("letter:$it", display(it)) } +
               listOf(key(KEY_SYMBOLS, "符号")),
           listOf(
-              key(KEY_LANGUAGE, if (session.language == SearchInputLanguage.CHINESE) "English" else "拼音"),
+              key(KEY_LANGUAGE, languageKeyLabel(session)),
               key(KEY_COMMA, ","),
               key(KEY_PERIOD, "."),
-              key(KEY_SPACE, "空格", widthWeight = 4f),
+              key(KEY_SPACE, spaceKeyLabel(session), widthWeight = 4f),
               key(KEY_EXCLAMATION, "!"),
               key(KEY_QUESTION, "?"),
               key(KEY_APOSTROPHE, "'"),
           ),
       )
     }
+
+    private fun languageKeyLabel(session: SearchInputSession): String =
+        if (session.language == SearchInputLanguage.CHINESE) {
+          "中"
+        } else {
+          when (session.shiftState) {
+            SearchInputShiftState.OFF -> "eng"
+            SearchInputShiftState.SHIFTED -> "Eng"
+            SearchInputShiftState.CAPS_LOCK -> "ENG"
+          }
+        }
+
+    private fun spaceKeyLabel(session: SearchInputSession): String =
+        if (session.language == SearchInputLanguage.CHINESE) "拼音" else "English"
 
     private fun operatorFor(keyId: String): String =
         when (keyId) {

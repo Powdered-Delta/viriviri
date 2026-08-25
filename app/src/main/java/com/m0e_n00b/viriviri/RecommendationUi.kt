@@ -125,7 +125,6 @@ fun RecommendationContent(
     showPlayer: Boolean,
     onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
-    showSearchConsoleByDefault: Boolean = !showPlayer,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
     onDismissWorkbench: (() -> Unit)? = null,
@@ -137,8 +136,6 @@ fun RecommendationContent(
               state = state,
               appState = appState,
               palette = palette,
-              showSearchConsoleByDefault = showSearchConsoleByDefault,
-              onReturnToPlayback = onReturnToPlayback,
               onVideoSelected = onVideoSelected,
               onDismissWorkbench = onDismissWorkbench,
           )
@@ -150,8 +147,6 @@ fun RecommendationContent(
               state = state,
               appState = appState,
               palette = palette,
-              showSearchConsoleByDefault = showSearchConsoleByDefault,
-              onReturnToPlayback = onReturnToPlayback,
               onVideoSelected = onVideoSelected,
               onDismissWorkbench = onDismissWorkbench,
           )
@@ -173,7 +168,6 @@ fun RecommendationPanel(
     appState: ViriViriAppState = ViriViriApplication.appState,
     onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
-    searchOpenByDefault: Boolean = false,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
     onDismissWorkbench: (() -> Unit)? = null,
@@ -187,7 +181,6 @@ fun RecommendationPanel(
         showPlayer = false,
         onReturnToPlayback = onReturnToPlayback,
         palette = palette,
-        showSearchConsoleByDefault = searchOpenByDefault,
         showViewerContent = showViewerContent,
         onVideoSelected = onVideoSelected,
         onDismissWorkbench = onDismissWorkbench,
@@ -200,8 +193,6 @@ private fun CenterContentWorkspace(
     state: ViriViriUiState,
     appState: ViriViriAppState,
     palette: CinemaPalette,
-    showSearchConsoleByDefault: Boolean,
-    onReturnToPlayback: (() -> Unit)?,
     onVideoSelected: (() -> Unit)?,
     onDismissWorkbench: (() -> Unit)?,
 ) {
@@ -263,67 +254,63 @@ private fun CenterContentWorkspace(
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     when (route) {
-      SearchWorkspaceRoute.WORKBENCH_EMPTY,
-      SearchWorkspaceRoute.RECOMMENDATIONS,
-      SearchWorkspaceRoute.SEARCH_RESULTS ->
+      SearchWorkspaceRoute.WORKBENCH_EMPTY ->
           Surface(
-              color = panelStyle.surface.copy(alpha = 0.92f),
+              color = panelStyle.surface,
               shape = RoundedCornerShape(6.dp),
               modifier = Modifier.fillMaxWidth(),
           ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            TextButton(
+                onClick = appState::openPlaybackReturnRoute,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
-              if (route == SearchWorkspaceRoute.WORKBENCH_EMPTY) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                  TextButton(onClick = appState::openRecommendationList) {
-                    Text(stringResource(R.string.nav_video_list), color = panelStyle.text)
-                  }
-                  Spacer(Modifier.weight(1f))
-                  IconButton(onClick = appState::openSearchWorkspace) {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = stringResource(R.string.nav_search),
-                        tint = panelStyle.secondaryText,
-                    )
-                  }
-                }
-              }
-              VideoListFilterBar(
-                  state = filterState,
-                  isGridView = isGridView,
-                  moreExpanded = moreFiltersExpanded,
-                  style = panelStyle,
-                  onSortChanged = { applyFilter(filterState.copy(sort = it)) },
-                  onDateChanged = { applyFilter(filterState.copy(date = it)) },
-                  onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
-                  onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
-                  onToggleLayout = { isGridView = !isGridView },
-                  isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
-                  onTopOrRefresh = {
-                    if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
-                      if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
-                        appState.submitSearch(filterState.toBilibiliSearchOptions())
-                      } else if (route == SearchWorkspaceRoute.RECOMMENDATIONS) {
-                        appState.refreshRecommendations()
-                      }
-                    } else if (isGridView) {
-                      coroutineScope.launch { gridState.animateScrollToItem(0) }
-                    } else {
-                      coroutineScope.launch { listState.animateScrollToItem(0) }
-                    }
-                  },
-                  modifier = Modifier.fillMaxWidth(),
+              Text(
+                  text =
+                      when (state.searchWorkspace.workbenchReturnTarget) {
+                        WorkbenchReturnTarget.VIDEO_LIST -> stringResource(R.string.nav_video_list)
+                        WorkbenchReturnTarget.SEARCH_RESULTS -> stringResource(R.string.search_results)
+                      },
+                  color = panelStyle.text,
               )
             }
           }
+      SearchWorkspaceRoute.RECOMMENDATIONS,
+      SearchWorkspaceRoute.SEARCH_RESULTS ->
+          Surface(
+              color = panelStyle.surface,
+              shape = RoundedCornerShape(6.dp),
+              modifier = Modifier.fillMaxWidth(),
+          ) {
+            VideoListFilterBar(
+                state = filterState,
+                isGridView = isGridView,
+                moreExpanded = moreFiltersExpanded,
+                style = panelStyle,
+                onSortChanged = { applyFilter(filterState.copy(sort = it)) },
+                onDateChanged = { applyFilter(filterState.copy(date = it)) },
+                onDurationChanged = { applyFilter(filterState.copy(duration = it)) },
+                onToggleMore = { moreFiltersExpanded = !moreFiltersExpanded },
+                onToggleLayout = { isGridView = !isGridView },
+                isAtTop = if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0,
+                onTopOrRefresh = {
+                  if (if (isGridView) gridState.firstVisibleItemIndex == 0 else listState.firstVisibleItemIndex == 0) {
+                    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+                      appState.submitSearch(filterState.toBilibiliSearchOptions())
+                    } else {
+                      appState.refreshRecommendations()
+                    }
+                  } else if (isGridView) {
+                    coroutineScope.launch { gridState.animateScrollToItem(0) }
+                  } else {
+                    coroutineScope.launch { listState.animateScrollToItem(0) }
+                  }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+          }
       SearchWorkspaceRoute.SEARCH_EMPTY ->
           Surface(
-              color = panelStyle.surface.copy(alpha = 0.92f),
+              color = panelStyle.surface,
               shape = RoundedCornerShape(6.dp),
               modifier = Modifier.fillMaxWidth(),
           ) {
