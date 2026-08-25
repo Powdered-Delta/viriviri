@@ -432,6 +432,16 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     componentManager.registerComponent<WristAttached>(WristAttached.Companion)
     systemManager.registerSystem(PanelLayerAlphaSystem(systemManager.findSystem()))
     systemManager.registerSystem(WristAttachedSystem())
+    val pointerInfoSystem = PointerInfoSystem()
+    systemManager.registerSystem(pointerInfoSystem)
+    systemManager.registerSystem(
+        AnalogMediaStageScaleSystem(
+            pointerInfo = pointerInfoSystem,
+            mediaStageEntity = Entity(R.id.spatialized_video_panel),
+            onScaleDelta = ViriViriApplication.appState::adjustPlaybackStageScale,
+            onInteractionFinished = {},
+        )
+    )
 
     scene.isSystemPassthroughEnabled().let { isMrMode ->
       scene.enablePassthrough(isMrMode)

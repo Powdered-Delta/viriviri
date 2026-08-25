@@ -426,7 +426,35 @@ Workbench interaction
 ```
 
 
-## Persistence and Continuous Stage Scale
+## Official Analog Thumbstick Scaling Integration
+
+The local official `Meta-Spatial-SDK-Samples/PremiumMediaSample` contains the relevant reference implementation:
+
+```text
+PointerInfoSystem
+  -> Query local Controller entities
+  -> identify right_controller / right_hand through AvatarAttachment
+  -> raycast the current pointer target
+
+AnalogScalableSystem
+  -> read Controller.buttonState
+  -> ButtonBits.ButtonThumbRU / ButtonThumbRD
+  -> apply deltaTime-based continuous scale
+```
+
+ViriViri now follows that structure with:
+
+```text
+PointerInfoSystem
+  -> tracks the right-hand ray target
+AnalogMediaStageScaleSystem
+  -> adjusts only the existing MediaStage entity
+  -> calls ViriViriAppState.adjustPlaybackStageScale(delta)
+  -> uses the persisted continuous scale range 0.70 .. 1.50
+```
+
+This intentionally uses official thumbstick direction bits rather than inventing a `Vector2 thumbstick` field that is not present in the local SDK API.
+
 
 Implemented:
 
