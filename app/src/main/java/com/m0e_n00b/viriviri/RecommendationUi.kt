@@ -4,6 +4,7 @@ import android.graphics.Matrix
 import android.view.TextureView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.horizontalScroll
@@ -36,11 +37,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.Button
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
-import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -386,29 +385,26 @@ private fun CenterWorkspaceHeader(
         val systemFocusRequester = remember { FocusRequester() }
         val systemKeyboardController = LocalSoftwareKeyboardController.current
         Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
-        Box(modifier = Modifier.weight(1f).height(48.dp)) {
-          OutlinedTextField(
-              value = state.searchInput.committedText,
-              onValueChange = {},
-              readOnly = true,
-              modifier = Modifier.fillMaxSize(),
-              label = { Text(stringResource(R.string.nav_search)) },
-              colors =
-                  TextFieldDefaults.outlinedTextFieldColors(
-                      textColor = style.text,
-                      cursorColor = style.accent,
-                      focusedBorderColor = style.accent,
-                      unfocusedBorderColor = style.border,
-                      focusedLabelColor = style.accent,
-                      unfocusedLabelColor = style.secondaryText,
-                      backgroundColor = style.surface,
-                  ),
-              singleLine = true,
-          )
-          Box(
-              modifier =
-                  Modifier.fillMaxSize().clickable { appState.requestInternalSearchInput() }
-          )
+        Surface(
+            color = style.surface,
+            shape = RoundedCornerShape(20.dp),
+            modifier =
+                Modifier.weight(1f)
+                    .height(40.dp)
+                    .border(1.dp, style.border, RoundedCornerShape(20.dp))
+                    .clickable { appState.requestInternalSearchInput() },
+        ) {
+          Row(
+              modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+              verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+                text = state.searchInput.committedText.ifBlank { stringResource(R.string.nav_search) },
+                color = if (state.searchInput.committedText.isBlank()) style.secondaryText else style.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+          }
         }
         Box(modifier = Modifier.size(1.dp).alpha(0f)) {
           BasicTextField(
