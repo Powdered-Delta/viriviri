@@ -151,7 +151,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var outerDismissEntity: Entity? = null
   private var outerDismissInputAttached = false
   private var hasWorkbenchDataSource = false
-  private var appliedCanvasSize: PlaybackCanvasSize? = null
+  private var appliedStageScale: Float? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -321,7 +321,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
             syncPlaybackCanvasSizeLabel(appState.playbackCanvasSize)
             applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
-            applyPlaybackCanvasSize(appState.playbackCanvasSize)
+            applyPlaybackStageScale(appState.playbackStageScale)
             syncInputMethodPanelVisibility(appState)
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
@@ -824,13 +824,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
                   if (fromUser) {
-                    // in range [0, 1]
-                    val normalized = progress.toDouble() / scaleMax
-                    // in range [-1.5, 1.5]
-                    val expRange = normalized * 3 - 1.5
-                    val newScale = Math.pow(10.0, expRange).toFloat()
+                    val normalized = progress.toFloat() / scaleMax.coerceAtLeast(1)
+                    val newScale =
+                        PlaybackCanvasSize.MIN_STAGE_SCALE +
+                            normalized * (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)
                     scaleText?.text = "Scale: %.2f".format(newScale)
-                    Entity(R.id.spatialized_video_panel).setComponent(Scale(newScale))
+                    ViriViriApplication.appState.setPlaybackStageScale(newScale)
                   }
                 }
 
@@ -1466,11 +1465,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     canvasSizeButton.thenAccept { it.text = "Canvas size: ${canvasSize.label}" }
   }
 
-  private fun applyPlaybackCanvasSize(canvasSize: PlaybackCanvasSize) {
-    if (appliedCanvasSize == canvasSize) return
-    appliedCanvasSize = canvasSize
-    // UX: canvas size scales the one existing MediaStage; a future curved canvas replaces only this presentation adapter.
-    Entity(R.id.spatialized_video_panel).setComponent(Scale(canvasSize.scale))
+  private fun applyPlaybackStageScale(stageScale: Float) {
+    val normalizedScale = PlaybackCanvasSize.clampStageScale(stageScale)
+    if (appliedStageScale == normalizedScale) return
+    appliedStageScale = normalizedScale
+    // Preset selection and future thumbstick input both scale the one existing MediaStage.
+    Entity(R.id.spatialized_video_panel).setComponent(Scale(normalizedScale))
   }
 
   private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {

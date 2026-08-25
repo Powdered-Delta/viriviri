@@ -94,6 +94,7 @@ data class ViriViriUiState(
     val playbackQuality: PlaybackQuality = PlaybackQuality.AUTO,
     val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
     val playbackCanvasSize: PlaybackCanvasSize = PlaybackCanvasSize.STANDARD,
+    val playbackStageScale: Float = PlaybackCanvasSize.STANDARD.scale,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
     val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
     val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
@@ -202,13 +203,20 @@ class ViriViriAppState(
     private val provider: BilibiliPlaybackProvider = BilibiliPlaybackProvider(),
     internal val inputMethods: SearchInputMethodRegistry = DefaultSearchInputMethods.registry,
     internal val danmakuMergeConfig: DanmakuMergeConfig = DanmakuMergeConfig(),
+    private val appPreferences: AppPreferences = SharedPreferencesAppPreferences(context),
 ) {
   val playerSession = PlayerSession(context)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
   private val mutableState = MutableStateFlow(
       ViriViriUiState(
           isLoading = true,
-          searchWorkspace = SearchWorkspaceState(input = inputMethods.initialSession()),
+          playbackCanvasSize = PlaybackCanvasSize.STANDARD,
+          playbackStageScale = appPreferences.loadPlaybackStageScale(),
+          searchWorkspace =
+              SearchWorkspaceState(
+                  input = inputMethods.initialSession(),
+                  history = appPreferences.loadSearchHistory(),
+              ),
       )
   )
   private val mutableImmersiveBrowseCommands = MutableSharedFlow<ImmersiveBrowseCommand>(extraBufferCapacity = 1)
@@ -382,8 +390,10 @@ class ViriViriAppState(
 
   fun removeSearchHistory(query: String) {
     val current = mutableState.value
+    val history = current.searchWorkspace.history - query
+    appPreferences.saveSearchHistory(history)
     mutableState.value =
-        current.copy(searchWorkspace = current.searchWorkspace.copy(history = current.searchWorkspace.history - query))
+        current.copy(searchWorkspace = current.searchWorkspace.copy(history = history))
   }
 
   fun toggleSearchHistoryExpanded() {
@@ -515,6 +525,11 @@ class ViriViriAppState(
     listJob?.cancel()
     nextPageJob?.cancel()
     val requestId = searchRequestTracker.beginRequest()
+    val updatedHistory =
+        (listOf(normalizedQuery) + mutableState.value.searchWorkspace.history)
+            .distinct()
+            .take(MAX_SEARCH_HISTORY)
+    appPreferences.saveSearchHistory(updatedHistory)
     if (normalizedQuery.isBlank()) {
       mutableState.value =
           mutableState.value.copy(
@@ -548,9 +563,7 @@ class ViriViriAppState(
                           route = SearchWorkspaceRoute.SEARCH_RESULTS,
                           isKeyboardVisible = false,
                           isKeyboardDismissed = true,
-                          history = (listOf(normalizedQuery) + mutableState.value.searchWorkspace.history)
-                              .distinct()
-                              .take(MAX_SEARCH_HISTORY),
+                          history = updatedHistory,
                           isCandidatesExpanded = false,
                           scrollPosition = ListScrollPosition(),
                           options = options,
@@ -733,8 +746,25 @@ class ViriViriAppState(
 
   fun selectPlaybackCanvasSize(canvasSize: PlaybackCanvasSize) {
     val current = mutableState.value
-    if (current.playbackCanvasSize == canvasSize) return
-    mutableState.value = current.copy(playbackCanvasSize = canvasSize)
+    if (current.playbackCanvasSize == canvasSize && current.playbackStageScale == canvasSize.scale) return
+    appPreferences.savePlaybackStageScale(canvasSize.scale)
+    mutableState.value =
+        current.copy(
+            playbackCanvasSize = canvasSize,
+            playbackStageScale = canvasSize.scale,
+        )
+  }
+
+  fun setPlaybackStageScale(stageScale: Float) {
+    val current = mutableState.value
+    val nextScale = PlaybackCanvasSize.clampStageScale(stageScale)
+    if (nextScale == current.playbackStageScale) return
+    appPreferences.savePlaybackStageScale(nextScale)
+    mutableState.value = current.copy(playbackStageScale = nextScale)
+  }
+
+  fun adjustPlaybackStageScale(delta: Float) {
+    setPlaybackStageScale(mutableState.value.playbackStageScale + delta)
   }
 
   private fun startPlaybackResolution(

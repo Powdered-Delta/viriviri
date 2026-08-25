@@ -426,26 +426,33 @@ Workbench interaction
 ```
 
 
-YTBVR-style right-thumbstick stage scaling remains intentionally unimplemented in this pass.
+## Persistence and Continuous Stage Scale
 
-Observed constraints:
+Implemented:
 
 ```text
-- current project only uses scene InputListener click / hover callbacks
-- Meta Spatial SDK 0.13.2 InputSystem public API in the local SDK jar does not expose a thumbstick axis getter
-- controller-axis web documentation could not be retrieved because the configured fetch and search providers failed
+SharedPreferencesAppPreferences
+  -> search history: ordered, deduplicated, UTF-8 safe, bounded by MAX_SEARCH_HISTORY
+  -> playback stage scale: persisted float, restored at application startup
 ```
 
-Do not bind stage scaling to hover, generic panel MotionEvent, or an invented controller callback. Before implementation, verify the official controller-axis bridge, right-hand identity, trigger gate, and axis ownership.
-
-Required target behavior after the API is verified:
+The three canvas size entries remain presets:
 
 ```text
-right hand ray hits MediaStage
-  -> trigger locks the stage as the scale target
-  -> right thumbstick forward/back adjusts only MediaStage Scale
-  -> releasing or targeting another surface clears the mode
-  -> other panels retain their own input behavior
+COMPACT  -> 0.82
+STANDARD -> 1.00
+LARGE    -> 1.18
+```
+
+They now set the persisted continuous `playbackStageScale`. The actual scale is clamped to `0.70 .. 1.50`.
+
+`adjustPlaybackStageScale(delta)` and the debug scale control share the same AppState/persistence path, so a future verified right-thumbstick adapter can apply unquantized changes without snapping to a preset.
+
+Not implemented in this slice:
+
+```text
+- physical right-thumbstick axis adapter: awaiting verified Meta/Android controller-axis API
+- login/auth persistence: no authentication or token model exists yet; do not persist invented credentials
 ```
 
 ## Non-Goals
