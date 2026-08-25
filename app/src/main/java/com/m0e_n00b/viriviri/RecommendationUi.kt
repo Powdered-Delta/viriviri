@@ -5,6 +5,7 @@ import android.view.TextureView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +40,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -272,8 +276,21 @@ private fun CenterContentWorkspace(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
               if (route == SearchWorkspaceRoute.WORKBENCH_EMPTY) {
-                TextButton(onClick = appState::openRecommendationList) {
-                  Text(stringResource(R.string.nav_video_list), color = panelStyle.text)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  TextButton(onClick = appState::openRecommendationList) {
+                    Text(stringResource(R.string.nav_video_list), color = panelStyle.text)
+                  }
+                  Spacer(Modifier.weight(1f))
+                  IconButton(onClick = appState::openSearchWorkspace) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = stringResource(R.string.nav_search),
+                        tint = panelStyle.secondaryText,
+                    )
+                  }
                 }
               }
               VideoListFilterBar(
@@ -382,21 +399,37 @@ private fun CenterWorkspaceHeader(
         val systemFocusRequester = remember { FocusRequester() }
         val systemKeyboardController = LocalSoftwareKeyboardController.current
         Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).height(48.dp)) {
           OutlinedTextField(
               value = state.searchInput.committedText,
-              onValueChange = appState::updateSearchQuery,
-              readOnly = state.searchWorkspace.textInputTarget != SearchTextInputTarget.SYSTEM,
-              modifier = Modifier.fillMaxWidth().focusRequester(systemFocusRequester),
+              onValueChange = {},
+              readOnly = true,
+              modifier = Modifier.fillMaxSize(),
               label = { Text(stringResource(R.string.nav_search)) },
+              colors =
+                  TextFieldDefaults.outlinedTextFieldColors(
+                      textColor = style.text,
+                      cursorColor = style.accent,
+                      focusedBorderColor = style.accent,
+                      unfocusedBorderColor = style.border,
+                      focusedLabelColor = style.accent,
+                      unfocusedLabelColor = style.secondaryText,
+                      backgroundColor = style.surface,
+                  ),
               singleLine = true,
           )
-          if (state.searchWorkspace.textInputTarget != SearchTextInputTarget.SYSTEM) {
-            Box(
-                modifier =
-                    Modifier.fillMaxSize().clickable { appState.requestInternalSearchInput() }
-            )
-          }
+          Box(
+              modifier =
+                  Modifier.fillMaxSize().clickable { appState.requestInternalSearchInput() }
+          )
+        }
+        Box(modifier = Modifier.size(1.dp).alpha(0f)) {
+          BasicTextField(
+              value = state.searchInput.committedText,
+              onValueChange = appState::updateSearchQuery,
+              modifier = Modifier.fillMaxSize().focusRequester(systemFocusRequester),
+              singleLine = true,
+          )
         }
         IconButton(
             onClick = {

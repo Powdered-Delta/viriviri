@@ -362,6 +362,58 @@ Local recommendation filtering supports:
 时长: 短片 / 中等 / 长视频
 ```
 
+## Input and Keyboard Repairs
+
+Implemented in the current patch:
+
+```text
+Keyboard layers
+- numeric mini-panel remains unchanged
+- letter layer switch is fixed at the third-row right edge: [符号]
+- symbol layer switch is fixed at the same position: [字母]
+- symbol layer no longer duplicates a language switch
+- language switch remains on the letter-layer bottom row and communicates target mode: English / 拼音
+- Pinyin shift/caps and apostrophe segmentation remain unchanged
+- both letter and symbol layers preserve the same wide space-key weight
+
+Search input
+- visible search field is always read-only display
+- clicking it always opens internal input_method_panel
+- a transparent, attached 1dp BasicTextField is the system-IME proxy
+- only [IME] switches to SYSTEM and focuses the proxy
+- system proxy changes synchronize through updateSearchQuery
+
+Workbench interaction
+- stage hover and generic stage input no longer reveal Workbench
+- stage trigger click reveals Workbench when hidden
+- stage click dismisses it when visible
+- outer-dismiss geometry remains the outside-of-Workbench dismiss owner
+```
+
+
+YTBVR-style right-thumbstick stage scaling remains intentionally unimplemented in this pass.
+
+Observed constraints:
+
+```text
+- current project only uses scene InputListener click / hover callbacks
+- Meta Spatial SDK 0.13.2 InputSystem public API in the local SDK jar does not expose a thumbstick axis getter
+- controller-axis web documentation could not be retrieved because the configured fetch and search providers failed
+```
+
+Do not bind stage scaling to hover, generic panel MotionEvent, or an invented controller callback. Before implementation, verify the official controller-axis bridge, right-hand identity, trigger gate, and axis ownership.
+
+Required target behavior after the API is verified:
+
+```text
+right hand ray hits MediaStage
+  -> trigger locks the stage as the scale target
+  -> right thumbstick forward/back adjusts only MediaStage Scale
+  -> releasing or targeting another surface clears the mode
+  -> other panels retain their own input behavior
+```
+
+## Non-Goals
 
 - Do not create a second video Surface or player.
 - Do not create a separate Spatial panel for the center header.

@@ -739,10 +739,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 override fun onHoverStart(
                     receiver: SceneObject,
                     sourceOfInput: Entity,
-                ) {
-                  openPlaybackCanvasIfQuiet()
-                  showTransportOverlay()
-                }
+                ) = Unit
 
                 override fun onClick(
                     receiver: SceneObject,
@@ -772,10 +769,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                     changed: Int,
                     clicked: Int,
                     downTime: Long,
-                ): Boolean {
-                  resetControllerFadeOutTimer()
-                  return false
-                }
+                ): Boolean = false
               }
           )
 

@@ -38,6 +38,21 @@ class SearchInputMethodTest {
   }
 
   @Test
+  fun symbolLayerKeepsTheSwitchKeyAndSpaceAtStableMainKeyboardPositions() {
+    val letterRows = method.keyboardLayout(method.initialSession()).mainRows
+    val symbolSession = method.reduce(method.initialSession(), SearchInputAction.PressKey("symbols", 0L))
+    val symbolRows = method.keyboardLayout(symbolSession).mainRows
+
+    assertEquals(letterRows.size, symbolRows.size)
+    assertEquals("symbols", letterRows[2].last().id)
+    assertEquals("symbols", symbolRows[2].last().id)
+    assertEquals("space", letterRows.last().single { it.id == "space" }.id)
+    assertEquals("space", symbolRows.last().single { it.id == "space" }.id)
+    assertEquals(4f, symbolRows.last().single { it.id == "space" }.widthWeight, 0f)
+    assertTrue(symbolRows.flatten().none { it.id == "language" })
+  }
+
+  @Test
   fun qwertyLettersBuildContinuousChineseComposition() {
     var session = method.initialSession()
     for (letter in "nihao") {
