@@ -20,6 +20,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.m0e_n00b.spatialworkbench.core.PanelSlot
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvas
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvasEvent
@@ -150,6 +151,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var inputMethodPanelEntity: Entity? = null
   private var outerDismissEntity: Entity? = null
   private var outerDismissInputAttached = false
+  private var suppressOuterDismissUntilMs = 0L
   private var hasWorkbenchDataSource = false
   private var appliedStageScale: Float? = null
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
@@ -490,6 +492,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 hitInfo: HitInfo,
                 sourceOfInput: Entity,
             ) {
+              if (SystemClock.uptimeMillis() < suppressOuterDismissUntilMs) {
+                suppressOuterDismissUntilMs = 0L
+                return
+              }
               if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
                 dismissWorkbenchFromCenterContent()
               }
@@ -1337,6 +1343,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   fun openSearchCanvas() {
+    suppressOuterDismissUntilMs = SystemClock.uptimeMillis() + OUTER_DISMISS_SUPPRESSION_MS
     val appState = ViriViriApplication.appState
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.open(appState.state.value.selected?.videoId)
     appState.openSearchWorkspace()
@@ -1912,6 +1919,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val LIGHTS_DOWN_SCALE: Float = 0.25f
     const val TRANSPORT_FADE_DURATION_MS: Long = 200L
     const val TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS: Long = 500L
+    const val OUTER_DISMISS_SUPPRESSION_MS: Long = 500L
     const val WRIST_DEBUG_PANEL_WIDTH: Float = 0.14f
     const val WRIST_DEBUG_PANEL_HEIGHT: Float = 0.05f
 

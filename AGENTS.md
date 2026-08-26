@@ -68,7 +68,15 @@ All Android verification commands must run in the Windows environment. Do not in
 
 - Read the exact target block before an exact edit; merge nearby changes into one edit.
 - Check a file's line endings before editing it. Preserve its existing convention unless intentionally normalizing the entire file with user-aware review.
-- If a CRLF file produces `git diff --check` noise, fix the changed lines or perform a deliberate, isolated newline normalization. Do not hide a whole-file newline rewrite inside a feature patch.
+- For CRLF files, use a CLI normalizer instead of repeatedly editing individual lines. On Windows, prefer an explicit PowerShell conversion that preserves UTF-8 without BOM:
+
+```powershell
+$content = [System.IO.File]::ReadAllText($path)
+$content = $content -replace "`r?`n", "`r`n"
+[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))
+```
+
+- Before normalizing, record the file's current convention. After normalizing, run `git diff --check` and `git diff --numstat`; a narrow patch must not become a whole-file rewrite without an explicit reason.
 - Run `git diff --check` before builds and before commits.
 - Treat pre-existing modified and untracked files as user-owned unless they are directly in scope. Do not stage unrelated files.
 
