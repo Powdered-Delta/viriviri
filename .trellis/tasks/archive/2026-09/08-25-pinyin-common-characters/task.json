@@ -1,0 +1,28 @@
+{
+  "id": "pinyin-common-characters",
+  "name": "pinyin-common-characters",
+  "title": "Fix pinyin candidate ordering so common characters rank first",
+  "description": "Typing qiu yields 丘 plus rare characters because the ICU Han-Latin reverse index is codepoint-ordered and PREFERRED_CHARACTERS lacks qiu. Add a frequency-ordered common-character table for all pinyin syllables.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "M0e_N00b",
+  "assignee": "M0e_N00b",
+  "createdAt": "2026-08-25",
+  "completedAt": "2026-09-02",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "refactor-search-qwerty-input",
+  "relatedFiles": [
+    "app/src/main/java/com/m0e_n00b/viriviri/SearchInputMethod.kt"
+  ],
+  "notes": "Follow-up to the 08-23 QWERTY refactor. The ICU reverse index fallback is codepoint-ordered and surfaces rare characters; PREFERRED_CHARACTERS is incomplete.",
+  "meta": {}
+}
