@@ -1,0 +1,29 @@
+{
+  "id": "curved-video-stage",
+  "name": "curved-video-stage",
+  "title": "Add adjustable curvature to the immersive video stage",
+  "description": "Adjustable cylinder curvature for the video TriangleMesh with danmaku/subtitle UV following the same surface; UI panels stay flat.",
+  "status": "pending",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P3",
+  "creator": "M0e_N00b",
+  "assignee": "M0e_N00b",
+  "createdAt": "2026-08-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt",
+    "docs/immersive-ui-low-code-architecture.md"
+  ],
+  "notes": "Deferred from the workbench UX batch. Requires independent validation of cylinder mesh vs standard CylinderShapeOptions media panel.",
+  "meta": {}
+}

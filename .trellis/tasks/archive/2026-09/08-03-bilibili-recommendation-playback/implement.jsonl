@@ -1,0 +1,6 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Shared Compose UI and host callback boundaries"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Spatial panel and media Surface lifecycle constraints"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Provider and state separation"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "API to state to UI contract checks"}
+{"file": ".trellis/tasks/08-03-bilibili-recommendation-playback/research/bilibili-playback-provider.md", "reason": "Playback provider protocol and error boundary"}
