@@ -11,4 +11,6 @@
   <item type="id" name="stage_backdrop_panel" />
   <item type="id" name="center_content_panel" />
   <item type="id" name="input_method_panel" />
+  <item type="id" name="grab_bar_panel" />
+  <item type="id" name="workbench_root" />
 </resources>

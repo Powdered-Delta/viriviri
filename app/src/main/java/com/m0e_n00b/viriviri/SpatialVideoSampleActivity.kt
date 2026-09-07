@@ -89,8 +89,6 @@ import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.AvatarSystem
 import com.meta.spatial.toolkit.DpDisplayOptions
 import com.meta.spatial.toolkit.GLXFInfo
-import com.meta.spatial.toolkit.Grabbable
-import com.meta.spatial.toolkit.GrabbableType
 import com.meta.spatial.toolkit.Hittable
 import com.meta.spatial.toolkit.IntentPanelRegistration
 import com.meta.spatial.toolkit.LayoutXMLPanelRegistration
@@ -100,6 +98,7 @@ import com.meta.spatial.toolkit.MediaPanelSettings
 import com.meta.spatial.toolkit.Mesh
 import com.meta.spatial.toolkit.MeshCollision
 import com.meta.spatial.toolkit.Panel
+import com.meta.spatial.toolkit.PanelDimensions
 import com.meta.spatial.toolkit.PanelInputOptions
 import com.meta.spatial.toolkit.PanelRegistration
 import com.meta.spatial.toolkit.PanelStyleOptions
@@ -149,6 +148,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var stageBackdropEntity: Entity? = null
   private var centerContentEntity: Entity? = null
   private var inputMethodPanelEntity: Entity? = null
+  private var grabBarEntity: Entity? = null
+  /** Current video content half-height (metres), used to park the grab bar under the stage. */
+  private var grabBarContentHalfHeight: Float = MR_SCREEN_HEIGHT / 2f
   private var outerDismissEntity: Entity? = null
   private var outerDismissInputAttached = false
   private var suppressOuterDismissUntilMs = 0L
@@ -194,6 +196,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var gltfxEntity: Entity? = null
   private val activityScope = CoroutineScope(Dispatchers.Main)
   private var immersiveBrowseSession = ImmersiveBrowseSession()
+  private var previousBrowseDestination: ViriViriDestination? = null
+  // Centralized Workbench spatial tuning; replace/bind for future settings presets.
+  private val layout = WorkbenchLayoutConfig.DEFAULT
   private var browseSelectionObserver: Job? = null
   private var browseCommandObserver: Job? = null
   private var shouldReattachImmersiveOutput = false
@@ -325,12 +330,15 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             applyPlaybackDisplayRatio(appState.playbackDisplayRatio)
             applyPlaybackStageScale(appState.playbackStageScale)
             syncInputMethodPanelVisibility(appState)
+            val previousDestination = previousBrowseDestination
             val transition =
                 ImmersiveBrowseSessionReducer.onAppState(
                     session = immersiveBrowseSession,
                     canvas = immersivePlaybackCanvasHost.state.canvas,
                     destination = appState.destination,
+                    previousDestination = previousDestination ?: appState.destination,
                 )
+            previousBrowseDestination = appState.destination
             immersiveBrowseSession = transition.session
             if (transition.returnToPlayback) dispatchPlaybackCanvas(PlaybackCanvasEvent.OpenPlayback)
           }
@@ -389,10 +397,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         inputMethodPanelRegistration(),
         stageBackdropPanelRegistration(),
         danmakuOverlayPanelRegistration(),
+        grabBarPanelRegistration(),
     )
         .apply {
           if (BuildConfig.DEBUG) add(wristDebugPanelRegistration())
-          if (DEBUG) add(debugPanelRegistration())
         }
   }
 
@@ -437,11 +445,25 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val pointerInfoSystem = PointerInfoSystem()
     systemManager.registerSystem(pointerInfoSystem)
     systemManager.registerSystem(
+        GrabBarHoverSystem(
+            pointerInfo = pointerInfoSystem,
+            grabBarEntity = Entity(R.id.grab_bar_panel),
+        )
+    )
+    systemManager.registerSystem(
         AnalogMediaStageScaleSystem(
             pointerInfo = pointerInfoSystem,
             mediaStageEntity = Entity(R.id.spatialized_video_panel),
             onScaleDelta = ViriViriApplication.appState::adjustPlaybackStageScale,
             onInteractionFinished = {},
+        )
+    )
+    // The stage itself is the grab target (its ISDK grab edges are active); the bar is a
+    // visible child affordance. Watch the STAGE grab state and persist its world Y on release.
+    systemManager.registerSystem(
+        VideoStageGrabPersistenceSystem(
+            mediaStageEntity = Entity(R.id.spatialized_video_panel),
+            onStageGrabFinished = { y -> ViriViriApplication.appState.persistWorkbenchStageY(y) },
         )
     )
 
@@ -476,6 +498,20 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun bindCenterContentPanel() {
     // UX: the center content follows the movable MediaStage root but remains a non-grabbable UI layer.
     centerContentEntity?.setComponent(TransformParent(Entity(R.id.spatialized_video_panel)))
+    // TransformParent preserves world pose on reparent, so the authored scene translation
+    // is recomputed into local space. Set the local pose explicitly: the panel is taller
+    // and its anchor is shifted down by half the added height so the TOP edge stays fixed
+    // while the panel extends downward.
+    centerContentEntity?.setComponent(
+        Transform(Pose(Vector3(0f, layout.centerLocalY, layout.centerLocalZ)))
+    )
+    // The exported scene hardcodes PanelDimensions at the old size; the GLXF is
+    // regenerated by app:export and would otherwise keep the 0.84m height even when
+    // QuadShapeOptions/display are taller, squashing content vertically. Set the real
+    // physical size at runtime so content pixels are not compressed.
+    centerContentEntity?.setComponent(
+        PanelDimensions(com.meta.spatial.core.Vector2(layout.centerWidth, layout.centerHeight))
+    )
   }
 
   private fun attachOuterDismissInput() {
@@ -506,6 +542,43 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
   }
 
+  /**
+   * Binds the visual grab bar as a TransformParent child of the stage (scheme A root was
+   * reverted: reparenting the stage under the bar panel orphaned everything when the panel
+   * entity was not ready). The bar now rides the stage as a child parked below the video's
+   * bottom edge — visible, tracked, and non-interfering. Grab continues to be driven by the
+   * stage's own ISDK grab (its edges are grabbable).
+   */
+  private fun createWorkbenchRoot(persistedStageY: Float, stageScale: Float) {
+    val bar = Entity(R.id.grab_bar_panel)
+    grabBarEntity = bar
+    Log.i(
+        WORKBENCH_TRACE_TAG,
+        "bindGrabBar stage-ready hasPanel=${bar.tryGetComponent<Panel>() != null} " +
+            "hasTransform=${bar.tryGetComponent<Transform>() != null}",
+    )
+    bar.setComponent(TransformParent(Entity(R.id.spatialized_video_panel)))
+    bar.setComponent(Scale(stageScale))
+    updateGrabBarPose(MR_SCREEN_HEIGHT / 2f)
+    bar.setComponent(Visible(true))
+  }
+
+  /** Stage local Y offset above the workbench root (= bar below the video bottom edge). */
+  private fun stageLocalOffsetY(): Float =
+      grabBarContentHalfHeight + GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
+
+  /**
+   * Positions the grab bar as a stage-local child just below the video content's bottom edge
+   * (stage local frame: -Y down, +Z away from user). Snap-to-bottom, never floats away.
+   */
+  private fun updateGrabBarPose(contentHalfHeightMeters: Float) {
+    grabBarContentHalfHeight = contentHalfHeightMeters
+    val bar = grabBarEntity ?: return
+    val barLocalY = -(contentHalfHeightMeters + GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS)
+    bar.setComponent(Transform(Pose(Vector3(0f, barLocalY, 0.05f))))
+    Log.d(WORKBENCH_TRACE_TAG, "grabBarPose localY=$barLocalY contentHalf=$contentHalfHeightMeters")
+  }
+
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
     gltfxEntity = Entity.create()
     return activityScope.launch {
@@ -526,33 +599,55 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     super.onVRReady()
     if (!isFirstReadyDone) {
       val initialPose = Pose()
+      // Stage grab follows the Horizon OS window model: ISDK drives the grab (the toolkit
+      // Grabbable below was the conflict source and is gone). The stage keeps an authored
+      // default pose; the persisted user height (Y only) is applied on top. Horizontal
+      // position (X/Z) and yaw reset to these authored defaults every launch.
+      val persistedStageY = ViriViriApplication.appState.loadWorkbenchStageYOrDefault()
+      // Initialize the stage with the persisted scale directly at birth so the canvas matches
+      // the danmaku/backdrop overlays from frame one (the state observer's early apply can race
+      // panel creation; carrying the value here removes that dependency).
+      val persistedStageScale = ViriViriApplication.appState.state.value.playbackStageScale
+      appliedStageScale = PlaybackCanvasSize.clampStageScale(persistedStageScale)
+      // Stage is the world root again (scheme A reparent reverted — it orphaned the stage when
+      // the grab-bar panel entity was not ready). Persisted height applies to the stage's world
+      // pose; scale carried at birth; rails etc. below stay TransformParent children.
       Entity(R.id.spatialized_video_panel)
           .setComponents(
               listOf(
-                  Grabbable(type = GrabbableType.PIVOT_Y, minHeight = 0.75f, maxHeight = 2.5f),
                   SpatializedAudioPanel(),
-                  Transform(initialPose * Pose(Vector3(0f, 1.25f, 2f), Quaternion(0f, 0f, 0f))),
-              )
-          )
-      Entity(R.id.video_selector_panel)
-          .setComponents(
-              listOf(
-                  Grabbable(),
-                  Panel(R.id.video_selector_panel),
                   Transform(
                       initialPose *
                           Pose(
-                              Vector3(-1.212f, 1.25f, 0.988f),
-                              Quaternion(0f, -45f, 0f),
+                              Vector3(0f, persistedStageY, 2f),
+                              Quaternion(0f, 0f, 0f),
                           )
                   ),
+                  Scale(appliedStageScale!!),
+              )
+          )
+      // Left rail is parented to the MediaStage with a STAGE-LOCAL transform (y=0 tracks the
+      // stage height; z = railLocalZ sits it in front of the stage). This makes the rail ride
+      // the stage when it is grabbed/lifted, unlike the earlier world-pose reparent mistake.
+      Entity(R.id.video_selector_panel)
+          .setComponents(
+              listOf(
+                  Panel(R.id.video_selector_panel),
+                  Transform(
+                      Pose(
+                          // UX: left rail is the vertical mirror of the right rail.
+                          Vector3(-layout.railX, 0f, layout.railLocalZ),
+                          Quaternion(0f, -layout.railYawDegrees, 0f),
+                      )
+                  ),
+                  TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
       Entity(R.id.controls_id)
           .setComponents(
               listOf(
                   Panel(R.id.controls_id),
-                  Transform(Pose(Vector3(0.0f, -0.6f, -0.15f), Quaternion(20f, 0f, 0f))),
+                  Transform(Pose(Vector3(0.0f, layout.transportLocalY, layout.transportLocalZ), Quaternion(layout.transportPitchDegrees, 0f, 0f))),
                   TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
@@ -560,35 +655,33 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           .setComponents(
               listOf(
                   Panel(R.id.mr_panel),
-                  Transform(Pose(Vector3(0.0f, 0.72f, -0.12f), Quaternion(8f, 0f, 0f))),
+                  Transform(Pose(Vector3(0.0f, layout.navLocalY, layout.navLocalZ), Quaternion(layout.navPitchDegrees, 0f, 0f))),
                   TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
       bindCenterContentPanel()
+      // Right rail mirrors the left rail: stage-local transform + parented to the stage.
       Entity(R.id.mode_panel)
           .setComponents(
               listOf(
-                  Grabbable(),
                   Panel(R.id.mode_panel),
                   Transform(
-                      initialPose * Pose(Vector3(1.0f, 1.25f, 1.0f), Quaternion(0f, 45f, 0f))
+                      Pose(
+                          Vector3(layout.railX, 0f, layout.railLocalZ),
+                          Quaternion(0f, layout.railYawDegrees, 0f),
+                      )
                   ),
+                  TransformParent(Entity(R.id.spatialized_video_panel)),
               )
           )
       environmentGLXF?.setComponents(listOf(Visible(false), Transform(initialPose)))
-      if (DEBUG) {
-        Entity(R.id.debug_panel)
-            .setComponents(
-                listOf(
-                    Grabbable(),
-                    Panel(R.id.debug_panel),
-                    Transform(initialPose * Pose(Vector3(1f, 1.25f, 1f), Quaternion(0f, 45f, 0f))),
-                )
-            )
-      }
       mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
+      // Bind the visual grab bar as a stage child AFTER the video panel exists so the bar's
+      // LayoutXML panel entity is ready (reparenting earlier could target a not-yet-created
+      // entity and orphan the whole stage).
+      createWorkbenchRoot(persistedStageY, appliedStageScale!!)
       createInputMethodPanel()
       createStageBackdropPanel()
       createDanmakuOverlayPanel()
@@ -601,6 +694,24 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       setMrMode(scene.isSystemPassthroughEnabled())
       isFirstReadyDone = true
     }
+  }
+
+  /**
+   * Clears the persisted stage height and snaps the stage + rails back to their authored
+   * default world Y immediately (no restart needed). Debug/testing aid for tuning the
+   * default height without being masked by a previously persisted value.
+   */
+  fun resetStageYToDefault() {
+    val defaultY = ViriViriApplication.appState.resetWorkbenchStageY()
+    applyStageWorldY(defaultY)
+  }
+
+  /** Resets the stage (world root) to authored X/Z with world Y=[y]; rails follow as children. */
+  private fun applyStageWorldY(y: Float) {
+    val initialPose = Pose()
+    Entity(R.id.spatialized_video_panel)
+        .setComponent(Transform(initialPose * Pose(Vector3(0f, y, 2f), Quaternion(0f, 0f, 0f))))
+    Log.i(TAG, "resetStageYToDefault stageY=$y")
   }
 
   // Video Panel
@@ -819,43 +930,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         videoHeight = player.videoSize.height,
         pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
     )
-  }
-
-  private fun debugPanelRegistration(): PanelRegistration {
-    return LayoutXMLPanelRegistration(
-        R.id.debug_panel,
-        layoutIdCreator = { R.layout.debug },
-        settingsCreator = {
-          UIPanelSettings(
-              shape = QuadShapeOptions(width = 0.8f, height = 0.45f),
-              display = DpDisplayOptions(width = 275.2f, height = 155.2f, dpi = 600),
-              style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
-          )
-        },
-        panelSetupWithRootView = { rootView, _, _ ->
-          val scaleText = rootView.findViewById<TextView>(R.id.scale_text)
-          val scaleBar = rootView.findViewById<SeekBar>(R.id.scale_bar)
-          val scaleMax = scaleBar?.max ?: 1
-          scaleBar?.setOnSeekBarChangeListener(
-              object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
-                  if (fromUser) {
-                    val normalized = progress.toFloat() / scaleMax.coerceAtLeast(1)
-                    val newScale =
-                        PlaybackCanvasSize.MIN_STAGE_SCALE +
-                            normalized * (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)
-                    scaleText?.text = "Scale: %.2f".format(newScale)
-                    ViriViriApplication.appState.setPlaybackStageScale(newScale)
-                  }
-                }
-
-                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
-
-                override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
-              }
-          )
-        },
-    )
+    // The persisted stage scale written earlier (onVRReady batch) can be dropped when the
+    // PanelSceneObject is created by the SDK. Re-assert the component directly (bypassing the
+    // appliedStageScale guard) now that the scene object exists, so the video canvas matches
+    // the danmaku/backdrop overlays from the first frame.
+    videoPanelEntity.setComponent(Scale(appliedStageScale ?: 1f))
   }
 
   // Movies Controller panel
@@ -928,9 +1007,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           },
           settingsCreator = {
             UIPanelSettings(
-                shape = QuadShapeOptions(width = 1.5f, height = 0.84f),
                 // UX: center Search/List stays readable at three columns without retaining a high-resolution panel buffer.
-                display = DpDisplayOptions(width = 768f, height = 430f, dpi = 512),
+                shape = QuadShapeOptions(width = layout.centerWidth, height = layout.centerHeight),
+                display = DpDisplayOptions(width = 768f, height = 615f, dpi = 512),
                 style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
             )
           },
@@ -967,6 +1046,26 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           },
       )
 
+  /**
+   * Visual grab bar under the video stage. It is a NON-grabbable, non-interactive indicator
+   * (NoCollision): the ISDK grab handle already makes the stage edges grabbable, this bar just
+   * makes the bottom grab zone visible so the user knows where to grab to move the whole
+   * workbench. See task 09-02-workbench-lift-and-grab.
+   */
+  private fun grabBarPanelRegistration(): PanelRegistration =
+      LayoutXMLPanelRegistration(
+          R.id.grab_bar_panel,
+          layoutIdCreator = { R.layout.grab_bar },
+          settingsCreator = {
+            UIPanelSettings(
+                shape = QuadShapeOptions(width = GRAB_BAR_WIDTH_METERS, height = GRAB_BAR_HEIGHT_METERS),
+                display = DpDisplayOptions(width = 512f, height = 56f, dpi = 600),
+                input = PanelInputOptions(0),
+                style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
+            )
+          },
+      )
+
   private fun stageOverlayPanelSettings(width: Float, height: Float) =
       UIPanelSettings(
           shape = QuadShapeOptions(width = width, height = height),
@@ -981,7 +1080,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         Entity.createPanelEntity(
                 R.id.input_method_panel,
                 // Below the center content and farther forward than Transport for near-field typing.
-                Transform(Pose(Vector3(0f, -0.48f, -0.42f), Quaternion(20f, 0f, 0f))),
+                Transform(Pose(Vector3(0f, layout.keyboardLocalY, layout.keyboardLocalZ), Quaternion(layout.keyboardPitchDegrees, 0f, 0f))),
                 TransformParent(Entity(R.id.spatialized_video_panel)),
                 Visible(false),
             )
@@ -1014,6 +1113,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             // PanelInputOptions disables buttons but does not disable the panel's raycast collider.
             .also { it.setComponent(Panel(R.id.stage_backdrop_panel, MeshCollision.NoCollision)) }
+    // Sync immediately so the dim layer reflects the current Workbench visibility
+    // even when the panel is created while a Workbench is already on screen.
+    if (::immersiveWorkbenchHost.isInitialized) {
+      val modules = ImmersiveWorkbenchReducer.modules(immersiveWorkbenchHost.state)
+      spatialPanelVisibilityController.setVisible(PanelSlot.MEDIA_STAGE, stageBackdropEntity!!, modules.isNotEmpty())
+    }
+    // Match the stage scale at birth (Scale is not inherited through TransformParent).
+    stageBackdropEntity?.setComponent(Scale(appliedStageScale ?: 1f))
   }
 
   private fun createDanmakuOverlayPanel() {
@@ -1027,6 +1134,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             // The overlay must render but never block the stage's controller/hand raycasts.
             .also { it.setComponent(Panel(R.id.danmaku_overlay_panel, MeshCollision.NoCollision)) }
+    danmakuOverlayEntity?.setComponent(Scale(appliedStageScale ?: 1f))
   }
 
   private fun traceStageInputTargets() {
@@ -1076,19 +1184,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         R.id.mode_panel,
         layoutIdCreator = { R.layout.mode_panel },
         settingsCreator = {
-          val isDebugPanel = BuildConfig.DEBUG
           UIPanelSettings(
-              shape =
-                  QuadShapeOptions(
-                      width = if (isDebugPanel) 1.0f else 0.7f,
-                      height = if (isDebugPanel) 0.9f else 0.58f,
-                  ),
-              display =
-                  DpDisplayOptions(
-                      width = if (isDebugPanel) 420f else 280f,
-                      height = if (isDebugPanel) 430f else 230f,
-                      dpi = 600,
-                  ),
+              // UX: the right rail hosts the merged debug/media-status content in a scroll
+              // container, so its height now matches the left rail for visual symmetry.
+              shape = QuadShapeOptions(width = layout.railWidth, height = layout.leftRailHeight),
+              display = DpDisplayOptions(width = 280f, height = 464f, dpi = 600),
               style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
           )
         },
@@ -1150,6 +1250,77 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           rootView.findViewById<Button>(R.id.open_2d_button).setOnClickListener {
             ViriViriApplication.appState.playerSession.beginOutputHandoff()
             launchPanelModeInHome()
+          }
+          // Merged debug telemetry (was the standalone debug panel): live danmaku stream + stage scale.
+          val scaleText = rootView.findViewById<TextView>(R.id.scale_text)
+          val scaleBar = rootView.findViewById<SeekBar>(R.id.scale_bar)
+          val stageYText = rootView.findViewById<TextView>(R.id.stage_y_text)
+          val danmakuStatus = rootView.findViewById<TextView>(R.id.danmaku_status)
+          val danmakuHandler = android.os.Handler(android.os.Looper.getMainLooper())
+          val scaleMax = scaleBar?.max ?: 1
+          val pollDanmaku =
+              object : Runnable {
+                override fun run() {
+                  // Live stage world Y so the user can read the current height while tuning it.
+                  val stageY =
+                      Entity(R.id.spatialized_video_panel)
+                          .tryGetComponent<Transform>()
+                          ?.transform
+                          ?.t
+                          ?.y
+                  stageYText?.text = stageY?.let { "Stage Y: %.2f m".format(it) } ?: "Stage Y: --"
+                  // Keep the scale readout and bar in sync with the real state (thumbstick,
+                  // presets and restores all mutate appState; only the bar drag mutates it here).
+                  val currentScale = ViriViriApplication.appState.state.value.playbackStageScale
+                  scaleText?.text = "Scale: %.2f".format(currentScale)
+                  val barProgress =
+                      if (currentScale <= PlaybackCanvasSize.MIN_STAGE_SCALE) 0
+                      else {
+                        val clamped =
+                            currentScale.coerceIn(
+                                PlaybackCanvasSize.MIN_STAGE_SCALE,
+                                PlaybackCanvasSize.MAX_STAGE_SCALE,
+                            )
+                        (((clamped - PlaybackCanvasSize.MIN_STAGE_SCALE) /
+                            (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)) *
+                            scaleMax)
+                            .toInt()
+                            .coerceIn(0, scaleMax)
+                      }
+                  if (scaleBar != null && scaleBar.progress != barProgress) {
+                    scaleBar.progress = barProgress
+                  }
+                  val videoId = ViriViriApplication.appState.state.value.selected?.videoId
+                  val summary =
+                      videoId?.let { ViriViriApplication.appState.danmakuStreamSourceOrNull(it)?.debugSummary() }
+                  danmakuStatus?.text =
+                      if (summary != null) summary
+                      else if (ViriViriApplication.appState.state.value.isLoadingDanmaku) "danmaku: loading..."
+                      else "danmaku: idle"
+                  danmakuHandler.postDelayed(this, 500L)
+                }
+              }
+          danmakuHandler.post(pollDanmaku)
+          scaleBar?.setOnSeekBarChangeListener(
+              object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
+                  if (fromUser) {
+                    val normalized = progress.toFloat() / scaleMax.coerceAtLeast(1)
+                    val newScale =
+                        PlaybackCanvasSize.MIN_STAGE_SCALE +
+                            normalized * (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)
+                    scaleText?.text = "Scale: %.2f".format(newScale)
+                    ViriViriApplication.appState.setPlaybackStageScale(newScale)
+                  }
+                }
+
+                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+
+                override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
+              }
+          )
+          rootView.findViewById<Button>(R.id.reset_stage_y_button).setOnClickListener {
+            resetStageYToDefault()
           }
           setupHoverAndTouchListeners(rootView)
         },
@@ -1488,6 +1659,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     appliedStageScale = normalizedScale
     // Preset selection and future thumbstick input both scale the one existing MediaStage.
     Entity(R.id.spatialized_video_panel).setComponent(Scale(normalizedScale))
+    // Scale is NOT propagated through TransformParent (see the SDK ScaleChildren sample), so the
+    // stage-attached overlays must be scaled explicitly to track the video canvas.
+    danmakuOverlayEntity?.setComponent(Scale(normalizedScale))
+    stageBackdropEntity?.setComponent(Scale(normalizedScale))
+    grabBarEntity?.setComponent(Scale(normalizedScale))
   }
 
   private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
@@ -1673,6 +1849,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     panel.updateIsdkComponentProperties(Entity(R.id.spatialized_video_panel))
     reshapeStageOverlay(Entity(R.id.stage_backdrop_panel), shapeWidth, shapeHeight)
     reshapeStageOverlay(Entity(R.id.danmaku_overlay_panel), shapeWidth, shapeHeight)
+    updateGrabBarPose(content.halfHeight)
     if (BuildConfig.DEBUG) {
       Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
     }
@@ -1850,8 +2027,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         classIdCreator = { MoviePanel::class.java },
         settingsCreator = {
           UIPanelSettings(
-              shape = QuadShapeOptions(width = 1.2f, height = 2.0f),
-              display = DpDisplayOptions(width = 619.2f, height = 1032f, dpi = 800),
+              // UX: the left Detail rail mirrors the right context rail width so the
+              // two are vertically symmetric; its body scrolls within the shorter height.
+              shape = QuadShapeOptions(width = layout.railWidth, height = layout.leftRailHeight),
+              display = DpDisplayOptions(width = 361f, height = 464f, dpi = 800),
               input =
                   // want to disable left hand pinch so we can drag the panel around with hands
                   PanelInputOptions(
@@ -1883,9 +2062,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   public fun setMrMode(isMrMode: Boolean) {
     val videoPanelEntity = Entity(R.id.spatialized_video_panel)
-    val grabbable = videoPanelEntity.tryGetComponent<Grabbable>() ?: Grabbable()
-    grabbable.enabled = isMrMode
-    videoPanelEntity.setComponent(grabbable)
 
     if (isMrMode) {
       environmentGLXF?.setComponent(Visible(false))
@@ -1920,12 +2096,20 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val TRANSPORT_FADE_DURATION_MS: Long = 200L
     const val TRANSPORT_TIMELINE_UPDATE_INTERVAL_MS: Long = 500L
     const val OUTER_DISMISS_SUPPRESSION_MS: Long = 500L
+    // Workbench spatial tuning lives in WorkbenchLayoutConfig (bind it to future
+    // settings presets / preferences instead of hardcoding positions here).
     const val WRIST_DEBUG_PANEL_WIDTH: Float = 0.14f
     const val WRIST_DEBUG_PANEL_HEIGHT: Float = 0.05f
 
     const val MR_SCREEN_WIDTH: Float = 16.0f / 10.0f
     const val MR_SCREEN_HEIGHT: Float = 9.0f / 10.0f
     const val VR_SCREEN_RATIO: Float = 2.5f
+
+    // Visual grab bar under the video stage (indicates the ISDK bottom-edge grab zone).
+    const val GRAB_BAR_WIDTH_METERS: Float = 0.7f
+    const val GRAB_BAR_HEIGHT_METERS: Float = 0.055f
+    /** Bar vertical gap below the stage bottom edge (stage local, negative = down). */
+    const val GRAB_BAR_BOTTOM_GAP_METERS: Float = 0.02f
 
     // spawns debug menu if true
     const val DEBUG: Boolean = false

@@ -44,3 +44,6 @@ Desktop.ini
 
 # Meta Spatial Editor local state
 app/scenes/Main.localsettings
+
+temp/grab-bar-archive/
+
