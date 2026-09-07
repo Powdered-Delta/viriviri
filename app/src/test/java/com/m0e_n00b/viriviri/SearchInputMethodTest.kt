@@ -191,16 +191,144 @@ class SearchInputMethodTest {
   }
 
   @Test
-  fun enterCommitsCurrentCandidateWithoutClearingCommittedText() {
+  fun enterInChineseModeCommitsRawPinyinComposition() {
     var session = method.initialSession("前缀")
+    for (letter in "qiu") {
+      session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+    }
+    assertEquals("qiu", session.composition)
+
+    session = method.reduce(session, SearchInputAction.CommitComposition)
+
+    assertTrue(session.committedText.endsWith("qiu"))
+    assertEquals("前缀qiu", session.committedText)
+    assertTrue(session.composition.isEmpty())
+  }
+
+  @Test
+  fun blankCompositionEnterIsANoOp() {
+    val session = method.initialSession("已有")
+
+    val updated = method.reduce(session, SearchInputAction.CommitComposition)
+
+    assertEquals(session, updated)
+    assertEquals("已有", updated.committedText)
+    assertTrue(updated.composition.isEmpty())
+  }
+
+  @Test
+  fun spaceStillPicksFirstChineseCandidateInsteadOfRawPinyin() {
+    var session = method.initialSession()
+    for (letter in "qiu") {
+      session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+    }
+
+    session = method.reduce(session, SearchInputAction.PressKey("space", 0L))
+
+    assertTrue(session.committedText.contains("求"))
+    assertTrue(!session.committedText.contains("qiu"))
+    assertTrue(session.composition.isEmpty())
+  }
+
+  @Test
+  fun commonHighFrequencyCharactersLeadCandidateOrdering() {
+    fun afterTyping(pinyin: String): List<String> {
+      var session = method.initialSession()
+      for (letter in pinyin) {
+        session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+      }
+      return session.candidates.map { it.value }
+    }
+
+    val qiuValues = afterTyping("qiu")
+    assertTrue(listOf("求", "球", "秋", "丘").contains(qiuValues.first()))
+    for (expected in listOf("求", "球", "秋", "丘")) {
+      assertTrue("qiu candidates should contain $expected", qiuValues.contains(expected))
+    }
+
+    assertEquals("的", afterTyping("de").first())
+    assertEquals("是", afterTyping("shi").first())
+    assertEquals("我", afterTyping("wo").first())
+    assertEquals("你", afterTyping("ni").first())
+  }
+
+  @Test
+  fun multiSyllablePhraseStillYieldsCommonPhraseFirst() {
+    var session = method.initialSession()
     for (letter in "nihao") {
       session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
     }
 
-    session = method.reduce(session, SearchInputAction.CommitComposition)
+    assertEquals("你好", session.candidates.first().value)
+  }
 
-    assertEquals("前缀你好", session.committedText)
-    assertTrue(session.composition.isEmpty())
+  @Test
+  fun commonOfflinePhrasesRankAheadOfRandomSegmentations() {
+    fun firstCandidate(pinyin: String): String =
+        DefaultOfflinePinyinLexicon().candidatesFor(pinyin).first().value
+
+    assertEquals("手机", firstCandidate("shouji"))
+    assertEquals("电脑", firstCandidate("diannao"))
+    assertEquals("网络", firstCandidate("wangluo"))
+    assertEquals("相册", firstCandidate("xiangce"))
+    assertEquals("视频", firstCandidate("shipin"))
+    assertEquals("播放", firstCandidate("bofang"))
+    assertEquals("我们", firstCandidate("women"))
+    assertEquals("什么", firstCandidate("shenme"))
+    assertEquals("谢谢", firstCandidate("xiexie"))
+    assertEquals("再见", firstCandidate("zaijian"))
+    assertEquals("弹幕", firstCandidate("danmu"))
+    assertEquals("输入法", firstCandidate("shurufa"))
+  }
+
+  @Test
+  fun partialPinyinAggregatesLeadingCharactersAcrossSyllables() {
+    fun afterTyping(pinyin: String): List<String> {
+      var session = method.initialSession()
+      for (letter in pinyin) {
+        session = method.reduce(session, SearchInputAction.PressKey("letter:$letter", 0L))
+      }
+      return session.candidates.map { it.value }
+    }
+
+    // Without the bundled dictionary, a single letter aggregates ALL common characters of
+    // every syllable starting with it (hundreds, not just one char per syllable). Ordering is
+    // by the curated table; true frequency ordering is covered by the dictionary test below.
+    val sValues = afterTyping("s")
+    assertTrue("expected hundreds of aggregated suggestions, got " + sValues.size, sValues.size >= 100)
+    for (expected in listOf("是", "三", "四", "上", "说", "时", "生")) {
+      assertTrue("s suggestions should contain $expected", sValues.contains(expected))
+    }
+
+    // An exact complete syllable still surfaces its own characters first.
+    assertEquals("测", afterTyping("ce").first())
+  }
+
+  @Test
+  fun bundledFrequencyDictionaryDrivesWordsAndPrefixCompletion() {
+    val table =
+        BundledPinyinData.parse(
+            sequenceOf(
+                "# header",
+                "P\tceshi\t测试:500807",
+                "P\tceshiji\t测试机:12",
+                "P\tshouji\t手机:9000",
+                "C\tshi\t是:31422712,时:10000000,事:8000000",
+                "C\tsan\t三:2747794,散:100",
+                "C\tsa\t撒:140910,洒:5000",
+            )
+        )
+    val lexicon = DefaultOfflinePinyinLexicon(table)
+
+    assertEquals("测试", lexicon.candidatesFor("ceshi").first().value)
+    assertEquals("手机", lexicon.candidatesFor("shouji").first().value)
+
+    val ces = lexicon.candidatesFor("ces").map { it.value }
+    assertTrue("ces should complete to 测试, got $ces", ces.contains("测试"))
+
+    val s = lexicon.candidatesFor("s").map { it.value }
+    assertTrue("s should contain 是, got $s", s.contains("是"))
+    assertEquals("是", s.first())
   }
 
   @Test
