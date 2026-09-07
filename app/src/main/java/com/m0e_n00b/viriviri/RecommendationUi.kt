@@ -87,6 +87,7 @@ import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 import com.m0e_n00b.spatialworkbench.core.ContentAccess
 import com.m0e_n00b.spatialworkbench.core.TransientMessage
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 internal data class TextureViewScale(val x: Float, val y: Float)
@@ -244,6 +245,16 @@ private fun CenterContentWorkspace(
           if (nearEnd) appState.loadNextPage()
         }
   }
+  // UX: entering search results must not inherit the recommendation feed's scroll
+  // offset. Reset to the top whenever the center route changes into a fresh list
+  // surface; recommendations keep their own restored position on return.
+  LaunchedEffect(route) {
+    if (route == SearchWorkspaceRoute.SEARCH_RESULTS) {
+      snapshotFlow { if (isGridView) gridState.layoutInfo.totalItemsCount else listState.layoutInfo.totalItemsCount }
+          .first { it > 0 }
+      if (isGridView) gridState.scrollToItem(0) else listState.scrollToItem(0)
+    }
+  }
   // UX: only the active center route owns the list body; Search empty replaces it with discovery content.
   Column(
       modifier =
@@ -257,11 +268,13 @@ private fun CenterContentWorkspace(
           Surface(
               color = panelStyle.surface,
               shape = RoundedCornerShape(6.dp),
-              modifier = Modifier.fillMaxWidth(),
+              // UX: the [视频列表]/[搜索结果] return chip sizes to its label and is
+              // centered in the workspace instead of stretching the full width.
+              modifier = Modifier.align(Alignment.CenterHorizontally),
           ) {
             TextButton(
                 onClick = appState::openPlaybackReturnRoute,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
             ) {
               Text(
                   text =
@@ -304,6 +317,9 @@ private fun CenterContentWorkspace(
                     coroutineScope.launch { listState.animateScrollToItem(0) }
                   }
                 },
+                // UX: search results keep the filter bar but gain a back control that
+                // returns to the search-empty discovery surface without leaving Browse.
+                onBack = if (route == SearchWorkspaceRoute.SEARCH_RESULTS) appState::returnToSearchEmpty else null,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             )
           }
