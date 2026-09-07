@@ -149,6 +149,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var centerContentEntity: Entity? = null
   private var inputMethodPanelEntity: Entity? = null
   private var grabBarEntity: Entity? = null
+  /** Grouping anchor: stage + all workbench panels hang off it (Scheme A root). */
+  private var workbenchRootEntity: Entity? = null
   /** Current video content half-height (metres), used to park the grab bar under the stage. */
   private var grabBarContentHalfHeight: Float = MR_SCREEN_HEIGHT / 2f
   private var outerDismissEntity: Entity? = null
@@ -458,12 +460,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             onInteractionFinished = {},
         )
     )
-    // The stage itself is the grab target (its ISDK grab edges are active); the bar is a
-    // visible child affordance. Watch the STAGE grab state and persist its world Y on release.
+    // Scheme A: the grab bar IS the grabbable anchor; the stage hangs under it, so the SDK
+    // moves everything when the bar is dragged — no mirroring system needed. Watch the BAR's
+    // grab state to persist the stage's world height on release.
     systemManager.registerSystem(
         VideoStageGrabPersistenceSystem(
-            mediaStageEntity = Entity(R.id.spatialized_video_panel),
-            onStageGrabFinished = { y -> ViriViriApplication.appState.persistWorkbenchStageY(y) },
+            mediaStageEntity = Entity(R.id.grab_bar_panel),
+            onStageGrabFinished = { _ ->
+              // Stage world centre Y = bar world Y + local stage offset.
+              val barY =
+                  Entity(R.id.grab_bar_panel).tryGetComponent<Transform>()?.transform?.t?.y
+              val stageY = barY?.plus(currentStageAnchorOffsetY())
+              if (stageY != null && stageY.isFinite() && stageY > 0f) {
+                ViriViriApplication.appState.persistWorkbenchStageY(stageY)
+              }
+            },
         )
     )
 
@@ -543,58 +554,69 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   /**
-   * Binds the visual grab bar as a TransformParent child of the stage (scheme A root was
-   * reverted: reparenting the stage under the bar panel orphaned everything when the panel
-   * entity was not ready). The bar now rides the stage as a child parked below the video's
-   * bottom edge — visible, tracked, and non-interfering. Grab continues to be driven by the
-   * stage's own ISDK grab (its edges are grabbable).
+   * Scheme A (bar as the grabbable anchor): the grab-bar panel entity is the WORLD-ROOT
+   * handle. It spawns its visible bar and is grabbable (IsdkGrabbable + IsdkPanelGrabHandle).
+   * The stage is reparented UNDER it as a TransformParent child offset up in the bar's local
+   * +Y, so dragging the bar moves the whole workbench natively via the SDK hierarchy.
    */
-  private fun createWorkbenchRoot(persistedStageY: Float, stageScale: Float) {
+  private fun createGrabBarAnchor(initialPose: Pose, persistedStageY: Float) {
     val bar = Entity(R.id.grab_bar_panel)
     grabBarEntity = bar
-    // SPWN: the Panel(registrationId) component spawns the registered LayoutXML blueprint into
-    // the scene (registration alone never appears). Reparent to the stage so it rides below the
-    // video. The bar keeps FIXED size (no Scale component) — only its local Y tracks the scaled
-    // stage bottom edge (see updateGrabBarPose).
+    workbenchRootEntity = bar
     bar.setComponents(
         listOf(
             Panel(R.id.grab_bar_panel),
-            TransformParent(Entity(R.id.spatialized_video_panel)),
+            IsdkPanelDimensions(),
+            IsdkPanelGrabHandle(),
+            IsdkGrabbable(),
+            Transform(initialPose * Pose(Vector3(0f, persistedStageY - currentBarOffsetY(), 2f))),
+            Scale(1f),
         )
     )
     Log.i(
         WORKBENCH_TRACE_TAG,
-        "bindGrabBar spawned hasPanel=${bar.tryGetComponent<Panel>() != null} " +
-            "hasTransform=${bar.tryGetComponent<Transform>() != null}",
+        "grabBarAnchor worldY=${persistedStageY - currentBarOffsetY()} " +
+            "spawned=${bar.tryGetComponent<Panel>() != null}",
     )
-    updateGrabBarPose(MR_SCREEN_HEIGHT / 2f)
     bar.setComponent(Visible(true))
+    // Reparent the stage under the bar, then set its stage-LOCAL pose explicitly:
+    //   local = (0, +barOffset, 0)  -> the video sits DIRECTLY above the bar (relative z = 0),
+    // the bar is the anchor below the video bottom edge + gap.
+    val stageEntity = Entity(R.id.spatialized_video_panel)
+    stageEntity.setComponent(TransformParent(Entity(R.id.grab_bar_panel)))
+    stageEntity.setComponent(
+        Transform(Pose(Vector3(0f, currentStageAnchorOffsetY(), 0f), Quaternion(0f, 0f, 0f)))
+    )
+    Log.i(
+        WORKBENCH_TRACE_TAG,
+        "stage reparented under grabBarAnchor localY=${currentStageAnchorOffsetY()}",
+    )
   }
 
-  /** Stage local Y offset above the workbench root (= bar below the video bottom edge). */
-  private fun stageLocalOffsetY(): Float =
-      grabBarContentHalfHeight + GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
+  /** Distance from the stage centre down to the bar centre (bar under the video bottom + gap). */
+  private fun currentBarOffsetY(): Float {
+    val scale = (appliedStageScale ?: 1f).coerceAtLeast(0.001f)
+    val gapPlusHalf = GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
+    return grabBarContentHalfHeight * scale + gapPlusHalf
+  }
+
+  /** Stage-local +Y offset above the bar anchor so the video centre sits at the authored height. */
+  private fun currentStageAnchorOffsetY(): Float = currentBarOffsetY()
 
   /**
-   * Positions the grab bar as a stage-local child just below the video content's bottom edge.
-   * The stage Scale multiplies a child's local offset (world = local × parentScale), so the
-   * local Y is compensated by the current stage scale to keep the bar at a FIXED gap below the
-   * SCALED bottom edge:
-   *   worldBarOffset = localY × s = -(contentHalf × s) - gap - barHalf
-   *   ⇒ localY = -(contentHalf + (gap + barHalf) / s)
-   * The bar has no Scale of its own, so its visual size stays constant.
+   * Records the current content half-height; bar/stage anchor geometry derives from it via
+   * [currentBarOffsetY] / [currentStageAnchorOffsetY].
    */
   private fun updateGrabBarPose(contentHalfHeightMeters: Float) {
     grabBarContentHalfHeight = contentHalfHeightMeters
-    val bar = grabBarEntity ?: return
-    val scale = (appliedStageScale ?: 1f).coerceAtLeast(0.001f)
-    val gapPlusHalf = GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
-    val barLocalY = -(contentHalfHeightMeters + gapPlusHalf / scale)
-    bar.setComponent(Transform(Pose(Vector3(0f, barLocalY, 0.05f))))
-    Log.d(
-        WORKBENCH_TRACE_TAG,
-        "grabBarPose localY=$barLocalY contentHalf=$contentHalfHeightMeters scale=$scale",
-    )
+    // Re-pin the stage child offset so the video bottom stays above the bar by the gap.
+    val stageEntity = Entity(R.id.spatialized_video_panel)
+    val pose = stageEntity.tryGetComponent<Transform>()?.transform ?: return
+    val newLocalY = currentStageAnchorOffsetY()
+    if (kotlin.math.abs(pose.t.y - newLocalY) > 0.0001f) {
+      pose.t = Vector3(pose.t.x, newLocalY, pose.t.z)
+      stageEntity.setComponent(Transform(pose))
+    }
   }
 
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
@@ -627,9 +649,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       // panel creation; carrying the value here removes that dependency).
       val persistedStageScale = ViriViriApplication.appState.state.value.playbackStageScale
       appliedStageScale = PlaybackCanvasSize.clampStageScale(persistedStageScale)
-      // Stage is the world root again (scheme A reparent reverted — it orphaned the stage when
-      // the grab-bar panel entity was not ready). Persisted height applies to the stage's world
-      // pose; scale carried at birth; rails etc. below stay TransformParent children.
+      // Stage is created as a world root first (grab bar anchor is created AFTER the video
+      // panel so the bar's LayoutXML entity is guaranteed spawned — see createGrabBarAnchor,
+      // which reparents the stage under the bar in the bar's local +Y).
       Entity(R.id.spatialized_video_panel)
           .setComponents(
               listOf(
@@ -693,13 +715,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               )
           )
       environmentGLXF?.setComponents(listOf(Visible(false), Transform(initialPose)))
-      mrPanelPose = Entity(R.id.spatialized_video_panel).getComponent<Transform>().transform
+      mrPanelPose = (workbenchRootEntity ?: Entity(R.id.spatialized_video_panel))
+          .getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
-      // Bind the visual grab bar as a stage child AFTER the video panel exists so the bar's
-      // LayoutXML panel entity is ready (reparenting earlier could target a not-yet-created
-      // entity and orphan the whole stage).
-      createWorkbenchRoot(persistedStageY, appliedStageScale!!)
+      // Anchor the grabbable bar and reparent the stage under it (AFTER the video panel so the
+      // bar's LayoutXML entity is guaranteed spawned; the stage pose is preserved on reparent).
+      createGrabBarAnchor(initialPose, persistedStageY)
       createInputMethodPanel()
       createStageBackdropPanel()
       createDanmakuOverlayPanel()
@@ -724,12 +746,17 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     applyStageWorldY(defaultY)
   }
 
-  /** Resets the stage (world root) to authored X/Z with world Y=[y]; rails follow as children. */
+  /**
+   * Resets the grab-bar anchor so the STAGE centre returns to world Y=[y] (bar sits below the
+   * stage by [currentBarOffsetY]); stage + all children follow the bar.
+   */
   private fun applyStageWorldY(y: Float) {
     val initialPose = Pose()
-    Entity(R.id.spatialized_video_panel)
-        .setComponent(Transform(initialPose * Pose(Vector3(0f, y, 2f), Quaternion(0f, 0f, 0f))))
-    Log.i(TAG, "resetStageYToDefault stageY=$y")
+    val root = workbenchRootEntity ?: Entity(R.id.spatialized_video_panel)
+    root.setComponent(
+        Transform(initialPose * Pose(Vector3(0f, y - currentBarOffsetY(), 2f), Quaternion(0f, 0f, 0f)))
+    )
+    Log.i(TAG, "resetStageYToDefault stageY=$y barY=${y - currentBarOffsetY()}")
   }
 
   // Video Panel
@@ -937,8 +964,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     // player manually constructs the PanelSceneObject, we need to manually set the panel
     // dimensions & keep them up to date when switching MR modes.
     videoPanelEntity.setComponent(IsdkPanelDimensions())
-    videoPanelEntity.setComponent(IsdkPanelGrabHandle())
-    videoPanelEntity.setComponent(IsdkGrabbable())
+    // Scheme A: the grab BAR is the single grab target (movable_group bound to the bar handle).
+    // The stage itself is intentionally NOT grabbable — removing IsdkGrabbable/IsdkPanelGrabHandle
+    // stops the stage edges from competing with the bar for the grab ray, and (per ISDK docs)
+    // restores onClick on the stage so "tap video to reveal transport" works again.
     panelSceneObject.updateIsdkComponentProperties(videoPanelEntity)
 
     // The mesh creator can run before the PanelSceneObject reference is available for reshape.
@@ -2125,8 +2154,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val VR_SCREEN_RATIO: Float = 2.5f
 
     // Visual grab bar under the video stage (indicates the ISDK bottom-edge grab zone).
-    const val GRAB_BAR_WIDTH_METERS: Float = 0.7f
-    const val GRAB_BAR_HEIGHT_METERS: Float = 0.055f
+    const val GRAB_BAR_WIDTH_METERS: Float = 1.0f
+    const val GRAB_BAR_HEIGHT_METERS: Float = 0.08f
+    /** Bar world Z offset toward the user so the grab ray hits the bar, not the stage surface. */
+    const val GRAB_BAR_FRONT_OFFSET: Float = 0.06f
     /** Bar vertical gap below the stage bottom edge (stage local, negative = down). */
     const val GRAB_BAR_BOTTOM_GAP_METERS: Float = 0.02f
 
