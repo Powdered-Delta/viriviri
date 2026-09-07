@@ -1,19 +1,23 @@
 package com.m0e_n00b.spatialworkbench.compose
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
@@ -26,18 +30,27 @@ import androidx.compose.material.TextButton
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 
@@ -108,20 +121,122 @@ fun SearchCandidateStrip(
     onSelect: (SearchCandidateItem) -> Unit,
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
+    candidateExpanded: Boolean = false,
+    onToggleExpanded: () -> Unit = {},
+    onVisibleCountChanged: (Int) -> Unit = {},
 ) {
-  Box(modifier = modifier.fillMaxWidth().height(style.skin.candidateStripHeight)) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-      items(candidates, key = SearchCandidateItem::id) { candidate ->
-        TextButton(
-            onClick = { onSelect(candidate) },
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-        ) {
-          Text(candidate.label, color = style.candidate.content, maxLines = 1)
+  // Gboard-style collapsed band: candidates are laid out at their NATURAL width and as
+  // many as fit are shown; the rest are hidden (no horizontal scroll / no fixed count).
+  // A chevron appears only when some candidates overflow; the expanded panel renders the
+  // hidden remainder. Shares the letter-column surface.
+  val visibleCountHolder = remember { intArrayOf(-1) }
+  SideEffect {
+    if (visibleCountHolder[0] >= 0) onVisibleCountChanged(visibleCountHolder[0])
+  }
+
+  Surface(
+      color = style.compositionBackground,
+      shape = RoundedCornerShape(4.dp),
+      modifier = modifier.fillMaxWidth().height(style.skin.candidateStripHeight),
+  ) {
+    val gap = 4.dp
+    Layout(
+        modifier = Modifier.fillMaxSize().padding(4.dp),
+        content = {
+          candidates.forEach { candidate ->
+            CandidateChip(
+                label = candidate.label,
+                style = style,
+                onClick = { onSelect(candidate) },
+                modifier = Modifier.fillMaxHeight(),
+            )
+          }
+          // Expand toggle is always composed (last child) but only placed when items
+          // overflow. It is a key-sized, filled button with an arrow icon so it is easy
+          // to read and tap (the old tiny glyph was hard to hit in VR).
+          Surface(
+              color = style.candidate.background,
+              contentColor = style.candidate.content,
+              shape = RoundedCornerShape(4.dp),
+              modifier =
+                  Modifier.width(EXPAND_BUTTON_WIDTH)
+                      .fillMaxHeight()
+                      .clickable { onToggleExpanded() },
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                  imageVector =
+                      if (candidateExpanded) Icons.Default.KeyboardArrowUp
+                      else Icons.Default.KeyboardArrowDown,
+                  contentDescription = if (candidateExpanded) "收起候选" else "展开候选",
+                  tint = style.candidate.content,
+                  modifier = Modifier.size(26.dp),
+              )
+            }
+          }
+        },
+    ) { measurables, constraints ->
+      val gapPx = gap.roundToPx()
+      val chevronMeasurable = measurables.last()
+      val chipMeasurables = measurables.dropLast(1)
+      val height = if (constraints.maxHeight != Constraints.Infinity) constraints.maxHeight else 40.dp.roundToPx()
+      val loose = Constraints(minWidth = 0, maxWidth = Constraints.Infinity, minHeight = 0, maxHeight = height)
+      val chevron = chevronMeasurable.measure(loose)
+      val chips = chipMeasurables.map { it.measure(loose) }
+
+      val totalWidth = constraints.maxWidth
+      fun fit(reservedEnd: Int): Int {
+        var used = 0
+        var count = 0
+        for (chip in chips) {
+          val needed = chip.width + if (count > 0) gapPx else 0
+          if (used + needed + reservedEnd > totalWidth) break
+          used += needed
+          count++
+        }
+        return count
+      }
+      // First see whether everything fits without a chevron; otherwise reserve its space.
+      var visible = fit(reservedEnd = 0)
+      val hasHidden = visible < chips.size
+      if (hasHidden) visible = fit(reservedEnd = EXPAND_BUTTON_WIDTH.roundToPx() + gapPx)
+      visibleCountHolder[0] = visible
+
+      layout(totalWidth, height) {
+        var x = 0
+        chips.take(visible).forEachIndexed { index, chip ->
+          chip.place(if (index == 0) 0 else x, 0)
+          x += chip.width + gapPx
+        }
+        if (hasHidden) {
+          chevron.place(totalWidth - chevron.width, (height - chevron.height) / 2)
         }
       }
+    }
+  }
+}
+
+/** Width of the strip's expand/collapse toggle button (a key-sized, easy-to-tap target). */
+private val EXPAND_BUTTON_WIDTH = 44.dp
+
+@Composable
+private fun CandidateChip(
+    label: String,
+    style: InputConsoleStyle,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+  Surface(
+      color = style.candidate.background,
+      contentColor = style.candidate.content,
+      shape = RoundedCornerShape(4.dp),
+      modifier = modifier.clickable(onClick = onClick),
+  ) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.padding(horizontal = 12.dp).fillMaxHeight(),
+    ) {
+      Text(label, color = style.candidate.content, maxLines = 1, softWrap = false)
     }
   }
 }
@@ -134,6 +249,8 @@ fun SearchInputMethodBoard(
     actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
+    // Optional overlay (expanded candidates) rendered on top of the LETTER column only.
+    mainOverlay: @Composable () -> Unit = {},
 ) {
   if (numberRows.isEmpty() && actionKeys.isEmpty()) {
     KeyboardRows(rows = rows, onKeyPress = onKeyPress, style = style, modifier = modifier)
@@ -144,6 +261,8 @@ fun SearchInputMethodBoard(
       modifier = modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
   ) {
+    // Number and action columns keep their natural key height (4 rows / 4 keys) so they
+    // line up exactly with the letter rows and are never stretched taller than the keys.
     InputConsoleZone(
         background = style.numberKey.background,
         border = style.popupBorder,
@@ -161,25 +280,28 @@ fun SearchInputMethodBoard(
         border = style.popupBorder,
         modifier = Modifier.weight(style.skin.mainColumnWeight),
     ) {
-      KeyboardRows(
-          rows = rows,
-          onKeyPress = onKeyPress,
-          style = style,
-          keyStyle = style.alphabetKey,
-      )
+      Box {
+        KeyboardRows(
+            rows = rows,
+            onKeyPress = onKeyPress,
+            style = style,
+            keyStyle = style.alphabetKey,
+        )
+        mainOverlay()
+      }
     }
     InputConsoleZone(
         background = style.actionKey.background,
         border = style.popupBorder,
-        modifier = Modifier.weight(style.skin.actionColumnWeight).fillMaxHeight(),
+        modifier = Modifier.weight(style.skin.actionColumnWeight),
     ) {
-      Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
+      Column(verticalArrangement = Arrangement.spacedBy(style.skin.keyRowSpacing)) {
         actionKeys.forEach { key ->
           InputConsoleKeyButton(
               key = key,
               onClick = { onKeyPress(key) },
               style = style.actionKey,
-              modifier = Modifier.fillMaxWidth().weight(1f),
+              modifier = Modifier.fillMaxWidth(),
           )
         }
       }
@@ -252,9 +374,18 @@ private fun InputConsoleKeyButton(
               disabledContentColor = style.disabledContent,
           ),
   ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      Text(key.label, maxLines = 1)
-      if (key.hint.isNotEmpty()) Text(key.hint, maxLines = 1)
+    when (key.id) {
+      "enter" ->
+          Icon(
+              imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+              contentDescription = key.label,
+              tint = style.content,
+          )
+      else ->
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(key.label, maxLines = 1)
+            if (key.hint.isNotEmpty()) Text(key.hint, maxLines = 1)
+          }
     }
   }
 }
@@ -347,6 +478,9 @@ fun CinemaInputConsole(
     style: InputConsoleStyle = DefaultInputConsoleStyle,
 ) {
   val focusRequester = remember { FocusRequester() }
+  // Number of candidates that fit in the collapsed strip; the remainder show expanded.
+  var visibleCandidateCount by remember { mutableStateOf(candidates.size) }
+  val hiddenCandidates = candidates.drop(visibleCandidateCount.coerceAtLeast(0))
   val softwareKeyboardController = LocalSoftwareKeyboardController.current
   val requestSystemIme = {
     focusRequester.requestFocus()
@@ -374,91 +508,95 @@ fun CinemaInputConsole(
         }
       },
       mainArea = {
+        // Composition and candidate bands are width-aligned to the middle LETTER column
+        // (weighted spacers stand in for the number and action columns); the number and
+        // action columns only render inside the board row below, at natural key height.
         Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
-          Box(modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight)) {
-            Text(
-                text = composition.ifBlank { " " },
-                color = style.compositionText,
-                modifier = Modifier.align(Alignment.CenterStart),
-            )
-          }
-          Box(modifier = Modifier.fillMaxWidth()) {
-            Column(verticalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing)) {
-              Box(modifier = Modifier.fillMaxWidth().height(style.skin.candidateStripHeight)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  SearchCandidateStrip(
-                      candidates = candidates,
-                      onSelect = onSelectCandidate,
-                      style = style,
-                      modifier = Modifier.weight(1f),
-                  )
-                  TextButton(
-                      onClick = onToggleCandidates,
-                      enabled = candidates.isNotEmpty(),
-                      contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                  ) {
-                    Text(
-                        if (candidateExpanded) stringResource(R.string.search_collapse)
-                        else stringResource(R.string.search_expand_candidates),
-                        color = style.secondaryText,
-                    )
-                  }
-                }
+          Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
+          ) {
+            if (numberRows.isNotEmpty()) Spacer(Modifier.weight(style.skin.numberColumnWeight))
+            Surface(
+                color = style.compositionBackground,
+                shape = RoundedCornerShape(4.dp),
+                modifier =
+                    Modifier.weight(style.skin.mainColumnWeight)
+                        .height(style.skin.compositionHeight),
+            ) {
+              Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
+                Text(text = composition.ifBlank { " " }, color = style.compositionText)
               }
-              SearchInputMethodBoard(
-                  rows = keyboardRows,
-                  numberRows = numberRows,
-                  actionKeys = actionKeys,
-                  onKeyPress = onKeyPress,
-                  style = style,
-                  modifier = Modifier.fillMaxWidth(),
-              )
             }
-            if (candidateExpanded && candidates.isNotEmpty() && style.skin.expandedCandidatesCoverBoard) {
-              Surface(
-                  color = style.popupBackground,
-                  contentColor = style.popupContent,
-                  shape = RoundedCornerShape(4.dp),
-                  modifier =
-                      Modifier.fillMaxSize()
-                          .border(1.dp, style.popupBorder, RoundedCornerShape(4.dp)),
-              ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                  Row(
-                      modifier = Modifier.fillMaxWidth().height(style.skin.compositionHeight),
-                      verticalAlignment = Alignment.CenterVertically,
+            if (actionKeys.isNotEmpty()) Spacer(Modifier.weight(style.skin.actionColumnWeight))
+          }
+
+          Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(style.skin.sectionSpacing),
+          ) {
+            if (numberRows.isNotEmpty()) Spacer(Modifier.weight(style.skin.numberColumnWeight))
+            SearchCandidateStrip(
+                candidates = candidates,
+                onSelect = onSelectCandidate,
+                style = style,
+                candidateExpanded = candidateExpanded,
+                onToggleExpanded = onToggleCandidates,
+                onVisibleCountChanged = { visibleCandidateCount = it },
+                modifier = Modifier.weight(style.skin.mainColumnWeight),
+            )
+            if (actionKeys.isNotEmpty()) Spacer(Modifier.weight(style.skin.actionColumnWeight))
+          }
+
+          SearchInputMethodBoard(
+              rows = keyboardRows,
+              numberRows = numberRows,
+              actionKeys = actionKeys,
+              onKeyPress = onKeyPress,
+              style = style,
+              modifier = Modifier.fillMaxWidth(),
+              mainOverlay = {
+                // Expanded panel renders ONLY the candidates that did not fit in the strip,
+                // as a multi-column wrapping grid (the same surface as the strip, grown to
+                // cover the letter keys) — not a separate, from-scratch list.
+                if (candidateExpanded && hiddenCandidates.isNotEmpty() && style.skin.expandedCandidatesCoverBoard) {
+                  Surface(
+                      color = style.compositionBackground,
+                      contentColor = style.candidate.content,
+                      shape = RoundedCornerShape(4.dp),
+                      modifier =
+                          Modifier.fillMaxSize()
+                              .border(1.dp, style.popupBorder, RoundedCornerShape(4.dp)),
                   ) {
-                    Text(
-                        text = composition.ifBlank { " " },
-                        color = style.compositionText,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = onToggleCandidates,
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 84.dp),
+                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                      Text(stringResource(R.string.search_collapse), color = style.secondaryText)
-                    }
-                  }
-                  LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    items(candidates, key = SearchCandidateItem::id) { candidate ->
-                      TextButton(
-                          onClick = { onSelectCandidate(candidate) },
-                          modifier = Modifier.fillMaxWidth(),
-                          contentPadding = PaddingValues(horizontal = 8.dp, vertical = 3.dp),
-                      ) {
-                        Text(
-                            candidate.label,
-                            color = style.popupContent,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                      items(hiddenCandidates, key = SearchCandidateItem::id) { candidate ->
+                        Surface(
+                            color = style.candidate.background,
+                            contentColor = style.candidate.content,
+                            shape = RoundedCornerShape(4.dp),
+                            modifier =
+                                Modifier.height(40.dp).clickable { onSelectCandidate(candidate) },
+                        ) {
+                          Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                candidate.label,
+                                color = style.candidate.content,
+                                maxLines = 1,
+                            )
+                          }
+                        }
                       }
                     }
                   }
                 }
-              }
-            }
-          }
+              },
+          )
         }
       },
       footer = {

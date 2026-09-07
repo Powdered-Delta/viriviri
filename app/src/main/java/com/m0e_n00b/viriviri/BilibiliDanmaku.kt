@@ -21,28 +21,57 @@ internal fun parseBilibiliDanmakuXml(xml: String): List<DanmakuEvent> {
       val startMs = parts.getOrNull(0)?.toDoubleOrNull()?.times(1_000)?.toLong() ?: continue
       val mode = parts.getOrNull(1)?.toIntOrNull() ?: continue
       val text = element.textContent.trim().takeIf(String::isNotBlank) ?: continue
-      val fontScale = parts.getOrNull(2)?.toFloatOrNull()?.div(DEFAULT_BILIBILI_FONT_SIZE)
+      val fontSize = parts.getOrNull(2)?.toFloatOrNull() ?: DEFAULT_BILIBILI_FONT_SIZE
       val colorArgb = parts.getOrNull(3)?.toLongOrNull()?.and(0x00FFFFFFL)?.or(0xFF000000L)
-      val lane = when (mode) {
-        1, 2, 3 -> DanmakuLaneFamily.SCROLLING to DanmakuEmissionDirection.RIGHT_TO_LEFT
-        4 -> DanmakuLaneFamily.BOTTOM_FIXED to null
-        5 -> DanmakuLaneFamily.TOP_FIXED to null
-        6 -> DanmakuLaneFamily.SCROLLING to DanmakuEmissionDirection.LEFT_TO_RIGHT
-        else -> continue
-      }
       add(
-          DanmakuEvent(
+          buildBilibiliDanmakuEvent(
               id = "${startMs}:${index}",
               startMs = startMs,
-              text = text,
-              laneFamily = lane.first,
-              emissionDirection = lane.second,
-              styleOverride = OverlayStyleOverride(fontScale = fontScale, textColorArgb = colorArgb),
+              mode = mode,
+              fontSize = fontSize,
+              colorArgb = colorArgb ?: 0xFFFFFFFFL,
+              content = text,
           )
+          ?: continue
       )
     }
   }
 }
 
-private const val DEFAULT_BILIBILI_FONT_SIZE = 25f
+internal const val DEFAULT_BILIBILI_FONT_SIZE = 25f
 private val DOCTYPE_PATTERN = Regex("<!DOCTYPE", RegexOption.IGNORE_CASE)
+
+/**
+ * Shared [DanmakuEvent] construction for the XML (list.so) and protobuf (seg.so) sources:
+ * maps bilibili mode/color/font-size onto the core overlay model. Returns null for modes we
+ * do not render (e.g. code/special danmaku).
+ */
+internal fun buildBilibiliDanmakuEvent(
+    id: String,
+    startMs: Long,
+    mode: Int,
+    fontSize: Float,
+    colorArgb: Long,
+    content: String,
+    weight: Int = DanmakuEvent.WEIGHT_UNKNOWN,
+): DanmakuEvent? {
+  val lane =
+      when (mode) {
+        1, 2, 3 -> DanmakuLaneFamily.SCROLLING to DanmakuEmissionDirection.RIGHT_TO_LEFT
+        4 -> DanmakuLaneFamily.BOTTOM_FIXED to null
+        5 -> DanmakuLaneFamily.TOP_FIXED to null
+        6 -> DanmakuLaneFamily.SCROLLING to DanmakuEmissionDirection.LEFT_TO_RIGHT
+        else -> return null
+      }
+  val fontScale = fontSize.takeIf { it > 0f }?.div(DEFAULT_BILIBILI_FONT_SIZE)
+  val packedColor = colorArgb.and(0x00FFFFFFL).or(0xFF000000L)
+  return DanmakuEvent(
+      id = id,
+      startMs = startMs,
+      text = content,
+      laneFamily = lane.first,
+      emissionDirection = lane.second,
+      styleOverride = OverlayStyleOverride(fontScale = fontScale, textColorArgb = packedColor),
+      weight = weight,
+  )
+}

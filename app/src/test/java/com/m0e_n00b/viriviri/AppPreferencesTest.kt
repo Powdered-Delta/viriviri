@@ -25,4 +25,29 @@ class AppPreferencesTest {
     assertEquals(1.23f, AppPreferenceCodec.decodeStageScale("1.23"), 0f)
     assertTrue(PlaybackCanvasSize.clampStageScale(Float.NaN).isFinite())
   }
+
+  @Test
+  fun stageYCodecReturnsNullForMissingOrMalformed() {
+    assertEquals(null, AppPreferenceCodec.decodeStageY(null))
+    assertEquals(null, AppPreferenceCodec.decodeStageY("not-a-number"))
+  }
+
+  @Test
+  fun stageYCodecClampsBelowFloorAndAboveCeiling() {
+    // Below the floor (0.6m) clamps up so the stage never sinks into the ground.
+    assertEquals(0.6f, AppPreferenceCodec.decodeStageY("0.1")!!, 0f)
+    // Above the ceiling clamps down.
+    assertEquals(3.0f, AppPreferenceCodec.decodeStageY("9.0")!!, 0f)
+  }
+
+  @Test
+  fun stageYCodecPreservesValidInRangeValues() {
+    assertEquals(1.42f, AppPreferenceCodec.decodeStageY("1.42")!!, 0f)
+  }
+
+  @Test
+  fun stageYClampHandlesNonFiniteInputs() {
+    assertEquals(STAGE_DEFAULT_WORLD_Y, AppPreferenceCodec.clampStageY(Float.NaN), 0f)
+    assertEquals(STAGE_DEFAULT_WORLD_Y, AppPreferenceCodec.clampStageY(Float.POSITIVE_INFINITY), 0f)
+  }
 }

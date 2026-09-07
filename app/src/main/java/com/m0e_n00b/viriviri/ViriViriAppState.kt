@@ -31,6 +31,9 @@ private val DEFAULT_SEARCH_SUGGESTIONS =
     listOf("动画", "番剧", "音乐", "游戏", "科技", "美食", "影视", "知识")
 private const val MAX_SEARCH_HISTORY = 12
 
+/** Authored default world Y (metres) of the immersive video stage, used when the user never adjusted it. */
+const val STAGE_DEFAULT_WORLD_Y: Float = 2.14f
+
 enum class ViriViriDestination { RECOMMENDATIONS, VIEWER }
 
 internal fun enqueueErrorMessage(
@@ -224,6 +227,37 @@ class ViriViriAppState(
   private var transientMessageId = 0L
   private var playbackResolutionJob: Job? = null
   private var danmakuLoadJob: Job? = null
+  @Volatile private var danmakuStream: DanmakuStreamSource? = null
+
+  /**
+   * Shared streaming danmaku source for the current video. One instance is shared across every
+   * danmaku canvas (single network/cache/measurement); per-canvas lane state lives in each
+   * [DanmakuCanvasRuntime]. Null while no video is loaded.
+   */
+  internal fun danmakuStreamSource(videoId: String): DanmakuStreamSource {
+    danmakuStream?.let { return it }
+    return synchronized(this) {
+      danmakuStream ?: run {
+        // cid resolution and segment fetches run lazily on the source's background thread
+        // (they both do network I/O); nothing here touches the network on the calling thread.
+        DanmakuStreamSource(
+            resolveContentId = { runCatching { provider.danmakuContentId(videoId) }.getOrElse { -1L } },
+            fetchSegment = { cid, index ->
+              if (cid > 0) provider.loadDanmakuSegment(cid, index) else emptyList()
+            },
+        )
+          .also { danmakuStream = it }
+      }
+    }
+  }
+
+  /** Current shared stream without creating one (for debug/telemetry). */
+  internal fun danmakuStreamSourceOrNull(@Suppress("UNUSED_PARAMETER") videoId: String): DanmakuStreamSource? =
+      synchronized(this) { danmakuStream }
+
+  private fun resetDanmakuStream() {
+    synchronized(this) { danmakuStream = null }
+  }
   private var danmakuRequestId = 0L
   private var listJob: Job? = null
   private var nextPageJob: Job? = null
@@ -235,7 +269,29 @@ class ViriViriAppState(
   internal val immersiveBrowseCommands: SharedFlow<ImmersiveBrowseCommand> =
       mutableImmersiveBrowseCommands.asSharedFlow()
 
-  init { refreshRecommendations() }
+  init {
+    refreshRecommendations()
+    refreshHotSearch()
+  }
+
+  private var hotSearchJob: Job? = null
+
+  fun refreshHotSearch() {
+    hotSearchJob?.cancel()
+    hotSearchJob =
+        scope.launch {
+          val keywords =
+              runCatching { withContext(Dispatchers.IO) { provider.hotSearchKeywords() } }
+                  .getOrDefault(emptyList())
+          if (keywords.isNotEmpty()) {
+            val current = mutableState.value
+            mutableState.value =
+                current.copy(
+                    searchWorkspace = current.searchWorkspace.copy(suggestedQueries = keywords)
+                )
+          }
+        }
+  }
 
   fun dispatchTransientMessage(event: TransientMessageEvent) {
     mutableState.value =
@@ -384,8 +440,13 @@ class ViriViriAppState(
         )
   }
 
+  fun submitSearchQuery(query: String) {
+    val normalized = normalizeSearchQuery(query)
+    if (normalized.isNotBlank()) submitSearch(normalized, mutableState.value.searchOptions)
+  }
+
   fun selectSearchHistory(query: String) {
-    updateSearchQuery(query)
+    submitSearchQuery(query)
   }
 
   fun removeSearchHistory(query: String) {
@@ -406,19 +467,13 @@ class ViriViriAppState(
   }
 
   fun refreshSearchSuggestions() {
-    val current = mutableState.value
-    val suggestions = current.searchWorkspace.suggestedQueries
-    mutableState.value =
-        current.copy(
-            searchWorkspace =
-                current.searchWorkspace.copy(
-                    suggestedQueries = if (suggestions.size < 2) suggestions else suggestions.drop(1) + suggestions.first()
-                )
-        )
+    // UX: the discovery section shows live Bilibili hot searches; refresh refetches them.
+    refreshHotSearch()
   }
 
   fun selectSearchSuggestion(query: String) {
-    updateSearchQuery(query)
+    // UX: tapping a hot-search keyword jumps straight to its results, like search history.
+    submitSearchQuery(query)
   }
 
   fun updateSearchQuery(query: String) {
@@ -519,6 +574,10 @@ class ViriViriAppState(
 
   fun submitSearch(options: BilibiliSearchOptions) =
       submitSearch(mutableState.value.searchInput.committedText, options)
+
+  fun returnToSearchEmptyFromResults() {
+    returnToSearchEmpty()
+  }
 
   private fun submitSearch(query: String, options: BilibiliSearchOptions) {
     val normalizedQuery = normalizeSearchQuery(query)
@@ -767,6 +826,28 @@ class ViriViriAppState(
     setPlaybackStageScale(mutableState.value.playbackStageScale + delta)
   }
 
+  /**
+   * Loads the user-adjusted immersive stage world Y. Returns the authored default height
+   * when the user never grabbed the stage. Only the height survives restarts; horizontal
+   * position and yaw are reset to their authored defaults every launch.
+   */
+  fun loadWorkbenchStageYOrDefault(defaultY: Float = STAGE_DEFAULT_WORLD_Y): Float =
+      appPreferences.loadWorkbenchStageY() ?: defaultY
+
+  /** Persists the user-adjusted immersive stage world Y after a grab finishes. */
+  fun persistWorkbenchStageY(y: Float) {
+    appPreferences.saveWorkbenchStageY(y)
+  }
+
+  /**
+   * Clears the persisted stage Y so the next launch uses the authored default again.
+   * Returns the default height so callers can also snap the stage back immediately.
+   */
+  fun resetWorkbenchStageY(): Float {
+    appPreferences.clearWorkbenchStageY()
+    return STAGE_DEFAULT_WORLD_Y
+  }
+
   private fun startPlaybackResolution(
       recommendation: Recommendation,
       quality: PlaybackQuality = mutableState.value.playbackQuality,
@@ -775,6 +856,7 @@ class ViriViriAppState(
   ) {
     playbackResolutionJob?.cancel()
     danmakuLoadJob?.cancel()
+    resetDanmakuStream()
     val danmakuRequestId = ++danmakuRequestId
     mutableState.value =
         mutableState.value.copy(
@@ -797,8 +879,11 @@ class ViriViriAppState(
                 }
             if (requestId == playbackRequestId) {
               playerSession.setMediaSource(source, startPositionMs, playWhenReady)
-              mutableState.value = mutableState.value.copy(isResolvingPlayback = false)
-              loadDanmaku(recommendation, danmakuRequestId)
+              // Danmaku now stream lazily via the shared DanmakuStreamSource (6-min protobuf
+              // segments + per-canvas active set); the full XML preload below is retained only as
+              // a disabled legacy path reference.
+              mutableState.value =
+                  mutableState.value.copy(isResolvingPlayback = false, isLoadingDanmaku = false)
             }
           } catch (error: kotlinx.coroutines.TimeoutCancellationException) {
             if (requestId == playbackRequestId) {

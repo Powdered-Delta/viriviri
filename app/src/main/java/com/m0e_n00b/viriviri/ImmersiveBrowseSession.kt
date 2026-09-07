@@ -23,12 +23,23 @@ internal object ImmersiveBrowseSessionReducer {
         ImmersiveBrowseSessionTransition(session = session)
       }
 
+  // UX: returns to playback only when the user actually selects a video while
+  // browsing. Opening Search/Browse over an already-playing video keeps the
+  // destination at VIEWER but is not a selection, so it must not close the
+  // workspace. A genuine selection is a destination transition into VIEWER
+  // (previousDestination != VIEWER).
   fun onAppState(
       session: ImmersiveBrowseSession,
       canvas: PlaybackCanvas,
       destination: ViriViriDestination,
+      previousDestination: ViriViriDestination,
   ): ImmersiveBrowseSessionTransition =
-      if (session.isActive && canvas == PlaybackCanvas.BROWSE && destination == ViriViriDestination.VIEWER) {
+      if (
+          session.isActive &&
+              canvas == PlaybackCanvas.BROWSE &&
+              previousDestination != ViriViriDestination.VIEWER &&
+              destination == ViriViriDestination.VIEWER
+      ) {
         ImmersiveBrowseSessionTransition(session = ImmersiveBrowseSession(), returnToPlayback = true)
       } else {
         ImmersiveBrowseSessionTransition(session = session)

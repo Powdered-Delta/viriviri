@@ -13,6 +13,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Refresh
@@ -40,6 +41,7 @@ internal fun VideoListFilterBar(
     onToggleLayout: () -> Unit,
     isAtTop: Boolean,
     onTopOrRefresh: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
   val sorts = listOf(
@@ -54,6 +56,15 @@ internal fun VideoListFilterBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+      onBack?.let { back ->
+        IconButton(onClick = back) {
+          Icon(
+              imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+              contentDescription = stringResource(R.string.nav_back),
+              tint = style.text,
+          )
+        }
+      }
       sorts.forEach { option ->
         FilterButton(
             label = option.label,

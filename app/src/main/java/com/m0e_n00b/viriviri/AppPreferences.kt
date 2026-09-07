@@ -14,6 +14,14 @@ interface AppPreferences {
   fun loadPlaybackStageScale(): Float
 
   fun savePlaybackStageScale(scale: Float)
+
+  /** Persisted user-adjusted world Y (metres) of the immersive video stage. Null = never adjusted. */
+  fun loadWorkbenchStageY(): Float?
+
+  fun saveWorkbenchStageY(y: Float)
+
+  /** Clears the persisted stage Y so the next launch falls back to the authored default. */
+  fun clearWorkbenchStageY()
 }
 
 internal class SharedPreferencesAppPreferences(context: Context) : AppPreferences {
@@ -34,10 +42,25 @@ internal class SharedPreferencesAppPreferences(context: Context) : AppPreference
     preferences.edit().putString(KEY_PLAYBACK_STAGE_SCALE, PlaybackCanvasSize.clampStageScale(scale).toString()).apply()
   }
 
+  override fun loadWorkbenchStageY(): Float? =
+      AppPreferenceCodec.decodeStageY(preferences.getString(KEY_WORKBENCH_STAGE_Y, null))
+
+  override fun saveWorkbenchStageY(y: Float) {
+    preferences
+        .edit()
+        .putString(KEY_WORKBENCH_STAGE_Y, AppPreferenceCodec.clampStageY(y).toString())
+        .apply()
+  }
+
+  override fun clearWorkbenchStageY() {
+    preferences.edit().remove(KEY_WORKBENCH_STAGE_Y).apply()
+  }
+
   private companion object {
     const val PREFERENCES_NAME = "viriviri_app_preferences"
     const val KEY_SEARCH_HISTORY = "search_history"
     const val KEY_PLAYBACK_STAGE_SCALE = "playback_stage_scale"
+    const val KEY_WORKBENCH_STAGE_Y = "workbench_stage_y"
   }
 }
 
@@ -68,4 +91,19 @@ internal object AppPreferenceCodec {
 
   fun decodeStageScale(encodedScale: String?): Float =
       encodedScale?.toFloatOrNull()?.let(PlaybackCanvasSize::clampStageScale) ?: PlaybackCanvasSize.STANDARD.scale
+
+  /**
+   * Decodes a persisted stage world-Y (metres). Null/malformed returns null (caller falls back
+   * to the authored default). Values outside the comfortable clamp are clamped on read too, so a
+   * stale/bad preference can never sink the stage below the floor.
+   */
+  fun decodeStageY(encodedY: String?): Float? =
+      encodedY?.toFloatOrNull()?.let(::clampStageY)
+
+  /** Stage world-Y clamp: floor-level is unsafe for seated/standing comfort; 3m keeps it reachable. */
+  fun clampStageY(y: Float): Float =
+      if (y.isFinite()) y.coerceIn(MIN_STAGE_Y_METERS, MAX_STAGE_Y_METERS) else STAGE_DEFAULT_WORLD_Y
+
+  private const val MIN_STAGE_Y_METERS = 0.6f
+  private const val MAX_STAGE_Y_METERS = 3.0f
 }

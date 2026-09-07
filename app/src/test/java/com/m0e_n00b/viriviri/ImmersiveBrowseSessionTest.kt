@@ -27,25 +27,53 @@ class ImmersiveBrowseSessionTest {
   }
 
   @Test
-  fun anyViewerSelectionClosesBrowseRegardlessOfWhetherItChangesTheVideo() {
+  fun selectingAVideoFromBrowseReturnsToPlayback() {
     val active = ImmersiveBrowseSessionReducer.open("BV1current")
     val sameVideo =
         ImmersiveBrowseSessionReducer.onAppState(
             session = active,
             canvas = PlaybackCanvas.BROWSE,
             destination = ViriViriDestination.VIEWER,
+            previousDestination = ViriViriDestination.RECOMMENDATIONS,
         )
     val differentVideo =
         ImmersiveBrowseSessionReducer.onAppState(
             session = active.copy(baselineVideoId = "BV1other"),
             canvas = PlaybackCanvas.BROWSE,
             destination = ViriViriDestination.VIEWER,
+            previousDestination = ViriViriDestination.RECOMMENDATIONS,
         )
 
     assertTrue(sameVideo.returnToPlayback)
     assertTrue(differentVideo.returnToPlayback)
     assertEquals(ImmersiveBrowseSession(), sameVideo.session)
     assertEquals(ImmersiveBrowseSession(), differentVideo.session)
+  }
+
+  @Test
+  fun openingBrowseOrSearchOverAPlayingVideoDoesNotCloseItself() {
+    // Regression: destination is already VIEWER before Browse/Search opens, so the
+    // state emission that opens the workspace must not be mistaken for a selection.
+    val active = ImmersiveBrowseSessionReducer.open("BV1current")
+    val openedOverPlayback =
+        ImmersiveBrowseSessionReducer.onAppState(
+            session = active,
+            canvas = PlaybackCanvas.BROWSE,
+            destination = ViriViriDestination.VIEWER,
+            previousDestination = ViriViriDestination.VIEWER,
+        )
+    val repeatedEmission =
+        ImmersiveBrowseSessionReducer.onAppState(
+            session = openedOverPlayback.session,
+            canvas = PlaybackCanvas.BROWSE,
+            destination = ViriViriDestination.VIEWER,
+            previousDestination = ViriViriDestination.VIEWER,
+        )
+
+    assertFalse(openedOverPlayback.returnToPlayback)
+    assertEquals(active, openedOverPlayback.session)
+    assertFalse(repeatedEmission.returnToPlayback)
+    assertEquals(active, repeatedEmission.session)
   }
 
   @Test
@@ -56,12 +84,14 @@ class ImmersiveBrowseSessionTest {
             session = active,
             canvas = PlaybackCanvas.BROWSE,
             destination = ViriViriDestination.RECOMMENDATIONS,
+            previousDestination = ViriViriDestination.RECOMMENDATIONS,
         )
     val hiddenBrowse =
         ImmersiveBrowseSessionReducer.onAppState(
             session = active,
             canvas = PlaybackCanvas.PLAYBACK,
             destination = ViriViriDestination.VIEWER,
+            previousDestination = ViriViriDestination.RECOMMENDATIONS,
         )
 
     assertFalse(refreshed.returnToPlayback)

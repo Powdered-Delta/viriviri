@@ -76,8 +76,12 @@ data class InputConsoleStyle(
           popupBorder = border,
           selectedLanguage = highlight,
           secondaryText = secondaryText,
+          // UX dark theme: all three key zones (number column, letter block, action column)
+          // share one dark key color (elevated secondary surface) so the keyboard reads as
+          // a single dark console; the blue primary stays on accents (language indicator,
+          // clear/submit in the footer) rather than on every key.
           numberKey = InputConsoleKeyStyle(secondary, secondaryLabel, disabled, disabledContent),
-          alphabetKey = InputConsoleKeyStyle(primary, primaryLabel, disabled, disabledContent),
+          alphabetKey = InputConsoleKeyStyle(secondary, secondaryLabel, disabled, disabledContent),
           actionKey = InputConsoleKeyStyle(secondary, secondaryLabel, disabled, disabledContent),
           skin = GboardQwertyInputConsoleSkin,
       )
