@@ -552,13 +552,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun createWorkbenchRoot(persistedStageY: Float, stageScale: Float) {
     val bar = Entity(R.id.grab_bar_panel)
     grabBarEntity = bar
+    // SPWN: the Panel(registrationId) component spawns the registered LayoutXML blueprint into
+    // the scene (registration alone never appears). Reparent to the stage so it rides below the
+    // video. The bar keeps FIXED size (no Scale component) — only its local Y tracks the scaled
+    // stage bottom edge (see updateGrabBarPose).
+    bar.setComponents(
+        listOf(
+            Panel(R.id.grab_bar_panel),
+            TransformParent(Entity(R.id.spatialized_video_panel)),
+        )
+    )
     Log.i(
         WORKBENCH_TRACE_TAG,
-        "bindGrabBar stage-ready hasPanel=${bar.tryGetComponent<Panel>() != null} " +
+        "bindGrabBar spawned hasPanel=${bar.tryGetComponent<Panel>() != null} " +
             "hasTransform=${bar.tryGetComponent<Transform>() != null}",
     )
-    bar.setComponent(TransformParent(Entity(R.id.spatialized_video_panel)))
-    bar.setComponent(Scale(stageScale))
     updateGrabBarPose(MR_SCREEN_HEIGHT / 2f)
     bar.setComponent(Visible(true))
   }
@@ -568,15 +576,25 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       grabBarContentHalfHeight + GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
 
   /**
-   * Positions the grab bar as a stage-local child just below the video content's bottom edge
-   * (stage local frame: -Y down, +Z away from user). Snap-to-bottom, never floats away.
+   * Positions the grab bar as a stage-local child just below the video content's bottom edge.
+   * The stage Scale multiplies a child's local offset (world = local × parentScale), so the
+   * local Y is compensated by the current stage scale to keep the bar at a FIXED gap below the
+   * SCALED bottom edge:
+   *   worldBarOffset = localY × s = -(contentHalf × s) - gap - barHalf
+   *   ⇒ localY = -(contentHalf + (gap + barHalf) / s)
+   * The bar has no Scale of its own, so its visual size stays constant.
    */
   private fun updateGrabBarPose(contentHalfHeightMeters: Float) {
     grabBarContentHalfHeight = contentHalfHeightMeters
     val bar = grabBarEntity ?: return
-    val barLocalY = -(contentHalfHeightMeters + GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS)
+    val scale = (appliedStageScale ?: 1f).coerceAtLeast(0.001f)
+    val gapPlusHalf = GRAB_BAR_HEIGHT_METERS / 2f + GRAB_BAR_BOTTOM_GAP_METERS
+    val barLocalY = -(contentHalfHeightMeters + gapPlusHalf / scale)
     bar.setComponent(Transform(Pose(Vector3(0f, barLocalY, 0.05f))))
-    Log.d(WORKBENCH_TRACE_TAG, "grabBarPose localY=$barLocalY contentHalf=$contentHalfHeightMeters")
+    Log.d(
+        WORKBENCH_TRACE_TAG,
+        "grabBarPose localY=$barLocalY contentHalf=$contentHalfHeightMeters scale=$scale",
+    )
   }
 
   private fun loadGLXF(onLoaded: ((GLXFInfo) -> Unit) = {}): Job {
@@ -1660,10 +1678,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     // Preset selection and future thumbstick input both scale the one existing MediaStage.
     Entity(R.id.spatialized_video_panel).setComponent(Scale(normalizedScale))
     // Scale is NOT propagated through TransformParent (see the SDK ScaleChildren sample), so the
-    // stage-attached overlays must be scaled explicitly to track the video canvas.
+    // stage-attached overlays must be scaled explicitly to track the video canvas. The grab bar
+    // keeps FIXED size: only its local Y re-positions below the scaled bottom edge.
     danmakuOverlayEntity?.setComponent(Scale(normalizedScale))
     stageBackdropEntity?.setComponent(Scale(normalizedScale))
-    grabBarEntity?.setComponent(Scale(normalizedScale))
+    updateGrabBarPose(grabBarContentHalfHeight)
   }
 
   private fun applyPlaybackDisplayRatio(displayRatio: PlaybackDisplayRatio) {
