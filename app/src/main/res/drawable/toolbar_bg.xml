@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-  <!-- UX: Transport root is opaque; all Workbench transparency is compositor-layer alpha. -->
-  <solid android:color="#FF1C2E33" />
+  <!-- UX: Transport keeps a faint dark scrim so the controls stay legible over
+       bright video, while remaining lighter than the old solid slab. -->
+  <solid android:color="#66000000" />
   <corners android:radius="16dp" />
   <padding
     android:left="0dp"

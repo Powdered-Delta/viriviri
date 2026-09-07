@@ -132,7 +132,17 @@ data class DanmakuEvent(
     val laneFamily: DanmakuLaneFamily = DanmakuLaneFamily.SCROLLING,
     val emissionDirection: DanmakuEmissionDirection? = DanmakuEmissionDirection.RIGHT_TO_LEFT,
     val styleOverride: OverlayStyleOverride? = null,
-)
+    /**
+     * Provider density/weight signal (e.g. bilibili weight). Higher = denser/hotter barrage;
+     * admission may drop low-weight events first. [WEIGHT_UNKNOWN] means the source has no
+     * weight and the event must never be dropped on weight grounds.
+     */
+    val weight: Int = WEIGHT_UNKNOWN,
+) {
+    companion object {
+        const val WEIGHT_UNKNOWN: Int = -1
+    }
+}
 
 data class CaptionCue(
     val id: String,

@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/09-02-workbench-lift-and-grab/prd.md", "reason": "任务需求与验收标准"}
+{"file": ".trellis/tasks/09-02-workbench-lift-and-grab/research/01-grab-diagnosis.md", "reason": "grab 双系统冲突诊断与官方指引"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "spatial panel 注册/调试规范，handle 与点击验证参考"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "持久化偏好模式（playbackStageScale 同款 SharedPreferences 约定）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "面板组件与回调组织约定"}

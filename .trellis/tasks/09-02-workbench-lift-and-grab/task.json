@@ -1,0 +1,32 @@
+{
+  "id": "workbench-lift-and-grab",
+  "name": "workbench-lift-and-grab",
+  "title": "Workbench 整体抬升与整体 Grab 搬移",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "M0e_N00b",
+  "assignee": "M0e_N00b",
+  "createdAt": "2026-09-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt",
+    "app/src/main/java/com/m0e_n00b/viriviri/VideoStageGrabPersistenceSystem.kt",
+    "app/src/main/java/com/m0e_n00b/viriviri/ViriViriAppState.kt",
+    "app/src/main/java/com/m0e_n00b/viriviri/AppPreferences.kt",
+    "app/src/test/java/com/m0e_n00b/viriviri/AppPreferencesTest.kt"
+  ],
+  "notes": "已实现：移除 stage toolkit Grabbable 统一 ISDK grab；rails reparent 到 stage 整体跟随；默认 Y 读持久化；新增 VideoStageGrabPersistenceSystem 在 grab 结束后持久化 Y；AppPreferences 增 Y 读写+clamp+单测。X/Z/yaw 每次冷启动重置为 authored 默认。构建通过（build-windows-debug.ps1）。待 Quest 实测 handle 可见性与 MR/VR 两模式 grab。",
+  "meta": {}
+}

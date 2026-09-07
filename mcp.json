@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "metavr": {
+      "args": [
+        "-y",
+        "metavr@latest",
+        "mcp",
+        "server"
+      ],
+      "command": "npx"
+    },
+    "ida-pro-mcp": {
+      "type": "http",
+      "url": "http://127.0.0.1:13337/mcp"
+    }
+  }
+}
