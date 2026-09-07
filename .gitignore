@@ -47,3 +47,7 @@ app/scenes/Main.localsettings
 
 temp/grab-bar-archive/
 
+
+.pi-web/
+temp/
+

@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/09-02-workbench-lift-and-grab/prd.md", "reason": "验收标准来源"}
+{"file": ".trellis/tasks/09-02-workbench-lift-and-grab/research/01-grab-diagnosis.md", "reason": "诊断依据：双系统冲突、onClick 隐患、官方指引"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "Quest 实测清单与 panel 调试规范"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "代码质量与测试要求"}
