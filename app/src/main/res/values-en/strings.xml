@@ -81,4 +81,6 @@
   <string name="canvas_size_compact">Compact</string>
   <string name="canvas_size_standard">Standard</string>
   <string name="canvas_size_large">Large</string>
+  <string name="grab_bar_hint">Drag to move</string>
+  <string name="grab_bar_desc">Drag to reposition the screen</string>
 </resources>

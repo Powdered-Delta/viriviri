@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/grab_bar_root"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:orientation="horizontal"
   android:gravity="center"
   android:background="@drawable/grab_bar_bg"
 >
+  <ImageView
+    android:id="@+id/grab_bar_icon"
+    android:layout_width="24dp"
+    android:layout_height="24dp"
+    android:src="@drawable/ic_grab_move"
+    android:contentDescription="@string/grab_bar_desc"
+  />
   <TextView
+    android:id="@+id/grab_bar_label"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:text="≡ 拖动调整位置"
-    android:textColor="#FFFFFF"
-    android:textSize="14sp"
-    android:letterSpacing="0.1"
+    android:layout_marginStart="6dp"
+    android:text="@string/grab_bar_hint"
+    android:textColor="#E6FFFFFF"
+    android:textSize="13sp"
   />
 </LinearLayout>

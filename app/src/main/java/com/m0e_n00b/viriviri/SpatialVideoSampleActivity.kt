@@ -567,29 +567,55 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         listOf(
             Panel(R.id.grab_bar_panel),
             IsdkPanelDimensions(),
-            IsdkPanelGrabHandle(),
+            // Edge/corner grab colliders widened to cover the WHOLE bar strip: the default
+            // handle collides only on a 6cm border (the "outer ring" bug on a thin bar). We set
+            // per-edge collision widths >= half the bar so the four edge bands + corners tile
+            // the full strip. Visual handle remains hidden behind our own grab_bar layout.
+            IsdkPanelGrabHandle(
+                grabHandleCollisionWidths =
+                    com.meta.spatial.core.Vector4(
+                        GRAB_BAR_WIDTH_METERS / 2f,
+                        GRAB_BAR_HEIGHT_METERS,
+                        GRAB_BAR_WIDTH_METERS / 2f,
+                        GRAB_BAR_HEIGHT_METERS,
+                    ),
+                resizeCornerCollisionSizes =
+                    com.meta.spatial.core.Vector4(
+                        GRAB_BAR_HEIGHT_METERS,
+                        GRAB_BAR_HEIGHT_METERS,
+                        GRAB_BAR_HEIGHT_METERS,
+                        GRAB_BAR_HEIGHT_METERS,
+                    ),
+                outset =
+                    com.meta.spatial.core.Vector4(
+                        GRAB_BAR_HIT_OUTSET,
+                        GRAB_BAR_HIT_OUTSET,
+                        GRAB_BAR_HIT_OUTSET,
+                        GRAB_BAR_HIT_OUTSET,
+                    ),
+            ),
             IsdkGrabbable(),
             Transform(initialPose * Pose(Vector3(0f, persistedStageY - currentBarOffsetY(), 2f))),
             Scale(1f),
         )
     )
-    Log.i(
-        WORKBENCH_TRACE_TAG,
-        "grabBarAnchor worldY=${persistedStageY - currentBarOffsetY()} " +
-            "spawned=${bar.tryGetComponent<Panel>() != null}",
-    )
     bar.setComponent(Visible(true))
-    // Reparent the stage under the bar, then set its stage-LOCAL pose explicitly:
-    //   local = (0, +barOffset, 0)  -> the video sits DIRECTLY above the bar (relative z = 0),
-    // the bar is the anchor below the video bottom edge + gap.
-    val stageEntity = Entity(R.id.spatialized_video_panel)
-    stageEntity.setComponent(TransformParent(Entity(R.id.grab_bar_panel)))
-    stageEntity.setComponent(
-        Transform(Pose(Vector3(0f, currentStageAnchorOffsetY(), 0f), Quaternion(0f, 0f, 0f)))
-    )
+    // Start at the idle fade level (fade in on hover is driven by GrabBarHoverSystem).
+    bar.setComponent(PanelLayerAlpha(GRAB_BAR_IDLE_ALPHA))
+    // Diagnose: read back the grab-handle component to confirm our widened collision params
+    // actually landed on the entity (vs. being dropped or defaulted by the SDK).
+    bar.tryGetComponent<IsdkPanelGrabHandle>()?.let { handle ->
+      Log.i(
+          WORKBENCH_TRACE_TAG,
+          "grabHandle readback collisionW=${handle.grabHandleCollisionWidths} " +
+              "outset=${handle.outset}",
+      )
+    }
     Log.i(
         WORKBENCH_TRACE_TAG,
-        "stage reparented under grabBarAnchor localY=${currentStageAnchorOffsetY()}",
+        "grabBarAnchor ready hasPanel=${bar.tryGetComponent<Panel>() != null} " +
+            "hasGrab=${bar.tryGetComponent<IsdkGrabbable>() != null} " +
+            "worldY=${persistedStageY - currentBarOffsetY()}",
     )
   }
 
@@ -649,20 +675,22 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       // panel creation; carrying the value here removes that dependency).
       val persistedStageScale = ViriViriApplication.appState.state.value.playbackStageScale
       appliedStageScale = PlaybackCanvasSize.clampStageScale(persistedStageScale)
-      // Stage is created as a world root first (grab bar anchor is created AFTER the video
-      // panel so the bar's LayoutXML entity is guaranteed spawned — see createGrabBarAnchor,
-      // which reparents the stage under the bar in the bar's local +Y).
+      // Scheme A layout order: create the grabbable BAR ANCHOR first (world pose at the handle
+      // spot below the video), then create the stage DIRECTLY as its child (stage-local
+      // (0,+offset,0)) so the video sits exactly above the bar — relative z = 0, no world-root
+      // -> reparent step that could recompute the transform wrongly.
+      createGrabBarAnchor(initialPose, persistedStageY)
       Entity(R.id.spatialized_video_panel)
           .setComponents(
               listOf(
                   SpatializedAudioPanel(),
                   Transform(
-                      initialPose *
-                          Pose(
-                              Vector3(0f, persistedStageY, 2f),
-                              Quaternion(0f, 0f, 0f),
-                          )
+                      Pose(
+                          Vector3(0f, currentStageAnchorOffsetY(), 0f),
+                          Quaternion(0f, 0f, 0f),
+                      )
                   ),
+                  TransformParent(Entity(R.id.grab_bar_panel)),
                   Scale(appliedStageScale!!),
               )
           )
@@ -719,9 +747,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           .getComponent<Transform>().transform
       Log.i("ViriViriSpatial", "vrReady videoPanelPose=$mrPanelPose")
       createVideoPanel()
-      // Anchor the grabbable bar and reparent the stage under it (AFTER the video panel so the
-      // bar's LayoutXML entity is guaranteed spawned; the stage pose is preserved on reparent).
-      createGrabBarAnchor(initialPose, persistedStageY)
       createInputMethodPanel()
       createStageBackdropPanel()
       createDanmakuOverlayPanel()
@@ -2158,6 +2183,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     const val GRAB_BAR_HEIGHT_METERS: Float = 0.08f
     /** Bar world Z offset toward the user so the grab ray hits the bar, not the stage surface. */
     const val GRAB_BAR_FRONT_OFFSET: Float = 0.06f
+    /** Idle (non-hovered) grab-bar alpha — fades up on hover. */
+    const val GRAB_BAR_IDLE_ALPHA: Float = 0.45f
+    /** Extra outward expansion of the grab hit colliders (m), so the whole strip is grabbable. */
+    const val GRAB_BAR_HIT_OUTSET: Float = 0.02f
     /** Bar vertical gap below the stage bottom edge (stage local, negative = down). */
     const val GRAB_BAR_BOTTOM_GAP_METERS: Float = 0.02f
 
