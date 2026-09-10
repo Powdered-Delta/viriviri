@@ -75,7 +75,7 @@
   <string name="search_keyboard_preview">应用键盘预览</string>
   <string name="search_history">搜索历史</string>
   <string name="search_history_empty">暂无搜索历史</string>
-  <string name="search_recommendations">搜索推荐</string>
+  <string name="search_recommendations">热搜</string>
   <string name="search_refresh">刷新</string>
   <string name="search_unfold">展开</string>
   <string name="search_remove_history">删除历史记录</string>
@@ -86,4 +86,6 @@
   <string name="canvas_size_compact">紧凑</string>
   <string name="canvas_size_standard">标准</string>
   <string name="canvas_size_large">宽大</string>
+  <string name="grab_bar_hint">握住并拖动屏幕</string>
+  <string name="grab_bar_desc">握住横条并拖动以移动屏幕</string>
 </resources>

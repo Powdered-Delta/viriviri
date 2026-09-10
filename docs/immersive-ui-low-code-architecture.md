@@ -80,6 +80,8 @@ Context 绑定到独立的 context anchor/parent；不得通过 Kotlin 重设这
 
 正常观看时，`MEDIA_STAGE` 作为现有工作台的运行时父节点，其他 panel 使用相对 Transform 保持固定位置。若未来需要独立的可缩放工作台根节点，应在主题场景中由 Meta Spatial Editor 创建并命名为 `workspace_root`，不应新增硬编码固定实体。
 
+> 坐标轴正负方向与用户视角对照见 [spatial-coordinates.md](spatial-coordinates.md)（世界系 +X 右 / +Y 上 / +Z 前；幕布本地系向用户凸出为负 local Z）。
+
 ## 布局模式
 
 目标主题合同至少支持以下布局状态。当前已提交的 core 枚举尚未加入

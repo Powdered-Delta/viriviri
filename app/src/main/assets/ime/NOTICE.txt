@@ -1,0 +1,19 @@
+ViriViri 拼音词库数据来源与许可 (Bundled pinyin lexicon — sources & licenses)
+
+pinyin_lexicon.txt 由 scripts/generate-pinyin-lexicon.ps1 从以下数据裁剪生成：
+
+1. 雾凇拼音 (rime-ice) 词库
+   https://github.com/iDvel/rime-ice
+   - 单字表 cn_dicts/8105.dict.yaml（《通用规范汉字表》8105 字）
+   - 基础词库 cn_dicts/base.dict.yaml
+   License: GNU General Public License v3.0 or later (GPL-3.0-or-later)
+   单字字频来源：北京语言大学 25 亿字语料汉字字频表。
+   完整许可证文本见 licenses/GPL-3.0.txt。
+
+说明：本数据按词频/字频做了裁剪（仅保留高频短词与全部常用单字），
+格式已转换为应用自定义紧凑表；原始版权与许可声明予以保留。
+
+2. （可选参考，未直接打包）mozillazg/pinyin-data
+   https://github.com/mozillazg/pinyin-data  — MIT License。
+
+若本项目作为整体分发，遵循 GPL-3.0-or-later 的 copyleft 要求。

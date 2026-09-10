@@ -1,12 +1,14 @@
 package com.m0e_n00b.viriviri
 
 import android.net.Uri
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import com.m0e_n00b.spatialworkbench.core.DanmakuEvent
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URLEncoder
@@ -83,6 +85,9 @@ class BilibiliPlaybackProvider(
   companion object {
     internal const val RECOMMENDATION_ENDPOINT_PATH = "/x/web-interface/wbi/index/top/feed/rcmd"
     internal const val VIDEO_SEARCH_ENDPOINT_PATH = "/x/web-interface/wbi/search/type"
+    internal const val HOT_SEARCH_API_BASE = "https://s.search.bilibili.com"
+    internal const val HOT_SEARCH_ENDPOINT_PATH = "/main/hotword"
+    private const val DEFAULT_HOT_SEARCH_LIMIT = 14
     private const val NETWORK_TIMEOUT_MS = 15_000
     private const val USER_AGENT =
         "Mozilla/5.0 AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36"
@@ -217,6 +222,35 @@ class BilibiliPlaybackProvider(
     }.ifEmpty { throw PlaybackProviderException("Bilibili returned no recommendations") }
   }
 
+  /**
+   * Fetches the current Bilibili hot-search keyword list.
+   *
+   * The hot-word endpoint is hosted on `s.search.bilibili.com` (a different host from the
+   * main WBI API) and needs no login or WBI signing. It returns `data.list[].keyword`.
+   * Failures are returned as an empty list so the search discovery surface keeps its
+   * last-known/default keywords instead of surfacing a playback-style error.
+   */
+  fun hotSearchKeywords(limit: Int = DEFAULT_HOT_SEARCH_LIMIT): List<String> {
+    require(limit > 0) { "limit must be positive" }
+    return runCatching {
+      val response =
+          getJson(
+              "$HOT_SEARCH_API_BASE$HOT_SEARCH_ENDPOINT_PATH",
+              mapOf("Referer" to "https://www.bilibili.com"),
+          )
+      val list = response.optJSONArray("list") ?: response.optJSONObject("data")?.optJSONArray("list")
+      buildList {
+        if (list != null) {
+          for (index in 0 until list.length()) {
+            val keyword = list.optJSONObject(index)?.optString("keyword").orEmpty().trim()
+            if (keyword.isNotEmpty()) add(keyword)
+            if (size >= limit) break
+          }
+        }
+      }
+    }.getOrDefault(emptyList())
+  }
+
   fun searchVideos(
       query: String,
       page: Int = 1,
@@ -304,6 +338,24 @@ class BilibiliPlaybackProvider(
   fun loadDanmaku(videoId: String) =
       parseBilibiliDanmakuXml(getText("$apiBaseUrl/x/v1/dm/list.so?oid=${resolveContentId(videoId)}"))
 
+  /** Resolves the danmaku content id (cid) used by both the legacy and segmented danmaku APIs. */
+  fun danmakuContentId(videoId: String): Long = resolveContentId(videoId)
+
+  /**
+   * Fetches one 6-minute danmaku segment as protobuf (seg.so) and decodes it. Segments are
+   * 1-based (see [BilibiliDanmakuProto.segmentIndexFor]). Returns an empty list on a non-OK or
+   * empty response so callers treat missing segments as "no danmaku" without aborting.
+   */
+  fun loadDanmakuSegment(contentId: Long, segmentIndex: Int): List<DanmakuEvent> {
+    if (segmentIndex <= 0) return emptyList()
+    val url = "$apiBaseUrl/x/v2/dm/web/seg.so?type=1&oid=$contentId&segment_index=$segmentIndex"
+    return runCatching { BilibiliDanmakuProto.parse(getBinary(url)) }
+        .getOrElse { error ->
+          Log.w("ViriViriDanmaku", "seg.so segment $segmentIndex for cid $contentId failed", error)
+          emptyList()
+        }
+  }
+
   private fun resolveContentId(videoId: String): Long {
     val detail = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
     requireSuccess(detail)
@@ -374,6 +426,28 @@ class BilibiliPlaybackProvider(
     } catch (error: Exception) {
       if (error is PlaybackProviderException) throw error
       throw PlaybackProviderException("Unable to load Bilibili danmaku", error)
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  private fun getBinary(url: String): ByteArray {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    try {
+      connection.connectTimeout = NETWORK_TIMEOUT_MS
+      connection.readTimeout = NETWORK_TIMEOUT_MS
+      connection.requestMethod = "GET"
+      connection.setRequestProperty("User-Agent", USER_AGENT)
+      // seg.so requires the web Origin/Referer like the other bilibili web endpoints.
+      connection.setRequestProperty("Origin", "https://www.bilibili.com")
+      connection.setRequestProperty("Referer", "https://www.bilibili.com/")
+      if (connection.responseCode !in 200..299) {
+        throw PlaybackProviderException("Bilibili danmaku segment failed with HTTP ${connection.responseCode}")
+      }
+      return connection.inputStream.use { it.readBytes() }
+    } catch (error: Exception) {
+      if (error is PlaybackProviderException) throw error
+      throw PlaybackProviderException("Unable to load Bilibili danmaku segment", error)
     } finally {
       connection.disconnect()
     }
