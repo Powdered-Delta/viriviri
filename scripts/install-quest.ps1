@@ -240,6 +240,8 @@ try {
         Write-CommandOutput -Output $launchOutput
     }
 
+    Write-Host "Installed at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+
     exit 0
 }
 catch {

@@ -178,9 +178,14 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
 - 沉浸式 stage 交互：点击可见视频区域只负责进入 Playback canvas 并呼出/reset
   transport controls，绝不直接修改 `playWhenReady`。播放/暂停只能通过 controls 中明确的
   play/pause icon 执行；该规则避免竖屏内容或缩小 hit target 下的意外暂停。
-- MR 布局修复：`setMrMode()` 只切换 passthrough 环境、抓取能力和 locomotion，不能
-  重写视频或控制 panel 的 pose / scale。三块顶层 panel 及控制条使用同一套初始
-  相对布局，避免透视和非透视模式间的尺寸、位置和转向基准漂移。
+- MR 布局修复：`setMrMode()` 只切换 passthrough 环境与抓取能力，不能重写视频或控制
+  panel 的 pose / scale。三块顶层 panel 及控制条使用同一套初始相对布局，避免透视和
+  非透视模式间的尺寸、位置和转向基准漂移。
+- locomotion 策略：本应用不使用 locomotion，右摇杆专用于舞台调参（上/下缩放，
+  左/右曲率）。`VRFeature` 默认以 `LocomotionControls.Right` + enabled 注册
+  `LocomotionSystem`，所以 scene ready 处的 `enableLocomotion(false)` 是必需的；
+  `setMrMode()` 不再按 `!isMrMode` 重新开启，否则 VR 模式下右摇杆左右会同时被解释为
+  转向（Meta 的输入约定即“右摇杆控制视角与转向”）。
 - MR reference-space 修复：`setMrMode()` 不得调用 `scene.setViewOrigin()`。该调用会
   在透视模式切换时重置或叠加当前空间基准；view origin 只在 `onSceneReady()` 初始化。
 - 2026-08-03：debug APK 已通过 ADB 安装到 Quest 2。ADB 启动请求已路由至

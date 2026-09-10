@@ -18,6 +18,7 @@ If you're using Codex or another agent-capable tool, additional project-scoped h
 
 Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
 
+<!-- TRELLIS:END -->
 
 # Execution Efficiency
 
@@ -290,4 +291,46 @@ explicitly in the current turn.**
 - **Require explicit user request (mutating):** `app install/launch/stop/uninstall/clear`, `device reboot/wake/connect/proximity`, `files push/remove/mkdir`, `audio set/mute/unmute`, `device configure-testing *`, screenshots (`capture screenshot`).
 - When in doubt, run the read-only check first and ask.
 
+# UI Structure & Terminology Doc
 
+`docs/ui-structure-and-terminology.md` records UI regions and their code-level names, hosts,
+Spatial entities, and slots, as **currently implemented**. It is not a design document:
+
+```text
+docs/ui-structure-and-terminology.md         -> what the code does today
+docs/immersive-ui-low-code-architecture.md   -> the target architecture (many items unimplemented)
+```
+
+The source tree is authoritative. The architectural conventions themselves live in section 8 of
+that document; the rules below only cover when it must change and how to keep it honest.
+
+## When It Must Change
+
+A change is not complete until the matching section is updated:
+
+| Change | Sections |
+| --- | --- |
+| Add, remove, or rename a Spatial panel, entity node, or panel registration | 2, 3, 5 |
+| Change `PanelSlot`, `WorkbenchModule`, a route enum, or a state machine | 3, 4, 6 |
+| Change stage layout constants or derived geometry | 2 |
+| Wire up or retire a `[契约]` / `[未接线]` item | 6, then 7 |
+| Resolve or introduce a naming ambiguity | 6, 7 |
+
+## Rules
+
+1. **Source is authoritative.** Never introduce a term the code does not use. To rename, change the
+   source first, then sync the doc.
+2. **Every term must resolve.** Each backticked identifier must exist in the tree. Before finishing,
+   verify by whole-word search over `app/src`, `spatial-workbench-core/src`,
+   `spatial-workbench-compose/src`, `app/scenes`, and `app/src/main/components`.
+3. **Tag the layer.** Mark each entry `[实现]` (live in runtime), `[契约]` (only in
+   `spatial-workbench-core`), or `[未接线]` (named in runtime, with no entity or behavior). Never
+   mix a contract-layer claim with a runtime fact in one statement.
+4. **Update the diagram, not just the prose.** Hierarchy, ownership, and depth changes belong in the
+   ASCII / Mermaid blocks.
+5. **Cross-reference sibling docs.** Link `immersive-ui-low-code-architecture.md`,
+   `prototypes/workbench/README.md`, and `spatial-coordinates.md` instead of restating them.
+
+Doc-only edits do not need a build; run `git diff --check` and the whole-word identifier check
+above. If the change also touched panel registration, scene data, resources, or cross-module code,
+follow the full build in "Verification Cadence".
