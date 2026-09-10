@@ -98,6 +98,9 @@ data class ViriViriUiState(
     val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
     val playbackCanvasSize: PlaybackCanvasSize = PlaybackCanvasSize.STANDARD,
     val playbackStageScale: Float = PlaybackCanvasSize.STANDARD.scale,
+    val playbackVideoCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
+    val playbackDanmakuCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
+    val playbackBackdropCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
     val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
     val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
@@ -215,6 +218,9 @@ class ViriViriAppState(
           isLoading = true,
           playbackCanvasSize = PlaybackCanvasSize.STANDARD,
           playbackStageScale = appPreferences.loadPlaybackStageScale(),
+          playbackVideoCurvature = appPreferences.loadPlaybackVideoCurvature(),
+          playbackDanmakuCurvature = appPreferences.loadPlaybackDanmakuCurvature(),
+          playbackBackdropCurvature = appPreferences.loadPlaybackBackdropCurvature(),
           searchWorkspace =
               SearchWorkspaceState(
                   input = inputMethods.initialSession(),
@@ -824,6 +830,27 @@ class ViriViriAppState(
 
   fun adjustPlaybackStageScale(delta: Float) {
     setPlaybackStageScale(mutableState.value.playbackStageScale + delta)
+  }
+
+  fun setPlaybackVideoCurvature(curvature: PlaybackStageCurvature) {
+    val current = mutableState.value
+    if (current.playbackVideoCurvature == curvature) return
+    appPreferences.savePlaybackVideoCurvature(curvature)
+    mutableState.value = current.copy(playbackVideoCurvature = curvature)
+  }
+
+  fun setPlaybackDanmakuCurvature(curvature: PlaybackStageCurvature) {
+    val current = mutableState.value
+    if (current.playbackDanmakuCurvature == curvature) return
+    appPreferences.savePlaybackDanmakuCurvature(curvature)
+    mutableState.value = current.copy(playbackDanmakuCurvature = curvature)
+  }
+
+  fun setPlaybackBackdropCurvature(curvature: PlaybackStageCurvature) {
+    val current = mutableState.value
+    if (current.playbackBackdropCurvature == curvature) return
+    appPreferences.savePlaybackBackdropCurvature(curvature)
+    mutableState.value = current.copy(playbackBackdropCurvature = curvature)
   }
 
   /**
