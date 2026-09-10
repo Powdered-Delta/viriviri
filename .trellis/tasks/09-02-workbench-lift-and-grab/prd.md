@@ -125,6 +125,34 @@ SDK 0.13.2 提供**事件驱动**的抓取/hover API（不必手写轮询）：
   GrabBarHoverSystem/GrabPilotSystem 的轮询部分），镜像移动逻辑保留（官方无"抓A动B"先例，
   属本项目扩展）。
 
+### 根因定位 + 载体替换（2026-09-09）
+**根因**：bar 只有外圈可抓、中央不可抓 —— `IsdkPanelGrabHandle` 的 native 碰撞体只生成
+**edge(四条边带) + corner(四角)**，无面板内部段（`IsdkPanelHandleSegmentType` 的 12 段全在
+四周，无 `FRONT_FACE_CENTER`）。实测 readback 确认传入的
+`grabHandleCollisionWidths=(0.5,0.08,0.5,0.08)` **确实落到实体**（未被
+`IsdkComponentCreationSystem` 重置为默认 0.061），但抓取范围不变 → 边带几何位置固定在边缘，
+宽度参数不填充中心。另：**hover 走 SceneObject 网格 raycast，grab 走 native collider
+raycast，两套独立**（故中央有 hover 无 grab）。
+
+**A/B 架构对比结论**：
+- A（单 tree，可抓实体作 root，子级靠 TransformParent 跟随）= 零同步代码，单一真相；
+  已验证 z 对齐正确。代价：root 不能是普通 Panel（content 分区），需非 Panel 载体；
+  父 Scale 不传播子级。
+- B（内容 tree + 独立抓取代理 + 同步系统）= 代理位置自由、绑定灵活；但需 delta 镜像 /
+  坐标系 / 松手吸附同步，此前踩坑（z+0.3 判定偏移、松手 bar 回原位、hover 与 restPose
+  争夺 Transform）。
+- **结论：能用层级（TransformParent）表达的，不用同步。A 为默认；B（GrabPilotSystem，
+  当前无注册=死代码）保留为可回退路径。**
+
+**载体替换（A/B 共同前提，本次实施）**：
+```
+anchor 实体（非 Panel：IsdkBoxCollider(size≈1.0×0.08×0.05, offset 可朝用户前移拦截 ray) + IsdkGrabbable）
+ ├─ visual Panel（grab_bar.xml：移动 icon + i18n 文案 + PanelLayerAlpha 淡入淡出，NoCollision 纯视觉）
+ └─ spatialized_video_panel（stage，TransformParent 子级，幕布在 bar 上方，相对 z=0）
+```
+- 移除 `IsdkPanelGrabHandle`（边环，无法整面）；`IsdkPanelDimensions` 若保留须用真实尺寸。
+- hover 用现有 `PointerInfoSystem` 命中锚实体。
+
 ## 验收
 
 - 启动后幕布+workbench 整体位于舒适高度，不沉地；头倾 ≤15°。
