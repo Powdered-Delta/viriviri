@@ -450,7 +450,15 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     systemManager.registerSystem(
         GrabBarHoverSystem(
             pointerInfo = pointerInfoSystem,
-            grabBarEntity = Entity(R.id.grab_bar_panel),
+            barEntity = Entity(R.id.grab_bar_panel),
+            barAnchorProvider = { workbenchRootEntity },
+            playingOnlyProvider = {
+              // Playing-only = a video is selected while the Workbench panels are collapsed
+              // (only the MediaStage remains). That is the state where the bar fades out.
+              val workbenchVisible =
+                  ::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible
+              ViriViriApplication.appState.state.value.selected != null && !workbenchVisible
+            },
         )
     )
     systemManager.registerSystem(

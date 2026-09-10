@@ -86,6 +86,6 @@
   <string name="canvas_size_compact">紧凑</string>
   <string name="canvas_size_standard">标准</string>
   <string name="canvas_size_large">宽大</string>
-  <string name="grab_bar_hint">拖动调整位置</string>
-  <string name="grab_bar_desc">拖动调整幕布位置</string>
+  <string name="grab_bar_hint">握住并拖动屏幕</string>
+  <string name="grab_bar_desc">握住横条并拖动以移动屏幕</string>
 </resources>
