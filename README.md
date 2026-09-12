@@ -101,6 +101,9 @@ ViriViri 是一个面向 VR 视频平台的 Quest 客户端原型。当前以 Bi
 
 #### 2D 窗口
 
+> **已确定完全重做**，因此下面这些条目应读作「重做的输入」——前半是现行实现的行为缺陷（重做后自然消失），
+> 后半是重做时必须满足的交接要求 —— 而不是按增量修补排期的任务。
+
 - [ ] 竖屏视频仍可能被拉伸；需要验证并修正 `TextureView` 的视频缓冲尺寸与 contain
   transform。
 - [ ] 2D 窗口视频仍可能被拉伸；需要在不同窗口尺寸与源比例下验证黑边、居中和不裁切。
@@ -108,6 +111,24 @@ ViriViri 是一个面向 VR 视频平台的 Quest 客户端原型。当前以 Bi
 - [ ] “返回推荐”和视频标题应归入同一观看页 header。
 - [ ] 右上角应改为图标形式的搜索与返回沉浸式模式入口。
 - [ ] 2D 浏览与观看页的整体信息层级、间距和交互应参考 PiliPlus 重新设计。
+
+以下条目来自 YouTube VR 逆向笔记（[07 非沉浸模式](docs/research/youtube-vr/07-hybrid-panel-mode.md)、
+[08 surface 交接](docs/research/youtube-vr/08-surface-handoff.md)）：两份笔记确认了「2D 窗口 + 沉浸模式
+共用一个播放会话」的方向与 YouTube VR 的 hybrid 架构一致，同时给出了交接过程的具体做法。
+
+- [ ] 2D↔沉浸切换时用黑场 + loading 占位遮挡 surface 交换，等新 surface 出帧后再淡入；YouTube 用
+  `ShutterVideoHider` + `GrabFadeComponent` + `AndroidSurfaceReadyEvent` 正是为此。这是「通用」一节
+  那条长黑屏/丢 input focus 的可行缓解（不是根治）。
+- [ ] surface 就绪门控：揭示画面之前先等首帧/surface-ready 信号（等价于 YouTube 的
+  `AndroidSurfaceReadyEvent`，我们这边是 `onRenderedFirstFrame`）；受保护内容另需等 secure surface。
+- [ ] 2D 端 surface 在沉浸开始出帧后节流生产者（参考 `ANativeWindow_setProducerThrottlingEnabled`），
+  避免两端缓冲堆积。
+- [ ] 把「请求进沉浸 / 快门关 / surface 就绪 / 投影 mesh 更新 / 快门开」建模成显式事件，两个宿主只发
+  事件、不各自处理切换（契合现有 reducer 架构；现在切回沉浸是 `beginOutputHandoff()` 直接调用）。
+- [ ] hybrid 能力不可用、或偏好模式尚未就绪时回退到 2D 窗口（YouTube 在
+  `Missing hybrid app system feature` 与 `Preferred mode not ready` 时就是这么退的）。
+- [ ] 曲面只在沉浸模式生效：2D 模式下保持平面（对应 YouTube 的 `ToggleCurvedQuadEvent`，与
+  「半径 ∞ = 平面」一致）。
 
 #### 沉浸式模式
 
