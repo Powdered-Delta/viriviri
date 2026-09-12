@@ -101,6 +101,11 @@ data class ViriViriUiState(
     val playbackVideoCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val playbackDanmakuCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val playbackBackdropCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
+    /**
+     * Which layer the thumbstick curvature control bends. Deliberately not persisted: it is a
+     * transient "what am I tuning right now" cursor, not a user preference.
+     */
+    val playbackCurvatureEditLayer: PlaybackStageCurvatureLayer = PlaybackStageCurvatureLayer.VIDEO,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
     val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
     val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
@@ -117,6 +122,25 @@ data class ViriViriUiState(
 )
 
 data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
+
+/** The curvature currently configured for [layer]; the three stage layers are independent. */
+internal fun ViriViriUiState.curvatureFor(layer: PlaybackStageCurvatureLayer): PlaybackStageCurvature =
+    when (layer) {
+      PlaybackStageCurvatureLayer.VIDEO -> playbackVideoCurvature
+      PlaybackStageCurvatureLayer.DANMAKU -> playbackDanmakuCurvature
+      PlaybackStageCurvatureLayer.BACKDROP -> playbackBackdropCurvature
+    }
+
+/** A copy of this state with [layer]'s curvature replaced by [curvature]. */
+internal fun ViriViriUiState.withCurvature(
+    layer: PlaybackStageCurvatureLayer,
+    curvature: PlaybackStageCurvature,
+): ViriViriUiState =
+    when (layer) {
+      PlaybackStageCurvatureLayer.VIDEO -> copy(playbackVideoCurvature = curvature)
+      PlaybackStageCurvatureLayer.DANMAKU -> copy(playbackDanmakuCurvature = curvature)
+      PlaybackStageCurvatureLayer.BACKDROP -> copy(playbackBackdropCurvature = curvature)
+    }
 
 internal val ViriViriUiState.searchInput: SearchInputSession
   get() = searchWorkspace.input
@@ -832,25 +856,46 @@ class ViriViriAppState(
     setPlaybackStageScale(mutableState.value.playbackStageScale + delta)
   }
 
-  fun setPlaybackVideoCurvature(curvature: PlaybackStageCurvature) {
+  /**
+   * Persists and publishes the stage curvature — ONE value shared by every layer.
+   *
+   * Video, danmaku and backdrop are kept in lockstep. They have to be: the backdrop exists to dim the
+   * MediaStage, so a backdrop on a different radius cannot dim it, and a danmaku plane on a different
+   * radius slices through it. The three persisted keys predate the shared parameter and are all written
+   * with the same value; collapsing them into one is a follow-up cleanup, not a behaviour change.
+   */
+  fun setPlaybackCurvature(curvature: PlaybackStageCurvature) {
     val current = mutableState.value
-    if (current.playbackVideoCurvature == curvature) return
+    if (current.playbackVideoCurvature == curvature &&
+        current.playbackDanmakuCurvature == curvature &&
+        current.playbackBackdropCurvature == curvature) {
+      return
+    }
     appPreferences.savePlaybackVideoCurvature(curvature)
-    mutableState.value = current.copy(playbackVideoCurvature = curvature)
-  }
-
-  fun setPlaybackDanmakuCurvature(curvature: PlaybackStageCurvature) {
-    val current = mutableState.value
-    if (current.playbackDanmakuCurvature == curvature) return
     appPreferences.savePlaybackDanmakuCurvature(curvature)
-    mutableState.value = current.copy(playbackDanmakuCurvature = curvature)
+    appPreferences.savePlaybackBackdropCurvature(curvature)
+    mutableState.value =
+        current.copy(
+            playbackVideoCurvature = curvature,
+            playbackDanmakuCurvature = curvature,
+            playbackBackdropCurvature = curvature,
+        )
   }
 
-  fun setPlaybackBackdropCurvature(curvature: PlaybackStageCurvature) {
+  /**
+   * Thumbstick curvature step for the whole stage. [curveDelta] follows
+   * [PlaybackStageCurvature.adjustedBy]: positive bends tighter, negative flattens back towards
+   * [PlaybackStageCurvature.Flat].
+   */
+  fun adjustPlaybackCurvature(curveDelta: Float) {
+    setPlaybackCurvature(mutableState.value.playbackVideoCurvature.adjustedBy(curveDelta))
+  }
+
+  /** Advances the thumbstick curvature target to the next stage layer. */
+  fun cyclePlaybackCurvatureEditLayer() {
     val current = mutableState.value
-    if (current.playbackBackdropCurvature == curvature) return
-    appPreferences.savePlaybackBackdropCurvature(curvature)
-    mutableState.value = current.copy(playbackBackdropCurvature = curvature)
+    mutableState.value =
+        current.copy(playbackCurvatureEditLayer = current.playbackCurvatureEditLayer.next())
   }
 
   /**

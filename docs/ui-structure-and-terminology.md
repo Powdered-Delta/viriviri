@@ -83,6 +83,7 @@ graph TD
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
     Root --> Stage["spatialized_video_panel<br/>MEDIA_STAGE · 视频输出"]
 
+    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · 视频表面 + 曲率补偿"]
     Stage --> LeftRail["video_selector_panel<br/>左 Detail rail · yaw -45°"]
     Stage --> RightRail["mode_panel<br/>右 Context rail · yaw +45°"]
     Stage --> Transport["controls_id<br/>TRANSPORT · pitch 20°"]
@@ -103,11 +104,20 @@ graph TD
 local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼。数值集中定义在
 `WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。
 
+媒体面板**不**直接绑在 `spatialized_video_panel` 上，而是绑在运行时创建的子实体
+`videoSurfaceEntity` 上：曲面层必须沿 local Z 平移一个曲率半径
+（`PlaybackStageCurvature.surfaceAnchorOffsetMeters()`，平面时为 0），而 `spatialized_video_panel`
+是舞台根、下面挂着全部 rail / transport / navigation / 中心内容 / 键盘 / 两层 overlay，直接平移根会
+把这一整串一起带走。因此只有视频表面自己移动，根的姿态始终不变。`DanmakuOverlay` 与
+`StageBackdrop` 各自已有实体，用同一套 `applyStageLayerCurvatureOffset()` 做同样的补偿，
+基准 local Z 分别是 `stageDanmakuBaseLocalZ` / `stageBackdropBaseLocalZ`。
+
 | 实体 | 术语 | 本地位置（x, y, z） | 旋转 | 父节点 |
 | --- | --- | --- | --- | --- |
 | `workbenchRootEntity` | 工作台锚点 `workbenchRoot` | 世界坐标，抓取条所在高度 | — | Scene |
 | `grab_bar_panel` | 抓手条 `grab_bar` | (0, 0, 0) | — | `workbenchRoot` |
 | `spatialized_video_panel` | 媒体舞台 `MediaStage` | (0, `currentStageAnchorOffsetY()`, 0) | — | `workbenchRoot` |
+| `videoSurfaceEntity` | 视频表面（运行时 `Entity.create`） | (0, 0, `videoSurfaceBaseLocalZ` + `surfaceAnchorOffsetMeters()`) | — | MediaStage |
 | `video_selector_panel` | 左侧 Detail rail | (-`railX`, 0, `railLocalZ`) ≈ (-1.05, 0, -1.05) | yaw `-45°` | MediaStage |
 | `mode_panel` | 右侧 Context rail | (+`railX`, 0, `railLocalZ`) ≈ (+1.05, 0, -1.05) | yaw `+45°` | MediaStage |
 | `controls_id` | 播放控制 `Transport` | (0, -0.78, -0.66) | pitch `20°` | MediaStage |
@@ -428,8 +438,9 @@ mode_panel.xml（ScrollView）
     ├── scale_text / scale_bar     "Scale: %.2f" + 舞台缩放滑杆
     ├── reset_stage_y_button       "Reset Y (stage height)"
     ├── Divider
-    ├── curvature_text             目标层 + 三层曲率
-    ├── curvature_layer_button     "Next curve target"
+    ├── curvature_text             共享曲率（全部层同一值）+ 弹幕基准 Z
+    ├── reset_curve_button         "Reset curve (all layers flat)" · 逃生通道
+    ├── danmaku_z_button           "Danmaku Z (cycle)" · 切换弹幕层基准 Z（当前值见 curvature_text）
     ├── debug_build_label          DEV <git sha>（仅 DEBUG）
     ├── debug_aspect_*             aspect 探针（仅 DEBUG：detail/target/plan/apply）
     └── open_2d_button             "打开 2D 窗口"
@@ -531,8 +542,10 @@ grab_bar.xml（非交互、不可抓取，仅指示）
 | --- | --- |
 | `GrabBarHoverSystem` | 抓手条悬停高亮；仅播放中且 Workbench 收起时淡出 |
 | `VideoStageGrabPersistenceSystem` | 监听锚点抓取结束，持久化舞台世界高度（仅 Y） |
-| `AnalogMediaStageTuningSystem` | 右摇杆：上/下缩放全部层，左/右弯曲当前曲率目标层 |
+| `AnalogMediaStageTuningSystem` | 右摇杆：上/下缩放全部层，左/右弯曲当前曲率目标层；**双扳机（任意手）** = 舞台主操作。判定用几何 `StageRayTargeting`（取不到姿态时回退 `rightEntity`）；**workbench 可见时整体不生效**；`ViriViriTarget` 每秒一行诊断 |
+| `StageRayTargeting` | 纯数学：控制器射线与舞台平面/矩形的求交，使输入不受曲率位移影响（有 JVM 单测） |
 | `StageOverlayReshapeSystem` | 等待 `PanelSceneObject` 就绪后重放覆盖层重塑请求 |
+| `AnalogWorkbenchSummonSystem` | DEBUG：按 A 执行与舞台点击**完全相同**的 `onStagePrimaryAction()`，不依赖命中舞台也能呼出 workbench |
 
 > 契约文档中的 `grab-handle` 组件（`CinemaTheme` 的 `cinema-watch-controls` 画布成员）
 > 位于 `TRANSPORT` 覆盖层内；当前实现把抓取能力放在
@@ -582,6 +595,7 @@ PancakeActivity → PancakeScreen（MaterialTheme）
 | --- | --- | --- |
 | 工作台锚点 | `workbenchRootEntity`（`Entity.create`，运行时持有；`R.id.workbench_root` 已声明但未被引用） | 实现 |
 | 媒体舞台 / MediaStage | `R.id.spatialized_video_panel` | 实现 |
+| 视频表面 / video surface | `videoSurfaceEntity`（`Entity.create`，运行时持有；媒体面板与其 `IsdkPanelDimensions`、`Hittable` 都绑在它上面） | 实现 |
 | 抓手条 / Grab bar | `R.id.grab_bar_panel` | 实现 |
 | 舞台压暗层 / Stage backdrop | `R.id.stage_backdrop_panel` + `StageBackdrop()` | 实现 |
 | 弹幕层 | `R.id.danmaku_overlay_panel` + `DanmakuOverlay()` | 实现 |
