@@ -114,6 +114,43 @@
       android:text="Reset Y (stage height)"
       android:textSize="12sp"
     />
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="1dp"
+      android:layout_marginTop="10dp"
+      android:background="#33FFFFFF"
+    />
+    <!-- Curvature is per layer: point at the stage and push the right thumbstick left/right to bend
+         the target layer, up/down to resize every layer. The button picks the target layer. -->
+    <TextView
+      android:id="@+id/curvature_text"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:fontFamily="monospace"
+      android:textSize="12sp"
+      android:textColor="#B3FFFFFF"
+      android:text="Curve target: video\n  video:    flat\n  danmaku:  flat\n  backdrop: flat"
+    />
+    <Button
+      android:id="@+id/reset_curve_button"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:text="Reset curve (all layers flat)"
+      android:textSize="12sp"
+    />
+    <!-- Steps the danmaku layer's authored local Z through the candidates; 1 cm is too little to settle
+         the draw order against the video's compositor layer, so the working separation is read off the
+         headset instead of guessed. Current value is shown in curvature_text. -->
+    <Button
+      android:id="@+id/danmaku_z_button"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:text="Danmaku Z (cycle)"
+      android:textSize="12sp"
+    />
 
     <TextView
       android:id="@+id/debug_build_label"

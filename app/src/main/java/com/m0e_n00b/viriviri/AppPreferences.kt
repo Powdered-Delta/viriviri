@@ -15,6 +15,18 @@ interface AppPreferences {
 
   fun savePlaybackStageScale(scale: Float)
 
+  fun loadPlaybackVideoCurvature(): PlaybackStageCurvature
+
+  fun savePlaybackVideoCurvature(curvature: PlaybackStageCurvature)
+
+  fun loadPlaybackDanmakuCurvature(): PlaybackStageCurvature
+
+  fun savePlaybackDanmakuCurvature(curvature: PlaybackStageCurvature)
+
+  fun loadPlaybackBackdropCurvature(): PlaybackStageCurvature
+
+  fun savePlaybackBackdropCurvature(curvature: PlaybackStageCurvature)
+
   /** Persisted user-adjusted world Y (metres) of the immersive video stage. Null = never adjusted. */
   fun loadWorkbenchStageY(): Float?
 
@@ -42,6 +54,27 @@ internal class SharedPreferencesAppPreferences(context: Context) : AppPreference
     preferences.edit().putString(KEY_PLAYBACK_STAGE_SCALE, PlaybackCanvasSize.clampStageScale(scale).toString()).apply()
   }
 
+  override fun loadPlaybackVideoCurvature(): PlaybackStageCurvature =
+      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_VIDEO_CURVATURE, null))
+
+  override fun savePlaybackVideoCurvature(curvature: PlaybackStageCurvature) {
+    preferences.edit().putString(KEY_PLAYBACK_VIDEO_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
+  }
+
+  override fun loadPlaybackDanmakuCurvature(): PlaybackStageCurvature =
+      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_DANMAKU_CURVATURE, null))
+
+  override fun savePlaybackDanmakuCurvature(curvature: PlaybackStageCurvature) {
+    preferences.edit().putString(KEY_PLAYBACK_DANMAKU_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
+  }
+
+  override fun loadPlaybackBackdropCurvature(): PlaybackStageCurvature =
+      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_BACKDROP_CURVATURE, null))
+
+  override fun savePlaybackBackdropCurvature(curvature: PlaybackStageCurvature) {
+    preferences.edit().putString(KEY_PLAYBACK_BACKDROP_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
+  }
+
   override fun loadWorkbenchStageY(): Float? =
       AppPreferenceCodec.decodeStageY(preferences.getString(KEY_WORKBENCH_STAGE_Y, null))
 
@@ -60,6 +93,9 @@ internal class SharedPreferencesAppPreferences(context: Context) : AppPreference
     const val PREFERENCES_NAME = "viriviri_app_preferences"
     const val KEY_SEARCH_HISTORY = "search_history"
     const val KEY_PLAYBACK_STAGE_SCALE = "playback_stage_scale"
+    const val KEY_PLAYBACK_VIDEO_CURVATURE = "playback_video_curvature"
+    const val KEY_PLAYBACK_DANMAKU_CURVATURE = "playback_danmaku_curvature"
+    const val KEY_PLAYBACK_BACKDROP_CURVATURE = "playback_backdrop_curvature"
     const val KEY_WORKBENCH_STAGE_Y = "workbench_stage_y"
   }
 }
@@ -91,6 +127,12 @@ internal object AppPreferenceCodec {
 
   fun decodeStageScale(encodedScale: String?): Float =
       encodedScale?.toFloatOrNull()?.let(PlaybackCanvasSize::clampStageScale) ?: PlaybackCanvasSize.STANDARD.scale
+
+  fun encodeCurvature(curvature: PlaybackStageCurvature): String =
+      (curvature.radiusOrNull() ?: PlaybackStageCurvature.FLAT_SENTINEL).toString()
+
+  fun decodeCurvature(encodedRadius: String?): PlaybackStageCurvature =
+      PlaybackStageCurvature.fromRadius(encodedRadius?.toFloatOrNull())
 
   /**
    * Decodes a persisted stage world-Y (metres). Null/malformed returns null (caller falls back
