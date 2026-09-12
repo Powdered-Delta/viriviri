@@ -3,7 +3,7 @@
   "name": "stage-scale-curvature-bake",
   "title": "immersive stage scale bake + per-layer curvature",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,16 +11,20 @@
   "creator": "M0e_N00b",
   "assignee": "M0e_N00b",
   "createdAt": "2026-09-10",
-  "completedAt": null,
-  "branch": null,
-  "base_branch": "fix/fix-init-stage-scale",
+  "completedAt": "2026-09-12",
+  "branch": "main",
+  "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "064219b",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "relatedFiles": [
+    "app/src/main/java/com/m0e_n00b/viriviri/PlaybackStageCurvature.kt",
+    "app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt",
+    "app/src/main/java/com/m0e_n00b/viriviri/StageRayTargeting.kt",
+    "docs/research/stage-video-mesh-curvature.md"
+  ],
+  "notes": "已合并到 main（fast-forward, 064219b）。交付：k17 的 scale 烘焙（移除实体 Scale，scale 进 shape/mesh）+ 曲面幕布落地。曲率最终走 compositor CylinderShapeOptions（CylinderLayerConfig.radius），不是 CurvedStageMesh 自绘。\n\n与 PRD 的偏离（重要）：PRD 第 3 条与「解耦原则」写的是每层独立曲率；实机证明这个方向是错的并被推翻——backdrop 的存在意义就是压暗 MediaStage，半径不同就压不到视频所在的那个曲面；弹幕半径不同则会与视频互相切割。现在三层共享一套曲率（setPlaybackCurvature 锁步写三个字段）。三个 state 字段 / 三个持久化 key / curvatureFor / withCurvature / cyclePlaybackCurvatureEditLayer / PlaybackStageCurvatureLayer 已成冗余，保留是为了让改动停留在行为修复而非持久化迁移；合并为一个字段与一个 key 是后续清理项。\n\n仍开放：offsetScale 与 Danmaku Z 两个调试补丁是为绕过当时的症状而加，现已非必需，去留由后续清理决定；compositor 半圆柱上限在 2.0x + r=1.5 时理论可达，实测未触及。"
 }
