@@ -1,0 +1,29 @@
+{
+  "id": "curved-video-stage",
+  "name": "curved-video-stage",
+  "title": "Add adjustable curvature to the immersive video stage",
+  "description": "Adjustable cylinder curvature for the video TriangleMesh with danmaku/subtitle UV following the same surface; UI panels stay flat.",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P3",
+  "creator": "M0e_N00b",
+  "assignee": "M0e_N00b",
+  "createdAt": "2026-08-25",
+  "completedAt": "2026-10-02",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt",
+    "docs/immersive-ui-low-code-architecture.md"
+  ],
+  "notes": "CLOSED AS DELIVERED ELSEWHERE (2026-10-02). Originally deferred from the workbench UX batch, pending validation of cylinder mesh vs standard CylinderShapeOptions media panel. That validation happened in 09-10-stage-scale-curvature-bake and the goal shipped in 064219b: adjustable cylinder curvature now goes through the compositor's CylinderShapeOptions (CylinderLayerConfig.radius), NOT a self-drawn curved TriangleMesh, so this task's planned direction (subdivide the quad and bend vertices) was not used. Radius is 1.5-8 m (PlaybackStageCurvature.MIN_RADIUS_METERS / MAX_RADIUS_METERS). Note the PRD requirement that danmaku/subtitle UV follow their own surface was overturned on device: video, danmaku and backdrop now share one curvature, because differing radii made the backdrop fail to dim the video surface and made danmaku clip against the video. See 09-10 task.json notes and docs/research/stage-video-mesh-curvature.md. No separate work was performed under this task.",
+  "meta": {}
+}
