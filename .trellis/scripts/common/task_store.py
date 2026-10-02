@@ -159,7 +159,7 @@ def _write_seed_jsonl(path: Path) -> None:
     it. The row exists purely as an in-file prompt for the AI curator.
     """
     seed = {"_example": _SEED_EXAMPLE}
-    path.write_text(json.dumps(seed, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(seed, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
 
 
 # =============================================================================

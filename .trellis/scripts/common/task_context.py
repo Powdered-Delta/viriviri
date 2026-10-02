@@ -73,7 +73,7 @@ def cmd_add_context(args: argparse.Namespace) -> int:
     else:
         entry = {"file": path, "reason": reason}
 
-    with jsonl_file.open("a", encoding="utf-8") as f:
+    with jsonl_file.open("a", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     print(colored(f"Added {entry_type}: {path}", Colors.GREEN))
