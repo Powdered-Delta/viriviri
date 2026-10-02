@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+  <!--
+    View-system colours that must mirror CinemaPalette.DARK (spatial-workbench-core
+    WorkbenchContracts.kt:94-103) so the android.widget.PopupMenu popups match the
+    surrounding Compose surfaces. Keep these in sync if the palette changes.
+  -->
+  <color name="viriviri_popup_surface">#FF1C2028</color>
+  <color name="viriviri_popup_text">#FFF5F7FA</color>
+  <color name="viriviri_popup_highlight">#FFFFD666</color>
+</resources>

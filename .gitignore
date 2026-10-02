@@ -51,3 +51,9 @@ temp/grab-bar-archive/
 .pi-web/
 temp/
 
+# dsh-project-kanban board state (per-workspace local agent state, same class
+# as .pi-web/). Un-ignored, every card edit dirties the tree and blocks
+# /finish-work; `git add -f` if the board is ever intentionally versioned.
+.dsh-kanban.json
+.dsh-kanban.json.bak-*
+

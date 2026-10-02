@@ -383,9 +383,15 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
 `ImmersiveCenterContentPanel` 固定以 `showViewerContent = false` 调用
 `RecommendationPanel`，即**中心面板永远是列表/搜索，不承载视频输出**。
 
+收起归属：本面板**不是** Workbench 的收起所有者 —— 点击中心面板空白区域不触发任何动作。
+「点击工作台外部收起」唯一由 `WorkbenchOuterDismiss` 提供（见 2.1 与
+`attachOuterDismissInput`）。中心面板曾持有的 dismiss 回调链已整体移除（连同
+`ImmersiveCenterContentPanel` / `RecommendationPanel` / `RecommendationContent` /
+`CenterContentWorkspace` 上的对应形参），因此这里不再存在第二个收起入口。
+
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace
-└── Column [16dp 内边距, 点击空白 → dismissWorkbench]
+└── Column [16dp 内边距, 点击空白 = 无操作（不收起 Workbench）]
     ├── Header（按 route 互斥）
     │   ├── WORKBENCH_EMPTY
     │   │   └── 居中 TextButton   [视频列表] 或 [搜索结果]（openPlaybackReturnRoute）
@@ -469,8 +475,12 @@ controls.xml（LinearLayout, toolbar_bg）
 ```
 
 Transport 没有标题：当前视频标题属于 Context / Detail 内容。
-弹出菜单（音量 / 清晰度 / 倍速 / 显示比例 / 画布大小）使用 `PopupMenu`，
-同一时刻只允许一个设置浮层。
+弹出菜单（音量 / 清晰度 / 倍速 / 显示比例 / 画布大小，以及 debug 的调试目标 / 调试方案）
+统一经 `darkPopupMenu` 构建：它用 `ContextThemeWrapper` 套上 `Theme.ViriViri.DarkPopup`
+（`Widget.ViriViri.DarkPopupMenu` + `colors.xml`，取色镜像 `CinemaPalette.DARK`）。
+两个 Activity 用的是裸 `android:Theme`（`Theme.Transparent`），因此未包装的 `PopupMenu`
+会落到平台默认的浅色外观，与周围暗色 Compose 面板不一致。包装只改外观，菜单项语义、顺序、
+id 与触发位置均不变。同一时刻只允许一个设置浮层。
 
 ### 5.6 `input_method_panel` — 近场输入台
 

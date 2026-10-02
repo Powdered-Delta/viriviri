@@ -25,6 +25,7 @@ import com.m0e_n00b.spatialworkbench.core.PanelSlot
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvas
 import com.m0e_n00b.spatialworkbench.core.PlaybackCanvasEvent
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.MotionEvent
 import android.view.MenuItem
 import android.view.Surface
@@ -1373,9 +1374,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           composeViewCreator = { _, context ->
             ComposeView(context).apply {
               setContent {
+                // UX: the center panel no longer owns dismissal; WorkbenchOuterDismiss is the
+                // single outside-area dismiss owner, so blank clicks here stay inert.
                 ImmersiveCenterContentPanel(
                     onVideoSelected = ::returnToPlaybackFromCenterContent,
-                    onDismissWorkbench = ::dismissWorkbenchFromCenterContent,
                 )
               }
             }
@@ -2307,8 +2309,19 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     syncSpatialVideoAspectProbeUi()
   }
 
+  /**
+   * Builds a playback-control menu with the application's dark popup theme.
+   *
+   * The Activities use a bare `android:Theme` (Theme.Transparent), so an unwrapped [PopupMenu]
+   * inherited the platform default (light) popup and clashed with the surrounding dark Compose
+   * panels. Wrapping only the context changes the popup's appearance: item order, item ids,
+   * checkable groups and click handling are all unchanged.
+   */
+  private fun darkPopupMenu(anchor: View): PopupMenu =
+      PopupMenu(ContextThemeWrapper(this, R.style.Theme_ViriViri_DarkPopup), anchor)
+
   private fun showPlaybackDisplayRatioMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       menu.setGroupCheckable(0, true, true)
       val selectedRatio = ViriViriApplication.appState.state.value.playbackDisplayRatio
       PlaybackDisplayRatio.entries.forEachIndexed { index, displayRatio ->
@@ -2325,7 +2338,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showPlaybackCanvasSizeMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       menu.setGroupCheckable(0, true, true)
       val selectedSize = ViriViriApplication.appState.state.value.playbackCanvasSize
       PlaybackCanvasSize.entries.forEachIndexed { index, canvasSize ->
@@ -2342,7 +2355,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showPlaybackQualityMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       menu.setGroupCheckable(0, true, true)
       val selectedQuality = ViriViriApplication.appState.state.value.playbackQuality
       PlaybackQuality.entries.forEachIndexed { index, quality ->
@@ -2359,7 +2372,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showPlaybackVolumeMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       menu.setGroupCheckable(0, true, true)
       PlaybackVolumeControl.supportedVolumes.forEachIndexed { index, volume ->
         menu.add(0, index, index, PlaybackVolumeControl.label(volume)).isChecked =
@@ -2376,7 +2389,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showSpatialVideoAspectTargetMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       SpatialVideoAspectProbeTarget.entries.forEachIndexed { index, target ->
         menu.add(0, index, index, target.label).isChecked = target == spatialVideoAspectProbeState.pendingTarget
       }
@@ -2393,7 +2406,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showSpatialVideoAspectPlanMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       SpatialVideoAspectProbePlan.entries.forEachIndexed { index, plan ->
         menu.add(0, index, index, plan.label).isChecked = plan == spatialVideoAspectProbeState.pendingPlan
       }
@@ -2728,7 +2741,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun showPlaybackSpeedMenu(anchor: View) {
-    PopupMenu(this, anchor).apply {
+    darkPopupMenu(anchor).apply {
       menu.setGroupCheckable(0, true, true)
       PlaybackSpeedControl.supportedSpeeds.forEachIndexed { index, speed ->
         menu.add(0, index, index, PlaybackSpeedControl.label(speed)).isChecked =
