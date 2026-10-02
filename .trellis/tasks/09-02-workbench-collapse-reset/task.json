@@ -3,7 +3,7 @@
   "name": "workbench-collapse-reset",
   "title": "收起 Workbench 时重置为视频列表空态并隐藏输入法",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
