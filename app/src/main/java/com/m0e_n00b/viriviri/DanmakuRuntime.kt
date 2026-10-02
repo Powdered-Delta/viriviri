@@ -153,7 +153,7 @@ internal class DanmakuStreamSource(
  */
 internal class DanmakuCanvasRuntime(
     private val source: DanmakuStreamSource,
-    private val config: DanmakuRenderConfig = DanmakuRenderConfig.DEFAULT,
+    val config: DanmakuRenderConfig = DanmakuRenderConfig.DEFAULT,
 ) {
   val active = ArrayList<ActiveDanmaku>()
   val activeCount: Int get() = active.size

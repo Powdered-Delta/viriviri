@@ -101,11 +101,6 @@ data class ViriViriUiState(
     val playbackVideoCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val playbackDanmakuCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val playbackBackdropCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
-    /**
-     * Which layer the thumbstick curvature control bends. Deliberately not persisted: it is a
-     * transient "what am I tuning right now" cursor, not a user preference.
-     */
-    val playbackCurvatureEditLayer: PlaybackStageCurvatureLayer = PlaybackStageCurvatureLayer.VIDEO,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
     val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
     val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
@@ -889,13 +884,6 @@ class ViriViriAppState(
    */
   fun adjustPlaybackCurvature(curveDelta: Float) {
     setPlaybackCurvature(mutableState.value.playbackVideoCurvature.adjustedBy(curveDelta))
-  }
-
-  /** Advances the thumbstick curvature target to the next stage layer. */
-  fun cyclePlaybackCurvatureEditLayer() {
-    val current = mutableState.value
-    mutableState.value =
-        current.copy(playbackCurvatureEditLayer = current.playbackCurvatureEditLayer.next())
   }
 
   /**

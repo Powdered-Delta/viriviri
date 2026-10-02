@@ -686,8 +686,8 @@ SHORTS_COMMENTS  [契约]
 | 画布大小 | `PlaybackCanvasSize` | `紧凑 0.82` / `标准 1.00` / `宽大 1.18`（钳制 0.70–1.50） |
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
-| 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–20 m，`Flat` 等价无限半径 |
-| 曲率编辑层 | `PlaybackStageCurvatureLayer`（`VIDEO` / `DANMAKU` / `BACKDROP`） | 三层各自独立 |
+| 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
+| 曲率编辑层 | `PlaybackStageCurvatureLayer`（`VIDEO` / `DANMAKU` / `BACKDROP`） | **三层共享一套曲率**：`setPlaybackCurvature` 锁步写三个字段，改一层即改全部（实机已推翻「每层独立」）。层切换入口已移除，本枚举与 `curvatureFor` / `withCurvature` 已无运行时调用方；三个字段与三个持久化 key 待合并为一个 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题
