@@ -18,4 +18,21 @@
     name="Widget.AppCompat.SeekBar"
     parent="Base.Widget.AppCompat.SeekBar"
   />
+  <!--
+    Dark theme for the android.widget.PopupMenu playback control menus. The Activities use a
+    bare `android:Theme` (Theme.Transparent), so popups inherited the platform default look and
+    clashed with the dark Compose panels. These menus stay on the View system; only the context
+    theme changes, so item semantics and trigger locations are untouched.
+    Colours mirror CinemaPalette.DARK via colors.xml.
+  -->
+  <style name="Theme.ViriViri.DarkPopup" parent="android:Theme.Material.NoActionBar">
+    <item name="android:popupMenuStyle">@style/Widget.ViriViri.DarkPopupMenu</item>
+    <item name="android:popupBackground">@color/viriviri_popup_surface</item>
+    <item name="android:colorBackground">@color/viriviri_popup_surface</item>
+    <item name="android:textColorPrimary">@color/viriviri_popup_text</item>
+    <item name="android:textColorSecondary">@color/viriviri_popup_highlight</item>
+  </style>
+  <style name="Widget.ViriViri.DarkPopupMenu" parent="@android:style/Widget.Material.PopupMenu">
+    <item name="android:popupBackground">@color/viriviri_popup_surface</item>
+  </style>
 </resources>
