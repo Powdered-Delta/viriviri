@@ -1373,9 +1373,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           composeViewCreator = { _, context ->
             ComposeView(context).apply {
               setContent {
+                // UX: the center panel no longer owns dismissal; WorkbenchOuterDismiss is the
+                // single outside-area dismiss owner, so blank clicks here stay inert.
                 ImmersiveCenterContentPanel(
                     onVideoSelected = ::returnToPlaybackFromCenterContent,
-                    onDismissWorkbench = ::dismissWorkbenchFromCenterContent,
                 )
               }
             }

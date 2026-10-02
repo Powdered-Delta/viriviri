@@ -383,9 +383,15 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
 `ImmersiveCenterContentPanel` 固定以 `showViewerContent = false` 调用
 `RecommendationPanel`，即**中心面板永远是列表/搜索，不承载视频输出**。
 
+收起归属：本面板**不是** Workbench 的收起所有者 —— 点击中心面板空白区域不触发任何动作。
+「点击工作台外部收起」唯一由 `WorkbenchOuterDismiss` 提供（见 2.1 与
+`attachOuterDismissInput`）。中心面板曾持有的 dismiss 回调链已整体移除（连同
+`ImmersiveCenterContentPanel` / `RecommendationPanel` / `RecommendationContent` /
+`CenterContentWorkspace` 上的对应形参），因此这里不再存在第二个收起入口。
+
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace
-└── Column [16dp 内边距, 点击空白 → dismissWorkbench]
+└── Column [16dp 内边距, 点击空白 = 无操作（不收起 Workbench）]
     ├── Header（按 route 互斥）
     │   ├── WORKBENCH_EMPTY
     │   │   └── 居中 TextButton   [视频列表] 或 [搜索结果]（openPlaybackReturnRoute）
