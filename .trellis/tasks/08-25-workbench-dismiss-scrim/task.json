@@ -3,7 +3,7 @@
   "name": "workbench-dismiss-scrim",
   "title": "Move workbench dismiss to outside-area click",
   "description": "Remove the center-panel click-to-dismiss; only clicks outside the workbench area hide it via WorkbenchOuterDismiss.",
-  "status": "pending",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
