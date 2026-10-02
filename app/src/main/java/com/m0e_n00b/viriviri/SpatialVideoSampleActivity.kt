@@ -2046,6 +2046,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)
     animateControllerVisibility(false)
+    // UX: reset the centre route at dismissal time so the next summon opens straight into the
+    // video list instead of visibly switching route on open.
+    //
+    // The reset used to happen only via `applyPlaybackCanvasSlots`, whose condition
+    // (`BROWSE !in slots && TRANSPORT in slots && selected != null`) cannot hold right after a
+    // dismissal: `PlaybackCanvasEvent.Dismiss` moves the canvas to QUIET_WATCH, whose visible
+    // slots are MEDIA_STAGE only. So the route stayed stale until the next summon flipped the
+    // canvas back to PLAYBACK -- which is the route switch the user saw on open.
+    //
+    // Gated on a selected video on purpose: with no video there is no list to fall back to, so
+    // the route must be left untouched. The `applyPlaybackCanvasSlots` call stays because it
+    // serves the summon-time path (e.g. a route left dirty by video selection).
+    if (ViriViriApplication.appState.state.value.selected != null) {
+      ViriViriApplication.appState.openWorkbenchEmpty()
+    }
   }
 
   private fun applyPlaybackCanvasSlots(visibleSlots: Set<PanelSlot>) {
