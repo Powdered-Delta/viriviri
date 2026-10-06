@@ -647,12 +647,22 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 hitInfo: HitInfo,
                 sourceOfInput: Entity,
             ) {
-              if (SystemClock.uptimeMillis() < suppressOuterDismissUntilMs) {
+              // Trace: proves whether the scene-authored hit layer is reached at all. If clicking
+              // blank space outside the Workbench produces no "outerDismiss click" line, the
+              // WorkbenchOuterDismiss geometry/orientation is at fault, not this handler.
+              val workbenchVisible =
+                  ::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible
+              val suppressed = SystemClock.uptimeMillis() < suppressOuterDismissUntilMs
+              Log.i(
+                  WORKBENCH_TRACE_TAG,
+                  "outerDismiss click workbenchVisible=$workbenchVisible suppressed=$suppressed",
+              )
+              if (suppressed) {
                 suppressOuterDismissUntilMs = 0L
                 return
               }
-              if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
-                dismissWorkbenchFromCenterContent()
+              if (workbenchVisible) {
+                dismissWorkbenchFromCenterContent("outerDismiss")
               }
             }
           }
@@ -1374,10 +1384,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           composeViewCreator = { _, context ->
             ComposeView(context).apply {
               setContent {
-                // UX: the center panel no longer owns dismissal; WorkbenchOuterDismiss is the
-                // single outside-area dismiss owner, so blank clicks here stay inert.
+                // UX: blank centre-panel space dismisses only from the WORKBENCH_EMPTY route
+                // (see RecommendationUi.CenterContentWorkspace). Outside the Workbench,
+                // WorkbenchOuterDismiss still owns dismissal.
                 ImmersiveCenterContentPanel(
                     onVideoSelected = ::returnToPlaybackFromCenterContent,
+                    onDismissWorkbench = { dismissWorkbenchFromCenterContent("centerPanelBlank") },
                 )
               }
             }
@@ -2041,7 +2053,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     returnToPlaybackFromCenterContent()
   }
 
-  private fun dismissWorkbenchFromCenterContent() {
+  /**
+   * Collapses the Workbench. [source] only exists for the trace, so a logcat capture can tell
+   * the two entry points apart: `outerDismiss` (scene hit layer) vs `centerPanelBlank`
+   * (WORKBENCH_EMPTY blank space inside the centre panel).
+   */
+  private fun dismissWorkbenchFromCenterContent(source: String) {
+    Log.i(WORKBENCH_TRACE_TAG, "dismissWorkbench source=$source")
     // UX: non-action center content clicks share the established canvas dismissal behavior.
     immersiveBrowseSession = ImmersiveBrowseSessionReducer.cancel(immersiveBrowseSession).session
     dispatchPlaybackCanvas(PlaybackCanvasEvent.Dismiss)

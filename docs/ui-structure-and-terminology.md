@@ -383,15 +383,18 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
 `ImmersiveCenterContentPanel` 固定以 `showViewerContent = false` 调用
 `RecommendationPanel`，即**中心面板永远是列表/搜索，不承载视频输出**。
 
-收起归属：本面板**不是** Workbench 的收起所有者 —— 点击中心面板空白区域不触发任何动作。
-「点击工作台外部收起」唯一由 `WorkbenchOuterDismiss` 提供（见 2.1 与
-`attachOuterDismissInput`）。中心面板曾持有的 dismiss 回调链已整体移除（连同
-`ImmersiveCenterContentPanel` / `RecommendationPanel` / `RecommendationContent` /
-`CenterContentWorkspace` 上的对应形参），因此这里不再存在第二个收起入口。
+收起归属分两层：
+
+- **面板外**：由场景节点 `WorkbenchOuterDismiss` 提供（见 2.1 与 `attachOuterDismissInput`）。
+- **面板内**：仅当路由为 `WORKBENCH_EMPTY` 时，点击空白才收起 —— 空视频列表本身等价于一张
+  背景面。处于内容路由（`RECOMMENDATIONS` / `SEARCH_RESULTS` / `SEARCH_EMPTY` / 详情）时空白
+  保持惰性，避免一次误触把 Workbench 关掉。判定写在 `CenterContentWorkspace` 的
+  `isBlankSpaceDismissable`，回调经 `ImmersiveCenterContentPanel` 由 Activity 注入
+  （`dismissWorkbenchFromCenterContent(source)`，`source` 仅用于 trace 区分两条入口）。
 
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace
-└── Column [16dp 内边距, 点击空白 = 无操作（不收起 Workbench）]
+└── Column [16dp 内边距, 空白点击 = 仅 WORKBENCH_EMPTY 路由下收起]
     ├── Header（按 route 互斥）
     │   ├── WORKBENCH_EMPTY
     │   │   └── 居中 TextButton   [视频列表] 或 [搜索结果]（openPlaybackReturnRoute）

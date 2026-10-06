@@ -127,6 +127,7 @@ fun RecommendationContent(
     palette: CinemaPalette = CinemaPalette.DARK,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
+    onDismissWorkbench: (() -> Unit)? = null,
 ) {
   Box(modifier = Modifier.fillMaxSize()) {
     when (state.destination) {
@@ -136,6 +137,7 @@ fun RecommendationContent(
               appState = appState,
               palette = palette,
               onVideoSelected = onVideoSelected,
+              onDismissWorkbench = onDismissWorkbench,
           )
       ViriViriDestination.VIEWER -> {
         if (showViewerContent) {
@@ -146,6 +148,7 @@ fun RecommendationContent(
               appState = appState,
               palette = palette,
               onVideoSelected = onVideoSelected,
+              onDismissWorkbench = onDismissWorkbench,
           )
         }
       }
@@ -167,6 +170,7 @@ fun RecommendationPanel(
     palette: CinemaPalette = CinemaPalette.DARK,
     showViewerContent: Boolean = true,
     onVideoSelected: (() -> Unit)? = null,
+    onDismissWorkbench: (() -> Unit)? = null,
 ) {
   val state by appState.state.collectAsState()
   // UX: Browse and Detail share one semantic palette while occupying the same angled panel.
@@ -179,6 +183,7 @@ fun RecommendationPanel(
         palette = palette,
         showViewerContent = showViewerContent,
         onVideoSelected = onVideoSelected,
+        onDismissWorkbench = onDismissWorkbench,
     )
   }
 }
@@ -189,6 +194,7 @@ private fun CenterContentWorkspace(
     appState: ViriViriAppState,
     palette: CinemaPalette,
     onVideoSelected: (() -> Unit)?,
+    onDismissWorkbench: (() -> Unit)?,
 ) {
   val savedScrollPosition =
       if (state.isShowingSearchResults) state.searchScrollPosition else state.recommendationScrollPosition
@@ -250,11 +256,15 @@ private fun CenterContentWorkspace(
     }
   }
   // UX: only the active center route owns the list body; Search empty replaces it with discovery content.
-  // UX: blank center-panel space is inert by design. `WorkbenchOuterDismiss` is the single
-  // outside-area dismiss owner, so a stray click here must not hide the Workbench.
+  // UX: only the empty video-list state is dismissible from blank centre-panel space. In a
+  // content route (list / search / detail) a stray blank click must not close the Workbench;
+  // there the Workbench is only dismissible from outside it, via `WorkbenchOuterDismiss`.
+  val isBlankSpaceDismissable =
+      onDismissWorkbench != null && route == SearchWorkspaceRoute.WORKBENCH_EMPTY
   Column(
       modifier =
           Modifier.fillMaxSize()
+              .clickable(enabled = isBlankSpaceDismissable) { onDismissWorkbench?.invoke() }
               .padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
