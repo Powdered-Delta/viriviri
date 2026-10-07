@@ -16,6 +16,7 @@
 | [immersive-ui-low-code-architecture.md](immersive-ui-low-code-architecture.md) | 目标架构与主题系统设计（含大量未实现项） |
 | [prototypes/workbench/README.md](prototypes/workbench/README.md) | Web 原型的交互契约与信息层级 |
 | [spatial-coordinates.md](spatial-coordinates.md) | 坐标系与正负方向 |
+| [research/workbench-dismiss-hit-layer.md](research/workbench-dismiss-hit-layer.md) | 外部收起命中层的根因、修复与不变量 |
 
 标注约定：
 
@@ -77,7 +78,7 @@ graph TD
     Scene["Scene 根<br/>(Meta Spatial Editor 导出的 GLXF)"]
     Scene --> MediaRoom["MediaRoom<br/>环境 GLXF"]
     Scene --> CenterAuthored["WorkbenchCenterContent<br/>scene 节点 → panel @id/center_content_panel"]
-    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>Hittable 输入层，Visible(false)"]
+    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>Hittable 输入层，材质 Blend + alpha 0（可命中但不渲染）"]
 
     Root["workbenchRootEntity<br/>非 Panel 抓取锚点<br/>IsdkBoxCollider + IsdkGrabbable"]
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
@@ -157,9 +158,15 @@ app/scenes/Composition/Main.scene
 └── WorkbenchOuterDismiss  -> projref:WorkbenchOuterDismiss/...         全屏命中层
 ```
 
-`WorkbenchOuterDismiss` 在运行时被设为 `Hittable` + `Visible(false)`：它只提供
-「点击工作台外部收起」的命中几何，不渲染任何图元。`WorkbenchCenterContent` 在
-运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
+`WorkbenchOuterDismiss` 在运行时被设为 `Hittable`，但**不再设 `Visible(false)`**：它靠自身的
+PbrMaterial（`alphaMode` = `Blend`，`baseColorFactor` 的 alpha 为 0）在渲染上完全不可见，同时
+保留在命中测试中。**这两件事必须成对**：`Visible(false)` 会让实体退出命中测试（2026-10-06 真机
+确诊——该层从未被点中过），而材质若停留在 `Opaque`，alpha 会被忽略，这块 9×6 m 板子就会以**纯黑墙**
+的形式出现在画面上。所以只有「引擎可见 + 材质全透明」能同时满足。授权位置：
+`app/scenes/Composition/Main.scene` 的 `Visibility` `visible: true`，以及
+`app/scenes/WorkbenchOuterDismiss/materials/Material.metaspatialmaterial`。
+
+`WorkbenchCenterContent` 在运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
 `PanelDimensions`，因此 scene 里授权的尺寸不是最终尺寸。
 
 ---
@@ -391,6 +398,14 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
   保持惰性，避免一次误触把 Workbench 关掉。判定写在 `CenterContentWorkspace` 的
   `isBlankSpaceDismissable`，回调经 `ImmersiveCenterContentPanel` 由 Activity 注入
   （`dismissWorkbenchFromCenterContent(source)`，`source` 仅用于 trace 区分两条入口）。
+
+**舞台上的扳机按压绝不收起 Workbench。** 舞台本身**没有命中几何**（它的点击是几何判定：
+`AnalogMediaStageTuningSystem` + `StageRayTargeting`；`videoSurface` 显式设了
+`MeshCollision.NoCollision`）。因此「按在幕布上、松手时仍指向幕布」这一击，其**松开事件会绕过
+幕布打到后方的 `WorkbenchOuterDismiss`**，被误读成"点了工作台外部"。`onStagePrimaryAction()`
+每次都会重新布防 `suppressOuterDismissUntilMs`，而该系统在按住扳机期间**每帧**都会调用它，
+所以守卫在整个按压期间保持有效、松手那一击被吞掉。这也覆盖了 Workbench 已可见的分支 ——
+即 Workbench 打开时点幕布同样不会把它关掉。
 
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace

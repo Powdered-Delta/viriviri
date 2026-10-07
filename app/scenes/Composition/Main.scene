@@ -68,7 +68,8 @@ entities:
         - 1.25
         - 2.2000000476837158
         componentVersion: 1
-      com.meta.components.Visibility: {}
+      com.meta.components.Visibility:
+        visible: true
     tag: WorkbenchOuterDismiss
 metadata:
   version: 1.35

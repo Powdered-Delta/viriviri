@@ -4,7 +4,12 @@ entities:
       name: Material
     com.meta.components.PbrMaterial:
       alphaCutoff: 0.5
-      alphaMode: Opaque
+      # UX: this material belongs to the invisible "click outside the workbench to dismiss"
+      # hit layer. baseColorFactor has no `data` -> exports as alpha 0. With Opaque that alpha
+      # was ignored, so the only way to keep the 9x6 m slab off-screen was Visible(false) --
+      # which also removed it from hit testing, so the layer could never be clicked. Blend
+      # honours the alpha, making it genuinely transparent while staying present for raycasts.
+      alphaMode: Blend
       baseColorFactor.colorspace: RGB
       baseColorFactor.type: color4
       baseColorTextureTransform.scale:

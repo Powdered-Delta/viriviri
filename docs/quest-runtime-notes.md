@@ -167,6 +167,16 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
 
 ## 当前边界
 
+- Workbench 外部收起命中层：`WorkbenchOuterDismiss` 必须**引擎可见**且材质**全透明**
+  （`alphaMode` = `Blend`、alpha 0）。**不得**设 `Visible(false)` —— 那会让实体退出命中测试，
+  该功能会彻底失效。2026-10-06 真机确诊并修复，根因与不变量见
+  [research/workbench-dismiss-hit-layer.md](research/workbench-dismiss-hit-layer.md)。
+- 舞台上的扳机按压绝不收起 Workbench：舞台无命中几何（其点击是几何判定），因此松手事件会穿过
+  幕布打到其后的外层命中板。由 `onStagePrimaryAction()` 每次重新布防
+  `suppressOuterDismissUntilMs` 兜住，不要改成只在按压边沿布防。
+- 抓本项目 trace 时**按 PID 过滤**，不要用 `-s TAG:I`：本项目 trace 多为 `Log.d`，会被该级别
+  滤掉，表现为"什么日志都没有"。用
+  `npx -y metavr shell "logcat -d -v time --pid=<pid>"`。
 - 无登录播放修复：`/x/web-interface/nav` 会以 `code=-101` 表示匿名状态，但仍在
   `data.wbi_img` 返回播放请求所需的公开 WBI key；provider 必须读取该字段而不是将
   该响应当作登录失败。未增加 Cookie、SESSDATA 或其它凭证。

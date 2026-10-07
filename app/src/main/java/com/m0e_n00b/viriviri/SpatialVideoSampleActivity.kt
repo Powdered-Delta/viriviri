@@ -637,8 +637,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     if (outerDismissInputAttached) return
     val entity = outerDismissEntity ?: return
     entity.setComponent(Hittable())
-    // UX: this is input-only scene geometry; never render its MSE primitive over the Workbench.
-    entity.setComponent(Visible(false))
+    // UX: deliberately NOT hidden. This is the outside-the-Workbench dismiss hit layer, and
+    // `Visible(false)` removes an entity from hit testing -- which is exactly why it could never
+    // be clicked (confirmed on device 2026-10-06: zero outerDismiss onClick calls in 19 s).
+    // Invisibility is the material's job instead: app/scenes/WorkbenchOuterDismiss uses
+    // alphaMode Blend with an alpha-0 baseColorFactor, so the 9x6 m slab renders nothing while
+    // staying present for the controller ray.
     systemManager.findSystem<SceneObjectSystem>().getSceneObject(entity)?.thenAccept { sceneObject ->
       sceneObject.addInputListener(
           object : InputListener {
@@ -1982,6 +1986,17 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * lets the canvas resolve slot visibility, which is what drives the workbench.
    */
   private fun onStagePrimaryAction() {
+    // UX: a stage action must never dismiss the Workbench through the outside-click layer.
+    //
+    // The stage carries NO hit geometry -- its tap is geometric (AnalogMediaStageTuningSystem +
+    // StageRayTargeting), see the NoCollision note on `videoSurface`. So the *release* of this very
+    // trigger pull travels past the stage and lands on `WorkbenchOuterDismiss`, which sits behind
+    // it. Without this guard the press opened the Workbench and the release closed it.
+    //
+    // This re-arms on every frame the trigger is held (that system calls here each frame while the
+    // user aims at the stage), so the guard stays alive for the whole press rather than relying on
+    // a fixed window measured from a single press edge.
+    suppressOuterDismissUntilMs = SystemClock.uptimeMillis() + OUTER_DISMISS_SUPPRESSION_MS
     if (::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible) {
       // Workbench dismissal belongs exclusively to WorkbenchOuterDismiss.
       // A MediaStage action must not cancel a just-opened panel route.
