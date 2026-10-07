@@ -398,6 +398,14 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
   `isBlankSpaceDismissable`，回调经 `ImmersiveCenterContentPanel` 由 Activity 注入
   （`dismissWorkbenchFromCenterContent(source)`，`source` 仅用于 trace 区分两条入口）。
 
+**舞台上的扳机按压绝不收起 Workbench。** 舞台本身**没有命中几何**（它的点击是几何判定：
+`AnalogMediaStageTuningSystem` + `StageRayTargeting`；`videoSurface` 显式设了
+`MeshCollision.NoCollision`）。因此「按在幕布上、松手时仍指向幕布」这一击，其**松开事件会绕过
+幕布打到后方的 `WorkbenchOuterDismiss`**，被误读成"点了工作台外部"。`onStagePrimaryAction()`
+每次都会重新布防 `suppressOuterDismissUntilMs`，而该系统在按住扳机期间**每帧**都会调用它，
+所以守卫在整个按压期间保持有效、松手那一击被吞掉。这也覆盖了 Workbench 已可见的分支 ——
+即 Workbench 打开时点幕布同样不会把它关掉。
+
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace
 └── Column [16dp 内边距, 空白点击 = 仅 WORKBENCH_EMPTY 路由下收起]
