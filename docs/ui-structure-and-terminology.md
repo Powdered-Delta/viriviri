@@ -77,7 +77,7 @@ graph TD
     Scene["Scene 根<br/>(Meta Spatial Editor 导出的 GLXF)"]
     Scene --> MediaRoom["MediaRoom<br/>环境 GLXF"]
     Scene --> CenterAuthored["WorkbenchCenterContent<br/>scene 节点 → panel @id/center_content_panel"]
-    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>Hittable 输入层，Visible(false)"]
+    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>Hittable 输入层，材质 Blend + alpha 0（可命中但不渲染）"]
 
     Root["workbenchRootEntity<br/>非 Panel 抓取锚点<br/>IsdkBoxCollider + IsdkGrabbable"]
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
@@ -157,9 +157,15 @@ app/scenes/Composition/Main.scene
 └── WorkbenchOuterDismiss  -> projref:WorkbenchOuterDismiss/...         全屏命中层
 ```
 
-`WorkbenchOuterDismiss` 在运行时被设为 `Hittable` + `Visible(false)`：它只提供
-「点击工作台外部收起」的命中几何，不渲染任何图元。`WorkbenchCenterContent` 在
-运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
+`WorkbenchOuterDismiss` 在运行时被设为 `Hittable`，但**不再设 `Visible(false)`**：它靠自身的
+PbrMaterial（`alphaMode` = `Blend`，`baseColorFactor` 的 alpha 为 0）在渲染上完全不可见，同时
+保留在命中测试中。**这两件事必须成对**：`Visible(false)` 会让实体退出命中测试（2026-10-06 真机
+确诊——该层从未被点中过），而材质若停留在 `Opaque`，alpha 会被忽略，这块 9×6 m 板子就会以**纯黑墙**
+的形式出现在画面上。所以只有「引擎可见 + 材质全透明」能同时满足。授权位置：
+`app/scenes/Composition/Main.scene` 的 `Visibility` `visible: true`，以及
+`app/scenes/WorkbenchOuterDismiss/materials/Material.metaspatialmaterial`。
+
+`WorkbenchCenterContent` 在运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
 `PanelDimensions`，因此 scene 里授权的尺寸不是最终尺寸。
 
 ---

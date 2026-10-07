@@ -46,3 +46,43 @@ click-to-dismiss **整条移除**。但那次移除**从未在真机上验证过
   说明外层命中层未被触达，需单独排查场景几何/朝向。
 - `dismissWorkbench source=` 能区分两条入口。
 - `.\scripts\build-windows-debug.ps1` 通过（172 单测）。
+
+---
+
+## 补充（2026-10-06 真机确诊 + 方案 A 实施）
+
+### 确诊
+
+PID 过滤的全量 logcat dump（工作台可见期间 19 秒）显示 `outerDismiss click` **0 次**，
+而同一 tag 的 Debug 级日志正常存在 ⇒ `onClick` 从未被调用，外层命中层未生效。
+几何已排除：`doubleSided: true`、9×6 m、无旋转、网格资源确实打进 APK。
+
+### 根因链
+
+```
+WorkbenchOuterDismiss.gltf 的 PbrMaterial：alphaMode: Opaque + baseColorFactor [0,0,0,0]
+  → Opaque 忽略 alpha → 该 9×6 m 板子会渲染成纯黑墙
+  → 唯一让它不出现在画面上的手段是 Visible(false)
+     （源文件 Visibility: {} 而 schema 默认值为 false；运行时 attachOuterDismissInput 再设一次）
+  → 而 Visible(false) 同时使实体退出命中测试
+  ⇒ 该层从设计上不可能被点中
+```
+
+### 方案 A 实施（提交 d10d76e）
+
+1. **场景**：用 mse-agent `set-property`（非手改 YAML）把 `WorkbenchOuterDismiss` 节点的
+   `Visibility.visible` 设为 true。
+2. **材质源**：`app/scenes/WorkbenchOuterDismiss/materials/Material.metaspatialmaterial` 的
+   `alphaMode` 由 `Opaque` 改为 `Blend`，让 alpha-0 成为真透明。
+3. **Kotlin**：`attachOuterDismissInput` 不再调用 `Visible(false)`。
+
+### 导出制品验证（构建重跑 `:app:export` 后）
+
+- `WorkbenchOuterDismiss.gltf` → `"alphaMode": "BLEND"` + `baseColorFactor [0,0,0,0]`
+- `Composition.glxf` → 该节点已无 Visible 组件；全文件 `Visible` 出现 **0 次**
+
+### 仍待真机确认
+
+- 点工作台之外应收起，且出现 `outerDismiss click workbenchVisible=true`。
+- **风险点**：该板子现在"引擎可见"，若透明材质仍写深度，可能挡掉工作台**后方**的环境几何
+  （环境在 z=2.2 之后）。若见到幕后环境消失，需关闭该材质的深度写入。
