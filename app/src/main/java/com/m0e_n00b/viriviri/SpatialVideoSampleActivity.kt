@@ -637,8 +637,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     if (outerDismissInputAttached) return
     val entity = outerDismissEntity ?: return
     entity.setComponent(Hittable())
-    // UX: this is input-only scene geometry; never render its MSE primitive over the Workbench.
-    entity.setComponent(Visible(false))
+    // UX: deliberately NOT hidden. This is the outside-the-Workbench dismiss hit layer, and
+    // `Visible(false)` removes an entity from hit testing -- which is exactly why it could never
+    // be clicked (confirmed on device 2026-10-06: zero outerDismiss onClick calls in 19 s).
+    // Invisibility is the material's job instead: app/scenes/WorkbenchOuterDismiss uses
+    // alphaMode Blend with an alpha-0 baseColorFactor, so the 9x6 m slab renders nothing while
+    // staying present for the controller ray.
     systemManager.findSystem<SceneObjectSystem>().getSceneObject(entity)?.thenAccept { sceneObject ->
       sceneObject.addInputListener(
           object : InputListener {
