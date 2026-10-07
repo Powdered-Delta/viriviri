@@ -1,0 +1,14 @@
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/prd.md", "reason": "核对实现是否满足 R1-R6 与 A1-A10；D1-D6 未确认前不得开工"}
+{"file": "docs/immersive-theme-runtime-design.md", "reason": "核对校验规则表（R5）与三类 group 分离是否被完整实现；默认组是否等价复刻现状"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "术语与 [实现]/[契约]/[未接线] 标注是评审基准；R1.2 要求增补两条事实"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "检查是否引入第二状态源或第二个可见性来源"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与测试要求"}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "核对单一播放器/单一视频 Surface 不变量未被 schema 或 adapter 破坏"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "核对合同类型安全与默认值/可空性处理"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对 core 纯函数与 app adapter 的职责边界（validator 必须无设备依赖）"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-danmaku-runtime.md", "reason": "核对弹幕 schema 字段是否与真实 runtime 能力一致，避免为死代码建模"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-spatial-scene-and-grab.md", "reason": "核对 anchor/entityRef 目录与场景真实节点一致"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-state-ownership-and-persistence.md", "reason": "核对是否消除重复映射、是否遵守唯一 owner"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-docs-specs-and-task-history.md", "reason": "核对未与既有任务/卡片重复，且术语与既有文档一致"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/review-round-1-disposition.md", "reason": "核对本轮修订是否逐条落实 P0/P1/P2；核对 A10（app 行为零变化）未被越界实现破坏"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/phase1-verification.md", "reason": "Phase 1 验证基线：126 测试、A10 证据、3 个已修缺陷与已知残留清单；复核时以此为对照"}

@@ -1,0 +1,17 @@
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/prd.md", "reason": "本任务的验收范围：R1-R6 需求、A1-A10 验收、D1-D6 待决策"}
+{"file": "docs/immersive-theme-runtime-design.md", "reason": "设计依据：现状 vs 目标矩阵、三类 group 领域模型、schema 草案、校验规则表、唯一 owner 表"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "主题运行时不得引入第二状态源；唯一 owner 约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Compose 组件与面板内容约定；componentId -> 实现映射需遵循"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "纯 Kotlin 合同/枚举/sealed interface 的类型安全约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "本阶段以纯 Kotlin 单测为主，需遵循项目质量门槛"}
+{"file": ".trellis/spec/frontend/media3-surface-handoff.md", "reason": "单一 ExoPlayer / 单一活动视频 Surface 不变量；schema 不得允许主题触碰 Surface"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "面板可见性/命中/reshape 的既有调试经验与坑位"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "core / compose / app 模块边界与文件放置约定"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "core 合同 -> app adapter 的跨层设计约定"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "必须复用既有 MediaOverlayContracts / MediaStageContracts，而不是新建平行模型"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-danmaku-runtime.md", "reason": "弹幕现状核实：单 surface、轨道状态归属、死代码清单（DanmakuLaneScheduler 未接线）"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-spatial-scene-and-grab.md", "reason": "场景/实体/面板注册/抓取现状核实：anchor 悬空、GrabPilotSystem 未注册、可见性 writer"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-state-ownership-and-persistence.md", "reason": "状态所有权与持久化核实：重复映射、持久化 key 分类"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-docs-specs-and-task-history.md", "reason": "文档/[契约]/[未接线] 清单与既有任务重叠图，避免重复建任务"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/review-round-1-disposition.md", "reason": "Review Round 1 的 14 条意见处置与已批准范围（Phase 0+1）；实现前必须确认没有越界到 Phase 2"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/phase1-verification.md", "reason": "Phase 1 的交付清单、验证证据、已修缺陷与**已知残留**（规则 3/5/6 未强制、D7/D8/D9）；Phase 2 开工前必读，避免把残留当已保证"}
