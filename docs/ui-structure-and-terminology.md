@@ -17,6 +17,7 @@
 | [prototypes/workbench/README.md](prototypes/workbench/README.md) | Web 原型的交互契约与信息层级 |
 | [spatial-coordinates.md](spatial-coordinates.md) | 坐标系与正负方向 |
 | [research/workbench-dismiss-hit-layer.md](research/workbench-dismiss-hit-layer.md) | 外部收起命中层的根因、修复与不变量 |
+| [immersive-theme-runtime-design.md](immersive-theme-runtime-design.md) | 主题运行时的现状核实、目标设计与三类 group 分离（**含本文标注的两处修正依据**） |
 
 标注约定：
 
@@ -168,6 +169,18 @@ PbrMaterial（`alphaMode` = `Blend`，`baseColorFactor` 的 alpha 为 0）在渲
 
 `WorkbenchCenterContent` 在运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
 `PanelDimensions`，因此 scene 里授权的尺寸不是最终尺寸。
+
+> **已核实（2026-10-07）：`CinemaTheme` 引用的场景 anchor 名在场景中全部不存在。**
+> `CinemaTheme.create()` 声明了 `media_stage_anchor`、`transport_anchor`、`system_toolbar_anchor`、
+> `browse_anchor`、`context_anchor`、`focus_anchor`、`action_sheet_anchor`、`pip_dock_anchor`、
+> `shorts_*_anchor`、`focus_content_top_right` 等名字，
+> 而 `app/scenes/Composition/Main.scene` 只有 3 个节点（`MediaRoom` / `WorkbenchCenterContent` /
+> `WorkbenchOuterDismiss`）—— **交集为空**。因此这些 anchor 名目前解析不到任何东西；
+> 它们不是"已授权的锚点"，而是尚未落地的目标命名。
+> 另外，10 个注册面板中**只有 `center_content_panel` 是场景授权的**，其余（含手工构建的
+> 视频 `PanelSceneObject`）都由 Kotlin 创建，全 Activity 共 **14 处**运行时 `Entity.create*`
+> 用于静态布局 —— 这是与本文 §8 维护约定第 1 条的既存偏差。
+> 详见 [immersive-theme-runtime-design.md](immersive-theme-runtime-design.md) §3.2。
 
 ---
 
@@ -637,12 +650,21 @@ PancakeActivity → PancakeScreen（MaterialTheme）
 | 术语 | 代码 | 状态 |
 | --- | --- | --- |
 | 槽位 / slot | `PanelSlot` | 实现（部分成员未接线） |
-| 呈现策略 | `PanelPresentationPolicy` | 契约（由主题驱动） |
+| 呈现策略 | `PanelPresentationPolicy` | 实现（**部分**：仅 `PERSISTENT` 被 `PlaybackCanvasReducer.visibleSlots()` 消费，见 `PlaybackCanvasContracts.kt:82-86`；`AUTO_FADE` / `ON_DEMAND` / `TRANSIENT` / `THEME_CONTROLLED` 无 reader） |
 | 主题布局 | `ThemeLayout` / `SlotPlacement` | 契约 |
 | 主题画布 | `WorkbenchCanvas`（core） | 契约 |
 | 组件树 | `ComponentNode` / `ComponentKind` / `ComponentGroup` | 契约 |
 | 系统工具模块 | `SystemToolbarModule` / `ToolbarModule` | 契约 |
 | 画中画坞 / PiP dock | `PipDock` / `ContentExclusion` | 契约 |
+
+> **已核实（2026-10-07）：上表中"主题布局 / 主题画布 / 组件树 / 系统工具模块 / PiP dock"五项
+> 不仅未接线，而且各自的关键字段零消费。**
+> 对 `app/src/main` 全仓搜索 `offsetMeters|placement(|SpatialAnchor|Meters3|ThemeLayout|sizeMeters`
+> → **零匹配**。`SlotPlacement` 的 anchor / offset / rotation / size / shape / parent / depthRelation
+> 没有任何 runtime reader；`SpatialTheme` 的唯一 runtime 消费者
+> `ImmersivePlaybackCanvasHost` 只读 `presentationPolicies`，且只消费其中的 `PERSISTENT`。
+> 真实布局在 app 模块的 `WorkbenchLayoutConfig`（Kotlin 常量），与主题契约**互不相通**。
+> 详见 [immersive-theme-runtime-design.md](immersive-theme-runtime-design.md) §3.1。
 
 `PanelSlot` 的实际接线情况：
 
@@ -728,7 +750,7 @@ SHORTS_COMMENTS  [契约]
 | --- | --- | --- |
 | 弹幕事件 | `DanmakuEvent` | 实现 |
 | 弹幕泳道族 | `DanmakuLaneFamily`（`SCROLLING` / `TOP_FIXED` / `BOTTOM_FIXED`） | 实现 |
-| 泳道调度 | `DanmakuLaneAssignment` / `prepareDanmaku()` / `scheduleDanmakuLanes()`（`DanmakuLaneScheduler.kt`） | 实现 |
+| 泳道调度 | `DanmakuLaneAssignment` / `prepareDanmaku()` / `scheduleDanmakuLanes()`（`DanmakuLaneScheduler.kt`） | **[未接线]**（**入口不可达**：唯一入口 `ViriViriAppState.loadDanmaku()` 无生产调用者；`loadDanmaku() → prepareDanmaku()` 这级调用存在，但无人调用 `loadDanmaku()`。真实轨道占用在 `DanmakuCanvasRuntime` 内 per-surface） |
 | 弹幕运行时 | `DanmakuCanvasRuntime` / `DanmakuStreamSource` / `ActiveDanmaku`（`DanmakuRuntime.kt`） | 实现 |
 | 渲染度量 | `DanmakuRenderMetrics` / `DanmakuRenderConfig` | 实现 |
 | 数据源 | `parseBilibiliDanmakuXml()` / `buildBilibiliDanmakuEvent()`（`BilibiliDanmaku.kt`）+ `BilibiliDanmakuProto` | 实现 |

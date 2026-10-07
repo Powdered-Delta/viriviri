@@ -28,7 +28,7 @@ class MediaOverlayContractsTest {
                         laneCount = 0,
                     )
                 ),
-            layers = listOf(DanmakuDepthLayer("layer", "missing", Float.NaN, 0)),
+            layers = listOf(DanmakuDepthLayer("layer", setOf("missing"), Float.NaN, 0)),
         )
 
     val topologyIssues = MediaOverlayValidator.validateTopology(listOf(surface), listOf(group))
@@ -221,7 +221,7 @@ class MediaOverlayContractsTest {
       id: String,
       surfaceId: String,
       style: OverlayStyleOverride = OverlayStyleOverride(),
-  ) = DanmakuDepthLayer(id, surfaceId, 0f, 10, style)
+  ) = DanmakuDepthLayer(id, setOf(surfaceId), 0f, 10, style)
 
   private fun group(
       id: String,

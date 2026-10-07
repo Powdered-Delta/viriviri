@@ -1,0 +1,618 @@
+{
+  "schemaVersion": 1,
+  "id": "cinema",
+  "displayName": "Cinema",
+  "scene": {
+    "reference": "themes/cinema/scene/Main.metaspatial",
+    "requiredAnchors": [
+      "media_stage_anchor",
+      "transport_anchor",
+      "system_toolbar_anchor",
+      "browse_anchor",
+      "context_anchor",
+      "focus_anchor",
+      "action_sheet_anchor",
+      "pip_dock_anchor",
+      "shorts_media_stage_anchor",
+      "shorts_transport_anchor",
+      "shorts_details_anchor",
+      "shorts_comments_anchor",
+      "focus_content_top_right"
+    ]
+  },
+
+  "panels": {
+    "mediaStage": {
+      "panelClass": "MEDIA_SURFACE",
+      "component": "mediaStage",
+      "anchor": { "sceneNode": "media_stage_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 1.6, "height": 0.9 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 0,
+      "overflow": "CLIP",
+      "hitTest": "CUSTOM_RECT",
+      "themeableGeometry": ["sizeMeters", "shape"]
+    },
+    "transport": {
+      "panelClass": "UI_PANEL",
+      "component": "transport",
+      "anchor": null,
+      "parent": { "panel": "mediaStage", "attach": "bottomCenter" },
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.9, "height": 0.24 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "FRONT_OF_PARENT",
+      "zOrder": 10,
+      "overflow": "VISIBLE",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "centerContent": {
+      "panelClass": "SCENE_PANEL",
+      "component": "centerContent",
+      "anchor": null,
+      "parent": { "panel": "mediaStage", "attach": "center" },
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": -0.52 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 1.5, "height": 1.2 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "FRONT_OF_PARENT",
+      "zOrder": 5,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder"
+      ]
+    },
+    "leftDetailRail": {
+      "panelClass": "UI_PANEL",
+      "component": "detailRail",
+      "anchor": { "sceneNode": "browse_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": -45.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.7, "height": 0.9 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 20,
+      "overflow": "VISIBLE",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "rightContextRail": {
+      "panelClass": "UI_PANEL",
+      "component": "contextRail",
+      "anchor": { "sceneNode": "context_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 45.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.7, "height": 0.9 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 20,
+      "overflow": "VISIBLE",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "systemToolbar": {
+      "panelClass": "UI_PANEL",
+      "component": "systemToolbar",
+      "anchor": { "sceneNode": "system_toolbar_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.48, "height": 0.16 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 30,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "inputConsole": {
+      "panelClass": "UI_PANEL",
+      "component": "inputConsole",
+      "anchor": { "sceneNode": "action_sheet_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.58, "height": 0.42 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 40,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "focusPanel": {
+      "panelClass": "UI_PANEL",
+      "component": "focusPanel",
+      "anchor": { "sceneNode": "focus_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 1.5, "height": 1.0 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 15,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "shortsDetailsRail": {
+      "panelClass": "UI_PANEL",
+      "component": "shortsDetailsRail",
+      "anchor": { "sceneNode": "shorts_details_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.68, "height": 1.1 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 20,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    },
+    "shortsCommentsRail": {
+      "panelClass": "UI_PANEL",
+      "component": "shortsCommentsRail",
+      "anchor": { "sceneNode": "shorts_comments_anchor" },
+      "parent": null,
+      "offsetMeters": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "rotationDegrees": { "pitch": 0.0, "yaw": 0.0, "roll": 0.0 },
+      "sizeMeters": { "width": 0.68, "height": 1.1 },
+      "shape": { "kind": "quad" },
+      "depthRelation": "ROOT",
+      "zOrder": 20,
+      "overflow": "CLIP",
+      "hitTest": "PANEL",
+      "themeableGeometry": [
+        "sizeMeters",
+        "shape",
+        "offsetMeters",
+        "rotationDegrees",
+        "zOrder",
+        "hitTest",
+        "overflow"
+      ]
+    }
+  },
+
+  "slotBindings": [
+    { "slot": "MEDIA_STAGE", "panel": "mediaStage", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "TRANSPORT", "panel": "transport", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "BROWSE", "panel": "centerContent", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "SYSTEM_TOOLBAR", "panel": "systemToolbar", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "ACTION_SHEET", "panel": "inputConsole", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "FOCUS", "panel": "focusPanel", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "SHORTS_DETAILS", "panel": "shortsDetailsRail", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "SHORTS_COMMENTS", "panel": "shortsCommentsRail", "sharePolicy": "EXCLUSIVE" },
+    { "slot": "CONTEXT", "panel": "leftDetailRail", "sharePolicy": "MIRRORED", "mirrorGroup": "rails" },
+    { "slot": "CONTEXT", "panel": "rightContextRail", "sharePolicy": "MIRRORED", "mirrorGroup": "rails" }
+  ],
+
+  "layouts": {
+    "WATCH": {
+      "placements": {
+        "MEDIA_STAGE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "media_stage_anchor" },
+          "sizeMeters": { "width": 1.6, "height": 0.9 }
+        },
+        "TRANSPORT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "transport_anchor" },
+          "sizeMeters": { "width": 0.9, "height": 0.24 },
+          "parentSlot": "MEDIA_STAGE",
+          "depthRelation": "FRONT_OF_PARENT"
+        },
+        "SYSTEM_TOOLBAR": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "system_toolbar_anchor" },
+          "sizeMeters": { "width": 0.48, "height": 0.16 }
+        },
+        "BROWSE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "browse_anchor" },
+          "sizeMeters": { "width": 0.78, "height": 1.18 }
+        },
+        "CONTEXT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "context_anchor" },
+          "sizeMeters": { "width": 0.72, "height": 1.18 }
+        },
+        "FOCUS": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "focus_anchor" },
+          "sizeMeters": { "width": 1.5, "height": 1.0 }
+        },
+        "ACTION_SHEET": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "action_sheet_anchor" },
+          "sizeMeters": { "width": 0.58, "height": 0.42 }
+        }
+      }
+    },
+    "FOCUS": {
+      "placements": {
+        "MEDIA_STAGE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "pip_dock_anchor" },
+          "sizeMeters": { "width": 0.62, "height": 0.35 }
+        },
+        "TRANSPORT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "transport_anchor" },
+          "sizeMeters": { "width": 0.9, "height": 0.24 },
+          "parentSlot": "MEDIA_STAGE",
+          "depthRelation": "FRONT_OF_PARENT"
+        },
+        "SYSTEM_TOOLBAR": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "system_toolbar_anchor" },
+          "sizeMeters": { "width": 0.48, "height": 0.16 }
+        },
+        "BROWSE": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "browse_anchor" },
+          "sizeMeters": { "width": 0.78, "height": 1.18 }
+        },
+        "CONTEXT": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "context_anchor" },
+          "sizeMeters": { "width": 0.72, "height": 1.18 }
+        },
+        "FOCUS": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "focus_anchor" },
+          "sizeMeters": { "width": 1.5, "height": 1.0 }
+        },
+        "ACTION_SHEET": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "action_sheet_anchor" },
+          "sizeMeters": { "width": 0.58, "height": 0.42 }
+        }
+      },
+      "pipDocks": {
+        "focus-pip": {
+          "anchor": { "sceneNode": "pip_dock_anchor" },
+          "sizeMeters": { "width": 0.62, "height": 0.35 },
+          "exclusion": {
+            "id": "focus-main-top-right",
+            "anchor": { "sceneNode": "focus_content_top_right" }
+          }
+        }
+      }
+    },
+    "EDIT": {
+      "placements": {
+        "MEDIA_STAGE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "media_stage_anchor" },
+          "sizeMeters": { "width": 1.6, "height": 0.9 }
+        },
+        "TRANSPORT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "transport_anchor" },
+          "sizeMeters": { "width": 0.9, "height": 0.24 },
+          "parentSlot": "MEDIA_STAGE",
+          "depthRelation": "FRONT_OF_PARENT"
+        },
+        "SYSTEM_TOOLBAR": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "system_toolbar_anchor" },
+          "sizeMeters": { "width": 0.48, "height": 0.16 }
+        },
+        "BROWSE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "browse_anchor" },
+          "sizeMeters": { "width": 0.78, "height": 1.18 }
+        },
+        "CONTEXT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "context_anchor" },
+          "sizeMeters": { "width": 0.72, "height": 1.18 }
+        },
+        "FOCUS": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "focus_anchor" },
+          "sizeMeters": { "width": 1.5, "height": 1.0 }
+        },
+        "ACTION_SHEET": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "action_sheet_anchor" },
+          "sizeMeters": { "width": 0.58, "height": 0.42 }
+        }
+      }
+    },
+    "SHORTS": {
+      "placements": {
+        "MEDIA_STAGE": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "shorts_media_stage_anchor" },
+          "sizeMeters": { "width": 0.62, "height": 1.1 }
+        },
+        "TRANSPORT": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "shorts_transport_anchor" },
+          "sizeMeters": { "width": 0.62, "height": 0.28 },
+          "parentSlot": "MEDIA_STAGE",
+          "depthRelation": "FRONT_OF_PARENT"
+        },
+        "SYSTEM_TOOLBAR": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "system_toolbar_anchor" },
+          "sizeMeters": { "width": 0.48, "height": 0.16 }
+        },
+        "SHORTS_DETAILS": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "shorts_details_anchor" },
+          "sizeMeters": { "width": 0.68, "height": 1.1 }
+        },
+        "SHORTS_COMMENTS": {
+          "visibility": "VISIBLE",
+          "anchor": { "sceneNode": "shorts_comments_anchor" },
+          "sizeMeters": { "width": 0.68, "height": 1.1 }
+        },
+        "BROWSE": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "browse_anchor" },
+          "sizeMeters": { "width": 0.78, "height": 1.18 }
+        },
+        "CONTEXT": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "context_anchor" },
+          "sizeMeters": { "width": 0.72, "height": 1.18 }
+        },
+        "FOCUS": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "focus_anchor" },
+          "sizeMeters": { "width": 1.5, "height": 1.0 }
+        },
+        "ACTION_SHEET": {
+          "visibility": "HIDDEN",
+          "anchor": { "sceneNode": "action_sheet_anchor" },
+          "sizeMeters": { "width": 0.58, "height": 0.42 }
+        }
+      }
+    }
+  },
+
+  "toolbarModules": [
+    { "id": "clock", "module": "CLOCK" },
+    { "id": "battery", "module": "BATTERY" },
+    { "id": "enter2d", "module": "ENTER_2D" },
+    { "id": "passthrough", "module": "PASSTHROUGH" },
+    { "id": "more", "module": "MORE_ACTIONS" }
+  ],
+
+  "presentationPolicies": {
+    "MEDIA_STAGE": "PERSISTENT",
+    "TRANSPORT": "AUTO_FADE",
+    "SYSTEM_TOOLBAR": "PERSISTENT",
+    "BROWSE": "ON_DEMAND",
+    "CONTEXT": "ON_DEMAND",
+    "FOCUS": "ON_DEMAND",
+    "ACTION_SHEET": "TRANSIENT",
+    "SHORTS_DETAILS": "AUTO_FADE",
+    "SHORTS_COMMENTS": "AUTO_FADE"
+  },
+
+  "canvases": [
+    {
+      "id": "cinema-watch-quiet",
+      "mode": "WATCH",
+      "visibleSlots": ["MEDIA_STAGE"],
+      "visibleComponentIds": ["system-status-strip", "content-navigation-slot", "media-stage"]
+    },
+    {
+      "id": "cinema-watch-controls",
+      "mode": "WATCH",
+      "visibleSlots": ["MEDIA_STAGE", "SYSTEM_TOOLBAR", "TRANSPORT"],
+      "visibleComponentIds": [
+        "system-status-strip",
+        "content-navigation-slot",
+        "media-stage",
+        "watch-title",
+        "transport-action-strip",
+        "seek-timeline",
+        "playback-config-popup",
+        "grab-handle"
+      ],
+      "overflowPolicy": "VISIBLE",
+      "preservesHitTesting": true
+    },
+    {
+      "id": "cinema-shorts-quiet",
+      "mode": "SHORTS",
+      "visibleSlots": ["MEDIA_STAGE", "TRANSPORT"],
+      "visibleComponentIds": ["media-stage", "shorts-quiet-action-strip"]
+    },
+    {
+      "id": "cinema-shorts-controls",
+      "mode": "SHORTS",
+      "visibleSlots": ["MEDIA_STAGE", "SHORTS_DETAILS", "SHORTS_COMMENTS", "TRANSPORT"],
+      "visibleComponentIds": [
+        "shorts-details-rail",
+        "media-stage",
+        "shorts-stage-controls",
+        "shorts-comments-rail",
+        "grab-handle"
+      ],
+      "overflowPolicy": "VISIBLE",
+      "preservesHitTesting": true
+    }
+  ],
+
+  "componentGroups": [
+    {
+      "id": "default-cinema-playback-canvas",
+      "reusable": true,
+      "members": [
+        { "id": "system-status-strip", "kind": "SEMANTIC_MODULE" },
+        { "id": "content-navigation-slot", "kind": "SLOT" },
+        { "id": "media-stage", "kind": "SEMANTIC_MODULE" },
+        { "id": "watch-title", "kind": "SEMANTIC_MODULE" },
+        { "id": "transport-action-strip", "kind": "SEMANTIC_MODULE" },
+        { "id": "seek-timeline", "kind": "SEMANTIC_MODULE" },
+        { "id": "playback-config-popup", "kind": "POPUP" },
+        { "id": "grab-handle", "kind": "SEMANTIC_MODULE" },
+        { "id": "shorts-quiet-action-strip", "kind": "SEMANTIC_MODULE" },
+        { "id": "shorts-details-rail", "kind": "SEMANTIC_MODULE" },
+        { "id": "shorts-stage-controls", "kind": "SEMANTIC_MODULE" },
+        { "id": "shorts-comments-rail", "kind": "SEMANTIC_MODULE" }
+      ]
+    }
+  ],
+
+  "rootComponent": {
+    "id": "default-cinema-playback-canvas",
+    "kind": "PANEL",
+    "children": [
+      { "id": "system-status-strip", "kind": "SEMANTIC_MODULE" },
+      { "id": "content-navigation-slot", "kind": "SLOT" },
+      { "id": "media-stage", "kind": "SEMANTIC_MODULE" },
+      { "id": "watch-title", "kind": "SEMANTIC_MODULE" },
+      { "id": "transport-action-strip", "kind": "SEMANTIC_MODULE" },
+      { "id": "seek-timeline", "kind": "SEMANTIC_MODULE" },
+      { "id": "playback-config-popup", "kind": "POPUP" },
+      { "id": "grab-handle", "kind": "SEMANTIC_MODULE" },
+      { "id": "shorts-quiet-action-strip", "kind": "SEMANTIC_MODULE" },
+      { "id": "shorts-details-rail", "kind": "SEMANTIC_MODULE" },
+      { "id": "shorts-stage-controls", "kind": "SEMANTIC_MODULE" },
+      { "id": "shorts-comments-rail", "kind": "SEMANTIC_MODULE" }
+    ],
+    "namedSlots": {
+      "browse": [{ "id": "browse-panel", "kind": "PANEL" }],
+      "context": [
+        {
+          "id": "context-tabs",
+          "kind": "TAB_BAR",
+          "dataBindings": { "video": "currentVideo" },
+          "children": [
+            { "id": "playlist-list", "kind": "SEMANTIC_MODULE" },
+            { "id": "related-list", "kind": "SEMANTIC_MODULE" },
+            { "id": "video-details", "kind": "SEMANTIC_MODULE" }
+          ]
+        }
+      ]
+    }
+  },
+
+  "palette": { "preset": "DARK" },
+
+  "grabGroups": [
+    {
+      "id": "workbench",
+      "handleRef": "workbenchRoot",
+      "mechanism": "NATIVE_PARENT",
+      "members": [
+        { "entityRef": "grabBar", "follow": "TRANSLATION_AND_ROTATION" },
+        { "entityRef": "mediaStage", "follow": "TRANSLATION_AND_ROTATION" }
+      ],
+      "lifecycle": "ALWAYS",
+      "lostTrackingPolicy": "FREEZE_AT_LAST_POSE",
+      "suppressOthersWhileGrabbed": true
+    }
+  ],
+
+  "danmakuGroups": [
+    {
+      "id": "mainDanmaku",
+      "allocationWeight": 1.0,
+      "laneStateSharing": "SHARED",
+      "maxActiveItems": 240,
+      "occlusionPolicy": "AVOID_PROJECTED_OVERLAP",
+      "occlusionDomainId": "stageDomain",
+      "sharedCoordinateSpace": { "widthUnits": 1.0, "heightUnits": 1.0 },
+      "laneSets": [
+        {
+          "id": "scrollRtl",
+          "laneFamily": "SCROLLING",
+          "emissionDirection": "RIGHT_TO_LEFT",
+          "laneCount": 12
+        },
+        { "id": "topFixed", "laneFamily": "TOP_FIXED", "laneCount": 3 },
+        { "id": "bottomFixed", "laneFamily": "BOTTOM_FIXED", "laneCount": 3 }
+      ],
+      "layers": [
+        {
+          "id": "danmakuL1",
+          "surfaceIds": ["danmaku_overlay_panel"],
+          "depthOffsetMeters": -0.01,
+          "maxActiveItems": 240
+        }
+      ]
+    }
+  ],
+
+  "danmakuOcclusionDomains": [
+    { "id": "stageDomain", "groupIds": ["mainDanmaku"], "requireCrossGroupChecks": true }
+  ]
+}

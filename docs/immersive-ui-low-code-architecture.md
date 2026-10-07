@@ -7,7 +7,7 @@
 - 本文描述的是目标架构和已确认的设计边界，不代表功能已经实现。
 - 现有 Media3 跨 2D / 沉浸式输出交接必须保持单一 `ExoPlayer` 和单一活动视频 Surface。
 - 固定的场景模型、环境、槽位锚点和主题装饰由 Meta Spatial Editor 场景负责；按用户动作出现的 Focus、Drawer、ActionSheet、弹幕实体等属于运行时动态内容。
-- 当前项目没有可用的 `mse-agent`。在新增固定场景对象前必须先安装 Meta Spatial Editor；不得将新的固定空间布局硬编码为 Kotlin `Entity.create()`。
+- 当前项目**已安装** Meta Spatial Editor v16：`mse-agent.exe` 位于 `D:\Program Files\Meta Spatial Editor\v16\Resources\mse-agent.exe`，且 `app/build.gradle.kts` 的 `spatial.scenes.cliPath` 已把导出 CLI 指向同一版本目录（`preBuild` 依赖 `export`）。已核实其 `-h` 返回完整子命令表；**尚未核实**它在本项目当前场景上的实际读写能力（需编辑器运行并监听 IPC）—— 新增固定场景对象前应先做这一步实测。不得将新的固定空间布局硬编码为 Kotlin `Entity.create()`（当前存在 14 处既存偏差，见 [immersive-theme-runtime-design.md](immersive-theme-runtime-design.md) §3.2）。
 
 ## 设计目标
 

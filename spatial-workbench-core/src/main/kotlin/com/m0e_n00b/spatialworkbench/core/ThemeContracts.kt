@@ -61,9 +61,17 @@ sealed interface SpatialAnchor {
   data class SlotAnchor(val slot: PanelSlot) : SpatialAnchor
 }
 
+/**
+ * Local placement of a panel relative to a reference frame.
+ *
+ * The reference frame is either a scene anchor ([anchor] non-null, owned by the scene and read-only
+ * at runtime, see design §5.5 rule 1) or the parent panel/slot ([parentSlot] non-null). Both may be
+ * present: rule 4 of design §5.5 composes `inverse(parentWorldPose) x anchorWorldPose x themeLocal`,
+ * which is how the current `TRANSPORT` placement is declared. A placement with neither is invalid.
+ */
 data class SlotPlacement(
     val visibility: PanelVisibility,
-    val anchor: SpatialAnchor,
+    val anchor: SpatialAnchor?,
     val offsetMeters: Meters3 = Meters3(),
     val rotationDegrees: EulerDegrees = EulerDegrees(),
     val sizeMeters: PanelSizeMeters,
@@ -90,10 +98,23 @@ data class WorkbenchCanvas(
     val preservesHitTesting: Boolean = true,
 )
 
+/**
+ * UI composition group (design §4.2). It only owns UI composition: members, their render order and
+ * the slots they may be attributed to. It never carries entity, grab or render-target semantics.
+ */
 data class ComponentGroup(
     val id: String,
     val members: List<ComponentNode>,
-)
+    /** Human-facing label; blank means "same as [id]". */
+    val label: String = "",
+    /** Slots this group may be attributed to; empty = unrestricted. */
+    val allowedSlots: Set<PanelSlot> = emptySet(),
+    /** True when the group may be referenced as a reusable recipe by another theme. */
+    val reusable: Boolean = true,
+) {
+  val effectiveLabel: String
+    get() = label.ifBlank { id }
+}
 
 data class ThemeLayout(
     val placements: Map<PanelSlot, SlotPlacement>,
@@ -182,6 +203,25 @@ data class SpatialTheme(
     val canvases: List<WorkbenchCanvas> = emptyList(),
     val presentationPolicies: Map<PanelSlot, PanelPresentationPolicy> = emptyMap(),
   val palette: CinemaPalette = CinemaPalette.DARK,
+    /** Declarative theme schema revision; migrated before validation (R2). */
+    val schemaVersion: Int = ThemeSchema.CURRENT_SCHEMA_VERSION,
+    /**
+     * Scene-provided anchor node names this theme depends on. Anchors are authored in
+     * Meta Spatial Editor and are the only source of static spatial placement (design §5.1).
+     */
+    val requiredAnchors: Set<String> = emptySet(),
+    /**
+     * Panel instance registry (1 panel = 1 instance). Per-mode geometry stays in
+     * [ThemeLayout.placements]; [PanelSpec.placement] carries the theme's default-mode geometry.
+     */
+    val panels: Map<PanelId, PanelSpec> = emptyMap(),
+    /** Slot -> panel bindings. A slot may be bound by N panels only with an explicit share policy. */
+    val slotBindings: List<SlotBinding> = emptyList(),
+    /** Spatial manipulation groups (R4.2). Independent id space from UI composition. */
+    val grabGroups: List<GrabGroupSpec> = emptyList(),
+    /** Danmaku render-target groups (R4.3). Independent id space from slots. */
+    val danmakuGroups: List<DanmakuSurfaceGroup> = emptyList(),
+    val danmakuOcclusionDomains: List<DanmakuOcclusionDomain> = emptyList(),
 ) {
   fun placement(mode: ImmersiveLayoutMode, slot: PanelSlot): SlotPlacement? =
       layouts[mode]?.placements?.get(slot)
@@ -191,4 +231,9 @@ data class SpatialTheme(
 
   fun allowsDefaultCanvasHide(slot: PanelSlot): Boolean =
       presentationPolicy(slot) != PanelPresentationPolicy.PERSISTENT
+
+  fun panel(id: PanelId): PanelSpec? = panels[id]
+
+  /** All bindings that claim [slot], in declaration order. */
+  fun bindingsFor(slot: SlotId): List<SlotBinding> = slotBindings.filter { it.slot == slot }
 }

@@ -54,6 +54,12 @@ enum class CaptionDisplayMode {
   BILINGUAL,
 }
 
+/** Whether the lane occupancy state is one group-level state or one state per surface (R7.5). */
+enum class LaneStateSharing {
+  SHARED,
+  ISOLATED,
+}
+
 data class OverlayTextLayoutStyle(
     val writingMode: TextWritingMode = TextWritingMode.HORIZONTAL_TB,
     val direction: TextDirection = TextDirection.AUTO,
@@ -102,13 +108,38 @@ data class DanmakuLaneSetSpec(
     val laneCount: Int,
 )
 
+/**
+ * A depth layer of a danmaku group.
+ *
+ * [surfaceIds] is an **allocation domain, not a duplication domain** (design §4.4, decision D4=A):
+ * one event is assigned to exactly one of these surfaces by a single deterministic surface-selection
+ * step. If a product really needs the same event drawn on several surfaces, that must be declared
+ * explicitly through [duplicateTo] instead of being implied by [surfaceIds].
+ *
+ * When the owning group uses [LaneStateSharing.ISOLATED] and this layer binds more than one surface,
+ * each surface keeps its own lane state, so a per-surface quota must be declared in [surfaceQuotas];
+ * otherwise the capacity is ambiguous (`AmbiguousLaneSharing`).
+ */
 data class DanmakuDepthLayer(
     val id: String,
-    val surfaceId: String,
+    val surfaceIds: Set<String>,
     val depthOffsetMeters: Float,
     val maxActiveItems: Int,
     val basicStyle: OverlayStyleOverride = OverlayStyleOverride(),
-)
+    /** Explicit copy semantics: surfaces that must additionally receive a duplicate of the event. */
+    val duplicateTo: Set<String> = emptySet(),
+    /** Per-surface active-item quota, required for ISOLATED lane state with multiple surfaces. */
+    val surfaceQuotas: Map<String, Int> = emptyMap(),
+) {
+  /** Every surface this layer may touch (allocation targets plus explicit duplicates). */
+  fun allSurfaceIds(): Set<String> = surfaceIds + duplicateTo
+
+  /** Effective capacity for [surfaceId]: layer quota, per-surface quota, and surface capacity bound. */
+  fun effectiveCapacity(surfaceId: String, surfaceCapacity: Int): Int {
+    val quota = surfaceQuotas[surfaceId] ?: maxActiveItems
+    return minOf(surfaceCapacity, maxActiveItems, quota)
+  }
+}
 
 data class DanmakuSurfaceGroup(
     val id: String,
@@ -117,6 +148,12 @@ data class DanmakuSurfaceGroup(
     val laneSets: List<DanmakuLaneSetSpec>,
     val layers: List<DanmakuDepthLayer>,
     val occlusionPolicy: DanmakuOcclusionPolicy = DanmakuOcclusionPolicy.AVOID_PROJECTED_OVERLAP,
+    /** One shared lane-occupancy state for the whole group, or one state per surface (R7.5). */
+    val laneStateSharing: LaneStateSharing = LaneStateSharing.SHARED,
+    /** Group-wide active-item ceiling across all layers and surfaces; null = only surface capacity. */
+    val maxActiveItems: Int? = null,
+    /** Viewpoint-occlusion domain this group belongs to, when it is checked across groups. */
+    val occlusionDomainId: String? = null,
 )
 
 data class DanmakuOcclusionDomain(
