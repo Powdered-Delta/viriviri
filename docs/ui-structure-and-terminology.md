@@ -16,6 +16,7 @@
 | [immersive-ui-low-code-architecture.md](immersive-ui-low-code-architecture.md) | 目标架构与主题系统设计（含大量未实现项） |
 | [prototypes/workbench/README.md](prototypes/workbench/README.md) | Web 原型的交互契约与信息层级 |
 | [spatial-coordinates.md](spatial-coordinates.md) | 坐标系与正负方向 |
+| [research/workbench-dismiss-hit-layer.md](research/workbench-dismiss-hit-layer.md) | 外部收起命中层的根因、修复与不变量 |
 
 标注约定：
 
