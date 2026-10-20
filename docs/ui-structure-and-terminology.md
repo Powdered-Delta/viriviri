@@ -107,14 +107,21 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。
 
 媒体面板**不**直接绑在 `spatialized_video_panel` 上，而是绑在运行时创建的子实体
-`videoSurfaceEntity` 上。[实现] compositor 视频、`StageBackdrop` 和 `DanmakuOverlay` 都使用同一
-`currentVideoContentQuad()` 宽高与共享 `playbackCurvature`；任一画幅裁切/用户比例变化都会同批 reshape。
+`videoSurfaceEntity` 上。[实现] `applyPlaybackStageParameters()` 在一次状态 emission 中接收比例、缩放、曲率，
+更新完全部参数后，由 `currentPlaybackStageGeometry()` / `playbackStageGeometry()` 计算同一份
+`PlaybackStageGeometry` 下发给视频、开孔、`StageBackdrop` 和 `DanmakuOverlay`。
+视频使用 `videoContent`，幕布压暗与弹幕使用完整 16:9 的 `viewport`，不随视频比例缩窄（方案 A）。
 曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**（不是累加）。
+固定 1920×1080 FIT 缓冲中的黑边由 `StageVideoCrop` / SDK `Crop` 去除；`videoShape` 是裁切前的物理尺寸，
+裁切后的视频与开孔范围共同收紧到 `videoContent`，避免把已有黑边的缓冲再次压进竖屏矩形。
 `videoShapeOptions()` 的 panel shape 同时驱动 compositor 视频和 SDK 生成的主场景缓冲开孔网格。
 视频不设置自定义 `sceneMeshCreator`：SDK 0.13.2 遇到自定义 creator 会提前返回，跳过默认开孔材质配置；
 仅阴影 override 会导致完整视频开孔消失。当前没有独立阴影网格或应用自建的反向弧形裁切面。
 backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
 只保留其设计层间距，曲率补偿完全相同。
+[实现] reshape 会保留原有原生 scale；宿主因而重置为单位 scale，并在 ECS 写入
+`entityLocalZForSurface(baseLocalZ)` 后，将 `worldPoseOf()` 算出的世界姿态提交到对应的
+`PanelSceneObject`。局部 Z 已匹配也不跳过新建/reshape 后的原生姿态提交。
 [实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，开孔网格不独立拥有输入或视频 Surface。
 `LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
 `spatialized_video_panel` 仍是舞台根；只移动 surface/overlay carrier，不会带动 rail / transport / navigation /
@@ -128,10 +135,14 @@ ALPHA_BLEND，避免默认 MASKED 将弹幕字形当二值开孔并写深度。�
 ```mermaid
 flowchart LR
     Env["环境模型 / 天空背景"] --> Eye["主场景 eye buffer"]
-    Shape["videoShapeOptions / 共享尺寸与曲率"] --> Aperture["SDK 视频开孔网格 · OPAQUE"]
+    Params["原生输入 → appState emission"] --> Geometry["PlaybackStageGeometry<br/>共享 scale / curvature"]
+    Geometry --> Shape["videoShape + videoCrop"]
+    Geometry --> Viewport["完整 viewport · 16:9<br/>弹幕方案 A / 压暗层"]
+    Shape --> Aperture["SDK 视频开孔网格 · OPAQUE"]
     Shape --> Video["视频 compositor layer · zIndex 1"]
     Aperture --> Eye
-    UI["压暗层 2 / 弹幕与工作台 3<br/>ALPHA_BLEND · 各自可见性"] --> Composite["最终 compositor 合成"]
+    Viewport --> UI["压暗层 2 / 弹幕与工作台 3<br/>ALPHA_BLEND · 各自可见性"]
+    UI --> Composite["最终 compositor 合成"]
     Eye --> Composite
     Video --> Composite
 ```
@@ -241,8 +252,8 @@ app/scenes/Composition/Main.scene
 | `mr_panel` | System toolbar / Global nav | `IntentPanelRegistration`(`MRPanel`) | `GlobalNavigation` | 1.24 × 0.30 | 520 × 128 @600 |
 | `center_content_panel` | Center workspace | `ComposeViewPanelRegistration` | `ImmersiveCenterContentPanel` | `centerWidth` × `centerHeight` | 768 × 615 @512 |
 | `input_method_panel` | Input console | `ComposeViewPanelRegistration` | `ImmersiveInputMethodPanel` | 1.62 × 0.68 | 832 × 348 @512 |
-| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | 与 compositor 视频共用 `currentVideoContentQuad()` 宽高 | 长边 1280 dp，display aspect 同步 shape @800 |
-| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | 与 compositor 视频共用 `currentVideoContentQuad()` 宽高 | 长边 1280 dp，display aspect 同步 shape @800 |
+| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | `PlaybackStageGeometry.viewport`，完整舞台宽高 × 共享 scale | 固定 1280×720 dp @800，与物理 16:9 匹配 |
+| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | `PlaybackStageGeometry.viewport`，方案 A，不跟视频比例变化 | 固定 1280×720 dp @800，不挤压字体 |
 | `grab_bar_panel` | Grab bar | `LayoutXMLPanelRegistration`(`layout/grab_bar.xml`) | 图标 + 文案 | `GRAB_BAR_WIDTH_METERS` × `GRAB_BAR_HEIGHT_METERS` | 512 × 56 @600 |
 | `wrist_debug_panel` | Wrist debug（仅 DEBUG） | `LayoutXMLPanelRegistration` | 版本号文本 | `WRIST_DEBUG_PANEL_*` | 224 × 80 @1600 |
 
@@ -824,7 +835,7 @@ SHORTS_COMMENTS  [契约]
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
-| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackCurvature` 用同一公式更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，SDK 同源开孔网格与 compositor 共同接受 carrier 补偿。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
+| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackStageParameters` 统一接收比例/缩放/曲率，用同一快照更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，SDK 同源开孔网格与 compositor 共同接受 carrier 补偿。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题

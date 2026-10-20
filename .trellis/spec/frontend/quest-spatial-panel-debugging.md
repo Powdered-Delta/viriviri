@@ -283,13 +283,33 @@ The output buffer stays fixed while the physical panel shape follows content:
 - `videoShapeOptions(width, height, curvature)` owns compositor dimensions and
   radius. Every aspect/scale/curvature change uses `PanelSceneObject.reshape`;
   never restore the old mesh-only PLAN_1 debug path. Target/Apply uses the shared
-  display-ratio state. Backdrop and danmaku consume the same content rectangle.
+  display-ratio state. One `applyPlaybackStageParameters` call commits ratio,
+  scale and curvature from an app-state emission before rebuilding anything.
+- `PlaybackStageGeometry` distinguishes full-stage viewport, visible video
+  content, pre-crop panel shape and normalized FIT-buffer crop. Video black bars
+  are removed with SDK `Crop`, which changes texture sampling AND aperture
+  footprint together. Pre-crop shape dimensions times crop fractions must equal
+  the desired visible content dimensions; never aspect-fit the entire already
+  letterboxed buffer a second time. Do not recreate the player/Surface for this.
+- Danmaku uses option A: full 16:9 viewport with a fixed matching 1280x720 dp
+  raster, independent of source/target video ratios. Backdrop uses the same full
+  viewport. SDK 0.13.2 reshape only replaces PanelShape; changing DpDisplayOptions
+  there does not resize PanelDisplay/PanelSurface. Narrowing physical UI geometry
+  while retaining the old raster distorts glyphs. Proportional whole-stage scale
+  is allowed; anisotropic source-ratio scaling of danmaku is not.
 - Leave `sceneMeshCreator` unset at video creation AND reshape. SDK 0.13.2
   `PanelShapeConfig.generateSceneMeshCreator()` returns an explicit creator
   BEFORE preparing hole-punch alpha mode and shader. A shadow-only override
   removes the video aperture; remaining UI glyph apertures can reveal only
   silhouettes of video. The generated quad/cylinder aperture and compositor
   must use the same shape and measured carrier radius compensation.
+- reshape preserves previous native PanelShape scale: explicitly restore unit
+  native scale when dimensions are baked into shape. After creation/reshape,
+  commit both ECS carrier local Z (authored base minus radius; base for flat)
+  and its resolved world pose to the SAME native PanelSceneObject, even when
+  the ECS pose already equals the target. Do not mutate the component's retained
+  Pose in place before the ECS write. Native pose synchronization does not add
+  a second listener or independent tuning state.
 - Explicitly use OPAQUE for the video's full content rectangle and ALPHA_BLEND
   for transparent UI layers. The default UI Layer is MASKED (binary alpha with
   depth writes), inappropriate for smooth dimming and transparent overlapping UI.
@@ -308,7 +328,8 @@ The output buffer stays fixed while the physical panel shape follows content:
 - Regression coverage must retain pending/apply aspect behavior, contained
   aspect dimensions and absolute carrier correction across radii and back to flat.
   Device acceptance covers flat/curved transitions, ratio changes, layer order,
-  full video with danmaku disabled/enabled, transparent UI and stage input with
+  full video without FIT bars, full-width uncompressed danmaku, shared scale,
+  radius-position synchronization, transparent UI and stage input with
   no extra video output. Never use glyph visibility as proof of full-video visibility.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
   Use this value, rather than APK filename or install time, to identify the

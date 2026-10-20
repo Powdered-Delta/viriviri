@@ -18,10 +18,10 @@ class SpatialVideoContentQuadTest {
   }
 
   @Test
-  fun sharedLayerDimensionsExposeTheCroppedVideoRectangle() {
+  fun videoDimensionsExposeTheContainedVideoRectangle() {
     val content = spatialVideoContentQuad(1.6f, 0.9f, 1080, 1920)
 
-    // Video, optional shadow, backdrop and danmaku all consume these same physical dimensions.
+    // Video content uses these dimensions; full-stage overlays have a separate viewport.
     assertEquals(0.50625f, content.widthMeters, 0.0001f)
     assertEquals(0.9f, content.heightMeters, 0.0001f)
   }
