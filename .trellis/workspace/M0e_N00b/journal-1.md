@@ -236,3 +236,36 @@ Confirmed Media3 1.4.1 SurfaceView-specific scaling contract and Android MediaCo
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Scale stage radius and carrier depth as one layout
+
+**Date**: 2026-10-21
+**Task**: Scale stage radius and carrier depth as one layout
+**Branch**: `main`
+
+### Summary
+
+Approved whole-stage similarity correction: effective radius r0*s, carrier local Z (base-r0)*s, scaled layer separations, native scale one and raw saved radius unchanged. Preserved full-frame video and full-stage danmaku. Updated specs and local-theme component diagram. Windows debug verification passed 205 tests and APK assembly; diagram text/mobile layout and identifier checks passed. APK DEV c4bce0f5. No headset install/launch; visual drift acceptance pending.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a42f117` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
