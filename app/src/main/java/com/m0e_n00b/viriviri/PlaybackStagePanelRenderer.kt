@@ -2,7 +2,6 @@ package com.m0e_n00b.viriviri
 
 import android.util.Log
 import com.meta.spatial.core.Pose
-import com.meta.spatial.core.Vector2
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.runtime.PanelConfigOptions
 import com.meta.spatial.runtime.PanelSceneObject
@@ -29,12 +28,11 @@ internal class PlaybackStagePanelRenderer(
     for (layer in layout.layers) {
       val panel = panels.getValue(layer.role)
       panel.reshape(configs.getValue(layer.role))
-      panel.clearCrop()
+      // SDK setCrop(Crop.NONE) restores both unit footprint and full-frame layer UVs.
+      // The direct decoder Surface is not a PlayerView FIT canvas with inferred black bars.
+      if (layer.role == PlaybackStageLayer.VIDEO) panel.setCrop(layout.geometry.videoTextureCrop)
+      else panel.clearCrop()
       panel.setScale(Vector3(1f, 1f, 1f))
-      if (layer.role == PlaybackStageLayer.VIDEO) {
-        val crop = layout.geometry.videoCrop
-        panel.layer?.setClip(Vector2(crop.left, crop.top), Vector2(crop.right, crop.bottom))
-      }
     }
     for (layer in layout.layers) {
       val panel = panels.getValue(layer.role)

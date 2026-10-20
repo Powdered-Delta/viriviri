@@ -7,24 +7,36 @@ class PlaybackStageGeometryTest {
   private fun geometry(source: Float, scale: Float = 1f, target: Float? = null) =
       playbackStageGeometry(1.6f * scale, 0.9f * scale, source, target, PlaybackStageCurvature.Flat)
 
+  private fun assertFullFrame(g: PlaybackStageGeometry) {
+    val crop = g.videoTextureCrop
+    assertEquals(0f, crop.left, 0f)
+    assertEquals(0f, crop.top, 0f)
+    assertEquals(1f, crop.right, 0f)
+    assertEquals(1f, crop.bottom, 0f)
+  }
+
   @Test
-  fun portraitRemovesFitBufferBarsWithoutCroppingVideoOrDoubleNarrowing() {
+  fun fourByThreeMustSampleFullDecodedFrameWithoutSyntheticBufferBars() {
+    val g = geometry(4f / 3f)
+    assertEquals(4f / 3f, g.videoShape.aspectRatio, 0.0001f)
+    assertEquals(1.2f, g.videoShape.widthMeters, 0.0001f)
+    assertEquals(0.9f, g.videoShape.heightMeters, 0.0001f)
+    assertFullFrame(g)
+  }
+
+  @Test
+  fun portraitUsesFullFrameOnPortraitShape() {
     val g = geometry(9f / 16f)
-    assertEquals(0.341796875f, g.videoCrop.left, 0.000001f)
-    assertEquals(0.658203125f, g.videoCrop.right, 0.000001f)
-    assertEquals(0f, g.videoCrop.top, 0f)
-    assertEquals(1f, g.videoCrop.bottom, 0f)
+    assertFullFrame(g)
     assertEquals(0.50625f, g.videoShape.widthMeters, 0.0001f)
     assertEquals(0.9f, g.videoShape.heightMeters, 0.0001f)
     assertEquals(g.videoContent, g.videoShape)
   }
 
   @Test
-  fun ultrawideRemovesOnlyTopAndBottomBufferBars() {
+  fun ultrawideUsesFullFrameWithoutSyntheticLetterboxCrop() {
     val g = geometry(21f / 9f)
-    assertEquals(0f, g.videoCrop.left, 0f)
-    assertEquals(1f, g.videoCrop.right, 0f)
-    assertEquals(0.1190476f, g.videoCrop.top, 0.0001f)
+    assertFullFrame(g)
     assertEquals(1.6f, g.videoShape.widthMeters, 0.0001f)
     assertEquals(1.6f * 9f / 21f, g.videoShape.heightMeters, 0.0001f)
   }
@@ -36,7 +48,7 @@ class PlaybackStageGeometryTest {
       assertEquals(SpatialVideoContentQuad(0.8f, 0.45f), g.danmakuContent)
       assertEquals(g.viewport, g.backdropContent)
       assertEquals(16f / 9f, g.danmakuContent.aspectRatio, 0.0001f)
-      // UV trimming cannot pre-divide the physical layer shape or scale the aperture separately.
+      assertFullFrame(g)
       assertEquals(0.50625f, g.videoShape.widthMeters, 0.0001f)
       assertEquals(0.9f, g.videoShape.heightMeters, 0.0001f)
     }
@@ -46,7 +58,7 @@ class PlaybackStageGeometryTest {
   fun scalingChangesAllPhysicalFootprintsOnceAndKeepsTextureCrop() {
     val original = geometry(9f / 16f)
     val scaled = geometry(9f / 16f, scale = 1.5f)
-    assertEquals(original.videoCrop, scaled.videoCrop)
+    assertFullFrame(scaled)
     assertEquals(original.videoContent.widthMeters * 1.5f, scaled.videoContent.widthMeters, 0.0001f)
     assertEquals(original.videoShape.widthMeters * 1.5f, scaled.videoShape.widthMeters, 0.0001f)
     assertEquals(2.4f, scaled.danmakuContent.widthMeters, 0.0001f)
@@ -57,7 +69,7 @@ class PlaybackStageGeometryTest {
   fun invalidSourceDoesNotCreateInfiniteGeometryOrCrop() {
     for (source in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
       val g = geometry(source)
-      assertEquals(StageVideoCrop(), g.videoCrop)
+      assertFullFrame(g)
       assertEquals(g.viewport, g.videoContent)
       assertEquals(g.viewport, g.videoShape)
     }
@@ -69,7 +81,7 @@ class PlaybackStageGeometryTest {
     for (radius in listOf(1.5f, 2.7f, 7.9f)) {
       val curved = playbackStageGeometry(1.6f, 0.9f, 9f / 16f, null, PlaybackStageCurvature.Cylinder(radius))
       assertEquals(flat.videoShape, curved.videoShape)
-      assertEquals(flat.videoCrop, curved.videoCrop)
+      assertFullFrame(curved)
       assertEquals(flat.danmakuContent, curved.danmakuContent)
     }
   }

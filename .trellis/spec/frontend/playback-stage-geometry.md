@@ -31,7 +31,10 @@ PlaybackStagePanelRenderer.apply(layout, panels): Boolean
 - Renderer owns all live shape, scale, UV and carrier-pose mutations. Registration
   factories use controller geometry but do not acknowledge application.
 - Video/aperture share final videoContent shape. Danmaku/backdrop use the full
-  viewport. Cropping selects source UV only; physical dimensions never divide by UV.
+  viewport. `videoTextureCrop` is SDK Crop.NONE; renderer passes that same value
+  to setCrop, resetting footprint and sampling the full frame. A fixed 1920x1080
+  pixel budget does not prove any FIT bars in a direct decoder Surface. Never
+  derive UV cropping from source/output aspect or divide physical dimensions by UV.
 - Local child poses are rebuilt with identity rotation and base-radius Z (base for
   flat). Update stage/bar spacing, sample its world pose once, then compose every
   child from that same parent. Do not flip the verified coordinate sign.
@@ -42,6 +45,7 @@ PlaybackStagePanelRenderer.apply(layout, panels): Boolean
 
 | Condition | Required result |
 | --- | --- |
+| Non-16:9 source | Full decoded-frame UVs; source aspect belongs in physical shape |
 | One panel missing | No geometry commit; newest layout retained |
 | Parent/components unavailable | Renderer returns false; revision stays pending |
 | Panel replaced | Replay whole current group |
@@ -62,7 +66,7 @@ PlaybackStagePanelRenderer.apply(layout, panels): Boolean
 PlaybackStageControllerTest covers delayed/missing panels, latest-input coalescing,
 replacement, failed commit retry, curve-only changes, debug changes, disposal and
 actual SDK pose composition under rotated parents. Geometry tests cover aspect,
-pixel ratio, clipping and full-stage danmaku. Run Windows debug verification.
+pixel ratio, complete-frame sampling and full-stage danmaku. Run Windows debug verification.
 Build/JVM success does not prove headset pixels or compositor visibility.
 
 ## 7. Wrong vs Correct

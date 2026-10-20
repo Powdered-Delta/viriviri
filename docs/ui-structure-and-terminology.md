@@ -113,8 +113,10 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 一次同步提交。未就绪时保留最新请求，不把部分层标记为已完成；面板实例替换后自动重放最新整组布局。
 视频使用 `videoContent`，幕布压暗与弹幕使用完整 16:9 的 `viewport`，不随视频比例缩窄（方案 A）。
 `videoShape` 直接取 `videoContent`，开孔与视频使用同一最终物理 shape。
-`StageVideoCrop` 只提供 FIT 缓冲的 UV 范围，由 renderer 的 `SceneLayer.setClip` 取样；整面板
-Crop/footprint 被清除。`videoPanelConfig()` 在创建、整组 reshape 和诊断时复用 `videoShapeOptions()`。
+`videoTextureCrop` 固定为 SDK 的 `Crop.NONE`：完整解码帧映射到该物理 shape。
+1920×1080 是面板的像素配置，不保证解码帧先被填黑边为 16:9。此前按 source/output 比例推算
+FIT 黑边并二次裁切的逻辑已删除；4:3 视频不再被额外裁去左右各 12.5%。
+`videoPanelConfig()` 在创建、整组 reshape 和诊断时复用 `videoShapeOptions()`。
 曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**。
 开孔与视频共用 carrier，renderer 对每个 carrier 同时写入绝对局部姿态和原生世界姿态。
 
@@ -122,7 +124,7 @@ Crop/footprint 被清除。`videoPanelConfig()` 在创建、整组 reshape 和�
 app state + video size -> PlaybackStageController -> PlaybackStageLayout
                               | latest pending; wait for all panel identities
 PlaybackStageGeometrySystem --+-> PlaybackStagePanelRenderer
-                                  | reshape + unit scale + UV clip
+                                  | reshape + unit scale + full-frame UV
                                   + fresh local poses -> one stage-world pose -> all native poses
 ```
 
@@ -150,7 +152,7 @@ flowchart LR
     Env["环境模型 / 天空背景"] --> Eye["主场景 eye buffer"]
     Params["原生输入 → appState emission"] --> Geometry["PlaybackStageGeometry<br/>共享 scale / curvature"]
     Geometry --> Shape["videoShape = videoContent<br/>同一最终物理尺寸"]
-    Geometry --> Clip["videoCrop → layer UV clip<br/>不缩放空间 footprint"]
+    Geometry --> Clip["videoTextureCrop = Crop.NONE<br/>完整解码帧，不推算 FIT 黑边"]
     Geometry --> Viewport["完整 viewport · 16:9<br/>弹幕方案 A / 压暗层"]
     Shape --> Aperture["SDK 视频开孔网格 · OPAQUE"]
     Shape --> Video["视频 compositor layer · zIndex 1"]
@@ -850,7 +852,7 @@ SHORTS_COMMENTS  [契约]
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
-| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 右摇杆更新 `ViriViriUiState.playbackCurvature`，宿主通过 `applyPlaybackStageParameters` 把完整参数提交给 `PlaybackStageController`；`PlaybackStageGeometrySystem` 等待全部面板就绪，再由 `PlaybackStagePanelRenderer` 同步提交 shape、UV、单位 scale 和绝对半径补偿。视频/开孔同 shape，弹幕和压暗层为完整 viewport。原覆盖层重试和视频一次性重放已删除；持久化键不变 |
+| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 右摇杆更新 `ViriViriUiState.playbackCurvature`，宿主通过 `applyPlaybackStageParameters` 把完整参数提交给 `PlaybackStageController`；`PlaybackStageGeometrySystem` 等待全部面板就绪，再由 `PlaybackStagePanelRenderer` 同步提交 shape、完整帧 UV、单位 scale 和绝对半径补偿。视频/开孔同 shape，弹幕和压暗层为完整 viewport。原覆盖层重试和视频一次性重放已删除；持久化键不变 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题

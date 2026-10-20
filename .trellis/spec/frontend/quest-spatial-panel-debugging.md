@@ -276,24 +276,23 @@ The output buffer stays fixed while the physical panel shape follows content:
 - Use `1920x1080` output pixels with `StereoMode.None`. Do not carry the
   upstream SpatialVideo sample's `3840x1080` LeftRight stereo buffer into this
   monoscopic Bilibili path.
-- The shared `PlayerSession` explicitly uses Media3
-  `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
-  and non-square-pixel sources must retain their display aspect within the one
-  existing Surface through pillarbox/letterbox rather than stretch or crop.
+- `VIDEO_SCALING_MODE_SCALE_TO_FIT` is NOT a promise of an aspect-preserving
+  letterbox/pillarbox canvas inside the fixed pixel configuration. Media3 1.4.1
+  scopes this setting to SurfaceView-owned outputs; this app attaches the SDK
+  Surface directly. MediaCodec documents SCALE_TO_FIT as scaling to Surface
+  dimensions. Final physical shape must supply the intended display aspect.
 - `videoShapeOptions(width, height, curvature)` owns compositor dimensions and
   radius. Every aspect/scale/curvature change uses `PanelSceneObject.reshape`;
   never restore the old mesh-only PLAN_1 debug path. Target/Apply uses the shared
   display-ratio state. One `applyPlaybackStageParameters` call commits ratio,
   scale and curvature from an app-state emission before rebuilding anything.
-- `PlaybackStageGeometry` distinguishes full-stage viewport, visible video
-  content and normalized FIT-buffer UV clip. `videoShape` MUST equal videoContent:
-  one final physical shape for layer and aperture. `PlaybackStagePanelRenderer` clears
-  whole-panel Crop/footprintScale, keeps unit native scale, then calls the actual
-  layer's setClip with decoded-content UV bounds. Do not pre-divide shape by crop
-  fractions or scale the mesh independently. SDK 0.13.2 setCrop writes a separate
-  SceneObject footprintScale while cylinder layer dimensions come from another
-  native path. Do not rely on a general Crop description to assume those paths
-  are equivalent. Preserve the player and Surface.
+- `PlaybackStageGeometry` distinguishes full-stage viewport and visible video
+  content. `videoShape` equals videoContent; `videoTextureCrop` is the actual SDK
+  `Crop.NONE`. The renderer submits it through setCrop, which restores unit
+  footprint and full [0,1] texture coordinates. Do not compute a source/output
+  UV crop from 1920x1080: 4:3 yields width .75, magnifying actual frame contents
+  by 4/3. The fixed pixel budget does not establish black bars in the producer.
+  Do not pre-divide shape or separately scale the aperture. Keep player/Surface.
 - Danmaku uses option A: full 16:9 viewport with a fixed matching 1280x720 dp
   raster, independent of source/target video ratios. Backdrop uses the same full
   viewport. SDK 0.13.2 reshape only replaces PanelShape; changing DpDisplayOptions
@@ -342,7 +341,7 @@ The output buffer stays fixed while the physical panel shape follows content:
 - Regression coverage must retain pending/apply aspect behavior, contained
   aspect dimensions and absolute carrier correction across radii and back to flat.
   Device acceptance covers flat/curved transitions, ratio changes, layer order,
-  full video without FIT bars, full-width uncompressed danmaku, shared scale,
+  complete video without synthetic FIT cropping, full-width uncompressed danmaku, shared scale,
   radius-position synchronization, transparent UI and stage input with
   no extra video output. Never use glyph visibility as proof of full-video visibility.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.

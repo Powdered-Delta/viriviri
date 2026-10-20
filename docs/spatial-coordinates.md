@@ -94,8 +94,9 @@ Cylinder: carrierLocalZ = baseLocalZ - radius
 重构前源码同样有调用补偿，因此不能把现象归结为“开孔漏调方法”；此前分散的创建、重试和调试写入
 已收敛为 `PlaybackStageController` 的最新布局和一个提交入口，视觉效果仍须实机验证。
 
-`videoPanelConfig()` 给视频和开孔同一最终 shape；renderer 清除整面板 Crop/footprint，
-仅用 SceneLayer.setClip 选取 FIT 缓冲中的有效视频 UV。UV 不参与物理尺寸或半径定位计算。
+`videoPanelConfig()` 给视频和开孔同一最终 shape；renderer 应用 `Crop.NONE`，完整解码帧映射
+到该 shape，footprint 为单位值。不再按固定 1920×1080 配置推算 FIT 黑边并裁切：直接解码 Surface
+没有这项契约。4:3 / 16:9 = 0.75 的人为横向裁切会让画面内容放大 1/0.75；该错误路径已删除。
 弹幕/压暗层按方案 A 使用完整舞台范围，视频/开孔使用有效画面范围；它们共享 scale 和 curvature。
 
 ## 6. 证据与验证边界

@@ -7,7 +7,7 @@ import org.junit.Test
 
 class ImmersiveVideoOutputConfigTest {
   @Test
-  fun immersiveVideoOutputMatchesFixedSixteenByNineStage() {
+  fun immersivePixelConfigurationKeepsMonoscopicBudget() {
     assertEquals(16f / 9f, IMMERSIVE_VIDEO_OUTPUT_WIDTH.toFloat() / IMMERSIVE_VIDEO_OUTPUT_HEIGHT, 0.0001f)
   }
 

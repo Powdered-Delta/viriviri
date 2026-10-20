@@ -126,7 +126,9 @@ class PlaybackStageControllerTest {
     assertEquals(0.50625f, geometry.videoContent.widthMeters, 0.0001f)
     assertEquals(1.6f, geometry.danmakuContent.widthMeters, 0.0001f)
     assertEquals(0.9f, geometry.danmakuContent.heightMeters, 0.0001f)
-    assertEquals(0.75f, geometry.videoCrop.width, 0.0001f)
+    // Pixel aspect belongs in physical display aspect, never an inferred source UV crop.
+    assertEquals(0f, geometry.videoTextureCrop.left, 0f)
+    assertEquals(1f, geometry.videoTextureCrop.right, 0f)
   }
 
   @Test fun inputSubmittedDuringCommitIsNotAcknowledgedAsAlreadyApplied() {
