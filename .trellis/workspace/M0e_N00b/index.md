@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~139 | Active |
+| `journal-1.md` | ~172 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-10-20 | Verify SDK coordinate boundary and unify cylinder aperture dimensions | `47137cf` | `main` |
 | 4 | 2026-10-20 | Unify stage geometry and full-stage danmaku | `27f4887` | `main` |
 | 3 | 2026-10-20 | Correct video aperture and compositor visibility | `130967e` | `main` |
 | 2 | 2026-10-20 | Finish compositor video cutter cleanup | `5671cbb` | `main` |

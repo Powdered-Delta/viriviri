@@ -137,3 +137,36 @@ Implemented one app-state parameter commit and PlaybackStageGeometry snapshot fo
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Verify SDK coordinate boundary and unify cylinder aperture dimensions
+
+**Date**: 2026-10-20
+**Task**: Verify SDK coordinate boundary and unify cylinder aperture dimensions
+**Branch**: `main`
+
+### Summary
+
+Executed pinned SDK Pose/Quaternion; verified native Z reflection and cylinder axis-origin using local SDK binary. Confirmed aperture already shares carrier and base-radius method. Removed pre-divided shape and whole-panel footprint Crop in favor of final shared physical geometry with UV-only clip; preserved full-stage danmaku. Corrected coordinate/UI/spec docs. Windows debug build passed; 191 JVM tests passed. No install or launch; headset visual acceptance pending.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `47137cf` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
