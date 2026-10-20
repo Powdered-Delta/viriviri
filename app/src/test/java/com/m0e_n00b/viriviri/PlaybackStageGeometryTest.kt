@@ -14,9 +14,9 @@ class PlaybackStageGeometryTest {
     assertEquals(0.658203125f, g.videoCrop.right, 0.000001f)
     assertEquals(0f, g.videoCrop.top, 0f)
     assertEquals(1f, g.videoCrop.bottom, 0f)
-    assertEquals(1.6f, g.videoShape.widthMeters, 0.0001f)
-    assertEquals(0.50625f, g.videoShape.widthMeters * g.videoCrop.width, 0.0001f)
-    assertEquals(0.9f, g.videoShape.heightMeters * g.videoCrop.height, 0.0001f)
+    assertEquals(0.50625f, g.videoShape.widthMeters, 0.0001f)
+    assertEquals(0.9f, g.videoShape.heightMeters, 0.0001f)
+    assertEquals(g.videoContent, g.videoShape)
   }
 
   @Test
@@ -25,8 +25,8 @@ class PlaybackStageGeometryTest {
     assertEquals(0f, g.videoCrop.left, 0f)
     assertEquals(1f, g.videoCrop.right, 0f)
     assertEquals(0.1190476f, g.videoCrop.top, 0.0001f)
-    assertEquals(1.6f, g.videoShape.widthMeters * g.videoCrop.width, 0.0001f)
-    assertEquals(1.6f * 9f / 21f, g.videoShape.heightMeters * g.videoCrop.height, 0.0001f)
+    assertEquals(1.6f, g.videoShape.widthMeters, 0.0001f)
+    assertEquals(1.6f * 9f / 21f, g.videoShape.heightMeters, 0.0001f)
   }
 
   @Test
@@ -36,8 +36,9 @@ class PlaybackStageGeometryTest {
       assertEquals(SpatialVideoContentQuad(0.8f, 0.45f), g.danmakuContent)
       assertEquals(g.viewport, g.backdropContent)
       assertEquals(16f / 9f, g.danmakuContent.aspectRatio, 0.0001f)
-      assertEquals(g.videoContent.widthMeters, g.videoShape.widthMeters * g.videoCrop.width, 0.0001f)
-      assertEquals(g.videoContent.heightMeters, g.videoShape.heightMeters * g.videoCrop.height, 0.0001f)
+      // UV trimming cannot pre-divide the physical layer shape or scale the aperture separately.
+      assertEquals(0.50625f, g.videoShape.widthMeters, 0.0001f)
+      assertEquals(0.9f, g.videoShape.heightMeters, 0.0001f)
     }
   }
 
@@ -59,6 +60,17 @@ class PlaybackStageGeometryTest {
       assertEquals(StageVideoCrop(), g.videoCrop)
       assertEquals(g.viewport, g.videoContent)
       assertEquals(g.viewport, g.videoShape)
+    }
+  }
+
+  @Test
+  fun radiusDoesNotChangeVideoExtentOrTextureClip() {
+    val flat = geometry(9f / 16f)
+    for (radius in listOf(1.5f, 2.7f, 7.9f)) {
+      val curved = playbackStageGeometry(1.6f, 0.9f, 9f / 16f, null, PlaybackStageCurvature.Cylinder(radius))
+      assertEquals(flat.videoShape, curved.videoShape)
+      assertEquals(flat.videoCrop, curved.videoCrop)
+      assertEquals(flat.danmakuContent, curved.danmakuContent)
     }
   }
 }

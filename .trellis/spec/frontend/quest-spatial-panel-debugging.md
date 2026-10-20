@@ -286,11 +286,14 @@ The output buffer stays fixed while the physical panel shape follows content:
   display-ratio state. One `applyPlaybackStageParameters` call commits ratio,
   scale and curvature from an app-state emission before rebuilding anything.
 - `PlaybackStageGeometry` distinguishes full-stage viewport, visible video
-  content, pre-crop panel shape and normalized FIT-buffer crop. Video black bars
-  are removed with SDK `Crop`, which changes texture sampling AND aperture
-  footprint together. Pre-crop shape dimensions times crop fractions must equal
-  the desired visible content dimensions; never aspect-fit the entire already
-  letterboxed buffer a second time. Do not recreate the player/Surface for this.
+  content and normalized FIT-buffer UV clip. `videoShape` MUST equal videoContent:
+  one final physical shape for layer and aperture. `applyVideoTextureClip` clears
+  whole-panel Crop/footprintScale, keeps unit native scale, then calls the actual
+  layer's setClip with decoded-content UV bounds. Do not pre-divide shape by crop
+  fractions or scale the mesh independently. SDK 0.13.2 setCrop writes a separate
+  SceneObject footprintScale while cylinder layer dimensions come from another
+  native path. Do not rely on a general Crop description to assume those paths
+  are equivalent. Preserve the player and Surface.
 - Danmaku uses option A: full 16:9 viewport with a fixed matching 1280x720 dp
   raster, independent of source/target video ratios. Backdrop uses the same full
   viewport. SDK 0.13.2 reshape only replaces PanelShape; changing DpDisplayOptions
@@ -310,6 +313,13 @@ The output buffer stays fixed while the physical panel shape follows content:
   the ECS pose already equals the target. Do not mutate the component's retained
   Pose in place before the ECS write. Native pose synchronization does not add
   a second listener or independent tuning state.
+- Coordinates must be verified against the pinned SDK, not a generic convention:
+  actual Pose().forward() is API +Z; native mesh/pose upload reflects Z to the
+  rendering/OpenXR space. API cylinder central point is +radius, so existing
+  entityLocalZForSurface(base)=base-radius is correct. Aperture and layer share
+  the same native PanelSceneObject and both receive this method. Never flip
+  SURFACE_ANCHOR_OFFSET_SIGN to investigate visual drift. Read
+  docs/spatial-coordinates.md and distinguish API, stage-local and native spaces.
 - Explicitly use OPAQUE for the video's full content rectangle and ALPHA_BLEND
   for transparent UI layers. The default UI Layer is MASKED (binary alpha with
   depth writes), inappropriate for smooth dimming and transparent overlapping UI.

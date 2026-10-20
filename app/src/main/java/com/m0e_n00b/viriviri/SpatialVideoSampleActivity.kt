@@ -63,6 +63,7 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.Vector3
+import com.meta.spatial.core.Vector2
 import com.meta.spatial.datamodelinspector.DataModelInspectorFeature
 import com.meta.spatial.debugtools.HotReloadFeature
 import com.meta.spatial.isdk.IsdkBoxCollider
@@ -72,7 +73,6 @@ import com.meta.spatial.isdk.updateIsdkComponentProperties
 import com.meta.spatial.ovrmetrics.OVRMetricsDataModel
 import com.meta.spatial.ovrmetrics.OVRMetricsFeature
 import com.meta.spatial.runtime.ButtonBits
-import com.meta.spatial.runtime.Crop
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
 import com.meta.spatial.runtime.PanelConfigOptions
@@ -769,7 +769,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   /**
    * Video layer shape: quad while the shared stage curvature is [PlaybackStageCurvature.Flat], a
    * compositor cylinder while it is [PlaybackStageCurvature.Cylinder]. The supplied width and height
-   * are the pre-crop dimensions; the normalized crop then exposes only decoded video pixels.
+   * are the final physical dimensions shared by the aperture and layer. UV clipping only selects pixels.
    *
    * The compositor owns the video pixels: `MediaPanelRenderOptions.applyTo` installs the `LayerConfig`,
    * and this shape is the source for its radius/extent. The carrier entity's one-radius position
@@ -975,11 +975,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * The video panel's real layer config, without touching the panel: built from the same settings the
    * creation / reshape path uses, so the log reports the value that path writes.
    */
-  private fun videoLayerProbeConfig(): PanelConfigOptions {
-    val geometry = currentPlaybackStageGeometry()
+  private fun videoLayerProbeConfig(): PanelConfigOptions = videoPanelConfig(currentPlaybackStageGeometry())
+
+  /** Creation, reshape and diagnostics must use the identical layer/aperture configuration. */
+  private fun videoPanelConfig(geometry: PlaybackStageGeometry): PanelConfigOptions {
     val content = geometry.videoShape
     return MediaPanelSettings(
-              shape = videoShapeOptions(content.widthMeters, content.heightMeters, appliedCurvature),
+              shape = videoShapeOptions(content.widthMeters, content.heightMeters, geometry.curvature),
               display =
                   PixelDisplayOptions(
                       width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
@@ -1259,25 +1261,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun createVideoPanel() {
     val videoSurface = ensureVideoSurfaceEntity(Entity(R.id.spatialized_video_panel))
     val geometry = currentPlaybackStageGeometry()
-    val content = geometry.videoShape
-    val settings = MediaPanelSettings(
-        // Use pre-crop video dimensions; Crop synchronizes visible pixels and the aperture footprint.
-        shape = videoShapeOptions(content.widthMeters, content.heightMeters, appliedCurvature),
-        display =
-            PixelDisplayOptions(
-                width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
-                height = IMMERSIVE_VIDEO_OUTPUT_HEIGHT,
-            ),
-        rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None, zIndex = VIDEO_LAYER_Z_INDEX),
-    )
     val panelSceneObject = PanelSceneObject(
         scene,
         videoSurface,
-        settings.toPanelConfigOptions().apply {
-          applyVideoLayerDepth(this)
-          // No custom mesh creator: SDK must prepare the opaque video aperture and its matching
-          // quad/cylinder mesh, not just the compositor layer. See videoShapeOptions.
-        },
+        videoPanelConfig(geometry),
     )
         .apply {
           player.repeatMode = Player.REPEAT_MODE_ONE
@@ -1351,7 +1338,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         }
 
     spatialVideoPanelSceneObject = panelSceneObject
-    applyVideoCrop(panelSceneObject, geometry)
+    applyVideoTextureClip(panelSceneObject, geometry)
     applyStageLayerCurvatureOffset(videoSurface, geometry.curvature, videoSurfaceBaseLocalZ, panelSceneObject)
     attachImmersiveOutput(panelSceneObject)
 
@@ -2641,11 +2628,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     )
   }
 
-  private fun applyVideoCrop(panel: PanelSceneObject, geometry: PlaybackStageGeometry) {
+  private fun applyVideoTextureClip(panel: PanelSceneObject, geometry: PlaybackStageGeometry) {
     val crop = geometry.videoCrop
-    // reshape preserves old native scale; dimensions are already baked into the snapshot.
+    // Whole-panel Crop writes a separate footprint scale in SDK 0.13.2. Clear it,
+    // keep both physical shapes identical, and trim only the source UVs of the compositor texture.
+    panel.clearCrop()
     panel.setScale(Vector3(1f, 1f, 1f))
-    panel.setCrop(Crop(crop.left, crop.top, crop.right, crop.bottom))
+    panel.layer?.setClip(Vector2(crop.left, crop.top), Vector2(crop.right, crop.bottom))
   }
 
   /** Reconfigures the existing native panel and refreshes its matching ISDK hit dimensions. */
@@ -2673,26 +2662,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             else "Cylinder(radius=${appliedCurvature.radiusOrNull()})") +
             " ${shapeWidth}x${shapeHeight}",
     )
-    panel.reshape(
-        MediaPanelSettings(
-                shape = videoShapeOptions(shapeWidth, shapeHeight, appliedCurvature),
-                display =
-                    PixelDisplayOptions(
-                        width = IMMERSIVE_VIDEO_OUTPUT_WIDTH,
-                        height = IMMERSIVE_VIDEO_OUTPUT_HEIGHT,
-                    ),
-                rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None, zIndex = VIDEO_LAYER_Z_INDEX),
-            )
-            .toPanelConfigOptions()
-                .apply {
-                  applyVideoLayerDepth(this)
-                  // Keep SDK aperture/material generation enabled on every reshape too.
-                }
-    )
+    panel.reshape(videoPanelConfig(geometry))
     // Re-assert AFTER reshape as well as on the state edge. The SDK reshape rebuilds PanelShape but
     // does not promise to preserve this app-owned carrier correction; this is the single place where
     // the new radius and the new shape are committed together.
-    applyVideoCrop(panel, geometry)
+    applyVideoTextureClip(panel, geometry)
     updateGrabBarPose(geometry.viewport.halfHeight)
     videoSurfaceEntity?.let {
       applyStageLayerCurvatureOffset(it, geometry.curvature, videoSurfaceBaseLocalZ, panel)
@@ -2847,8 +2821,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       panel.setPosition(world.t)
       panel.setRotationQuat(world.q)
       if (BuildConfig.DEBUG) {
+        val bounds = panel.mesh?.computeCombinedBounds()
         Log.i("ViriViriStage", "panel pose radius=${curvature.radiusOrNull()} baseZ=$baseLocalZ " +
-            "carrierZ=$targetZ worldZ=${world.t.z} unitScale=true")
+            "carrierZ=$targetZ submittedWorldZ=${world.t.z} unitScale=true " +
+            "sharedCarrier=${panel.entity == entity} " +
+            "expectedSurfaceCenterStageZ=${targetZ + (curvature.radiusOrNull() ?: 0f)} " +
+            "apertureLocalBounds=$bounds panelShape=" +
+            "${panel.panelShapeConfig?.width}x${panel.panelShapeConfig?.height}")
       }
     }
   }

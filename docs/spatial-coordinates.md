@@ -1,85 +1,112 @@
-# Spatial 坐标系与布局约定
+# Spatial 坐标、圆柱原点与视觉定位
 
-> 本文件回答“坐标轴的正负方向到底是什么”，防止空间布局代码改错方向。
-> 结论来源：Meta Spatial SDK 官方文档（architecture / scene）+ 本仓库实测
-> 正确的布局反推。修改任何 Pose / Vector3 / Quaternion 之前先读本文。
+本文件以项目锁定的 **Spatial SDK 0.13.2** 为准，核验日期 2026-10-20。
+结论分别来自实际 SDK 数学类运行结果、JNI/原生实现和项目调用链；不以“看起来向前”推断坐标符号。
+历史版本把 API 空间和 OpenXR 空间混为一个右手系，并把 `-Z forward` 解释为模型法线；该解释已撤回。
 
-## 世界坐标系（用户视角速查）
+## 1. 项目使用的 Kotlin/API 世界空间
 
-坐标系为**右手系**，单位**米**（SDK 官方：architecture doc “Coordinate
-system and units”）。
+直接运行 SDK 中的数学类得到：
 
-站在原点（LOCAL_FLOOR，Y=0 = 地板）、**面朝幕布**：
+```text
+Pose().forward()              = (0, 0, +1)
+Pose().right()                = (+1, 0, 0)
+Vector3.Forward               = (0, 0, +1)
+Vector3.Up                    = (0, +1, 0)
+Quaternion(0, 90, 0) * forward = (+1, 0, 0)
+```
 
-| 轴 | 正方向 | 手势比喻（站立、面朝幕布） |
-| --- | --- | --- |
-| **+X** | 用户**右手边** | 平举**右**手 → +X |
-| **-X** | 用户**左手边** | 平举**左**手 → -X |
-| **+Y** | **正上方**（天花板） | 手臂**上举** → +Y |
-| **-Y** | **正下方**（地板，Y=0 为地面） | 地板向下为负 |
-| **+Z** | **正前方**（面朝幕布的方向） | 面朝幕布 → +Z |
-| **-Z** | **正后方**（背对幕布） | 背后 → -Z |
+因此，初始朝向、面向项目默认幕布时，**API +X 向右、+Y 向上、+Z 向前**。
+对应站立手势：右臂向右平举是 +X，头顶是 +Y，左手前指是 +Z。
+这是 API 的方向约定；不能把它直接称为 OpenXR 的右手坐标约定。
+世界轴固定，不会随用户转头改变；重新定位参考空间时应重新确认用户与世界的关系。
 
-一句话记忆：**+X 右、+Y 上、+Z 是你看的方向**。
+项目使用 LOCAL_FLOOR，以地面为高度参考；view origin 配置为 `(0,0,0,0)`。
+初始工作台锚点的 API 世界 Z 为 +2 米。用户抓取移动后，不能继续把“幕布正前方”当成固定世界 +Z。
+布局的当前数值与实体层级见 [UI 结构](ui-structure-and-terminology.md)，不要在本文件复制易过时的 rail 坐标。
 
-## 官方依据
+## 2. 幕布/舞台局部空间
 
-- Spatial SDK **right-handed**；+X 右、+Y 上、**-Z forward (into the screen)**
-  （“screen” 指内容/模型正面法线方向；内容放在用户前方时，其正面法线即指向
-  用户，因此两种表述不矛盾）。
-- `scene.setReferenceSpace(ReferenceSpace.LOCAL_FLOOR)`：地板级参考空间，
-  **Y=0 是用户设定/边界的真实地面**，Y 向上。这是 OpenXR LOCAL_FLOOR 语义。
-- 官方示例 `scene.setViewOrigin(0f, 0f, 2f, 180f)` 注释为 “Position the
-  viewer 2m forward” —— 印证 **+Z 是用户前进/注视方向**，幕布等摆在 +Z 侧。
-- 本项目 `setViewOrigin(0f, 0f, 0f, 0f)`：用户位于原点、默认朝向（无额外旋转）。
+舞台局部点通过父级姿态变换到 API 世界空间：
 
-## 本项目实测布局（方向已由设备验证正确）
+```text
+p_world = T_workbench * T_stage * p_stage
+```
 
-当前工作台世界位置（WorkbenchLayoutConfig / SpatialVideoSampleActivity
-onVRReady）：
+初始舞台没有额外旋转，所以轴向与 API 世界空间相同，仅原点不同。
+此时 local -Z 从位于 +Z 侧的幕布指向观看者，local +Z 远离观看者。
+这并不意味着世界 +Z 与局部 +Z 符号相反。
+抓取旋转舞台后，必须乘父级姿态；不能直接在世界 Z 上加减局部补偿。
 
-| 实体 | 世界位置 | 方向含义 |
-| --- | --- | --- |
-| `spatialized_video_panel`（幕布 MEDIA_STAGE） | `(0, stageY, 2)` | 正前方 2m；stageY 默认 1.25 |
-| 左 rail `video_selector_panel`（BROWSE） | `(-railX, 1.25, railWorldZ)`，yaw -45° | **-X 侧 = 左手边**，绕 Y 向内转 45° 面向观看者 |
-| 右 rail `mode_panel`（CONTEXT） | `(+railX, 1.25, railWorldZ)`，yaw +45° | **+X 侧 = 右手边** |
-| transport / nav / 中心 / 键盘 | 幕布子级（TransformParent） | 用**幕布本地系**偏移（见下） |
+`worldPoseOf()` 按 TransformParent 链合成姿态；当前舞台尺寸烘入 shape，层的原生 scale 保持单位值。
+若今后引入非单位父级 scale，必须扩展该契约，不能假装 Pose 已包含 scale。
 
-- `railX ≈ 1.047`，`railWorldZ ≈ 0.953`（由 centerWidth/gap/railWidth/yaw 推导）。
-- 实测确认：**+X = 用户右侧**（右 rail 在 +railX 显示正确）。
+## 3. API 到原生渲染/OpenXR 的转换
 
-## 世界系 vs 幕布本地系（重要）
+SDK 0.13.2 的原生实现存在明确的 Z 反射：
 
-`WorkbenchLayoutConfig` 注释“MediaStage 本地系 -Z faces user”指**子面板相对
-幕布的局部偏移**，与世界系不冲突：
+```text
+F = diag(1, 1, -1)
+p_native = F * p_api
+R_native = F * R_api * F
+```
 
-- 世界系：+Z = 用户前方（幕布在 +Z 侧）。
-- 幕布本地系：面板向观看者凸出用**负 local Z**（离幕布更近 = 向 -Z）。
-  例：`centerLocalZ=-0.52`、`transportLocalZ=-0.58`、`keyboardLocalZ=-0.78`
-  —— 数字越大负得越多，越靠近用户。
-- 本地 Y：正为幕布上方、负为幕布下方；`transportLocalY=-0.72`（幕布下方）、
-  `navLocalY=0.72`（幕布上方）。
-- 幕布本地系与 SDK 世界系轴向同向（+X 右、+Y 上、+Z 远），只是**原点在幕布
-  中心**而不是地板/用户原点。
+SceneObjectSetPosition 在提交原生 transform 时翻转位置 Z；网格上传也翻转顶点 Z 和法线 Z。
+二者必须一起转换，不能只给 compositor 或只给开孔额外翻一次。
+原生/OpenXR 的 -Z forward 与 API 的 +Z forward 在这条边界上对应。
+`setPosition`、`setRotationQuat` 等 Kotlin 接口接受 API 空间值，调用者不要手工再翻符号。
 
-## 常见坑（实测踩过）
+官方 architecture 页写的是 +X right、+Y up、-Z forward；该表述不能直接覆盖锁定版本的 Kotlin
+`Pose.forward()` 实测结果，更不能借“screen 指模型法线”强行消除差异。
 
-1. **不要把世界系 rails 直接 reparent 成幕布子级而不改 local 值。**
-   `TransformParent` 会把已设的世界位姿折算成 local；若 rails 的 Transform
-   仍是世界系数值（如 railWorldZ≈0.95、y=1.25），reparent 后会被当 local
-   使用 → 世界位置漂移（rail 不在中心两侧）。要么 reparent 后**重设正确的
-   local Transform**，要么 rails 保持独立世界坐标并**联动高度**。
-2. **rails 世界 Y 必须与幕布高度同步。** 幕布 stageY 可被持久化/抬升，若
-   rails 钉死 y=1.25 而幕布抬高，rails 与中心面板垂直错位。
-3. **yaw 绕 Y 轴**：rail yaw 是绕世界 Y（竖直轴）的水平转向，不是俯仰。
-   俯仰（pitch）用于 transport/nav 倾斜面板（绕 X）。
-4. **抬升 = 增大 Y。** 幕布偏低/沉地要往高放时，增大 stage 的 y（世界）或
-   本地 localY；LOCAL_FLOOR 下 y=0 就是地面，任何内容 y<0 会“钻地”。
-5. **避免低头摆放**（Meta 设计指引：头倾 >±15° 疲劳）：幕布中心建议在
-   视线高度附近（站立约 1.4–1.6m），不要把内容压到 1.0m 以下。
+## 4. 原生圆柱与现成的视觉位置补偿
 
-## 默认高度参考
+SDK 的圆柱轴在 carrier 原点。原生 makeCylinderSurface 的参数展开，在 API 网格空间可写成：
 
-LOCAL_FLOOR 下，若幕布中心 stageY=1.25、幕布高约 0.9m：
-底边 ≈ 0.8m、顶边 ≈ 1.7m。用户反馈“偏低/沉地”时，把 stageY 增大约
-0.2–0.35m（如提到 1.5m，底边到 1.05m）即可避免沉地观感。
+```text
+theta = arcX / radius
+p_api = (radius * sin(theta), y, radius * cos(theta))
+p_native = (radius * sin(theta), y, -radius * cos(theta))
+```
+
+中央点 theta=0 的 **API 局部 Z=+radius**；原生局部 Z=-radius。
+边缘相对中央点的 API Z 差为 `radius * (cos(theta) - 1)`，即向 local -Z 卷曲。
+不能用平面中心原点的自建网格去替代轴原点圆柱而不补偿这个差别。
+
+项目现有方法是 `PlaybackStageCurvature.entityLocalZForSurface(baseLocalZ)`：
+
+```text
+Flat:     carrierLocalZ = baseLocalZ
+Cylinder: carrierLocalZ = baseLocalZ - radius
+中央点:   carrierLocalZ + radius = baseLocalZ
+```
+
+保持的是 **曲面中央点**，不是每一个边缘点；改变曲率时边缘会按圆弧移动。
+`SURFACE_ANCHOR_OFFSET_SIGN=-1` 是上述原点关系的结果，不是调试旋钮。
+半径变化时从 authored base 绝对重算；不要累加，也不要根据画面症状试着改成 +1。
+
+## 5. 开孔是否套用了幕布的方法
+
+当前 SDK 开孔 mesh 和 compositor video layer 绑定同一个 `PanelSceneObject` / `videoSurfaceEntity`。
+创建和 reshape 后都调用 `applyStageLayerCurvatureOffset()`，使用上面的现成方法。
+因此，**源码不支持“当前开孔单纯漏调了该方法”的判断**。
+仍有视觉漂移时，应检查原生 mesh 边界、父级变换、scale 和 footprint 是否产生了另一条变换路径。
+
+上一版 setCrop 会额外写 SceneObject footprintScale，而 layer 的尺寸另由 radius/angle/aspect 与
+entity scale 决定；把 videoShape 预先除以 crop 比例，会重新分裂开孔和视频尺寸。
+当前 `videoPanelConfig()` 给二者同一最终 shape，`applyVideoTextureClip()` 清除整面板 Crop/footprint，
+仅用 SceneLayer.setClip 选取 FIT 缓冲中的有效视频 UV。UV 不再参与物理尺寸或半径定位计算。
+弹幕/压暗层按方案 A 使用完整舞台范围，视频/开孔使用有效画面范围；它们共享 scale 和 curvature。
+
+## 6. 证据与验证边界
+
+- `SpatialCoordinateContractTest` 执行实际 SDK 的 Pose/Quaternion，并检验带舞台旋转的半径补偿。
+- 详细原生地址、AAR/SO 哈希和独立探针保存在 Trellis 本次任务的 research 记录。
+- 运行日志中的 apertureLocalBounds 是 SDK mesh 数据；submittedWorldZ 是提交值，不等于头显像素测量。
+- 2026-10-20 只读发现在线 Quest 2，未取到相关保留日志；本轮未安装、启动应用或修改设备。
+- JVM/构建通过不能替代头显上的尺寸、Z 定位与遮挡验收。
+
+官方资料：
+[Architecture](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-architecture)、
+[Editor transforms](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-editor-transforms-coordinates)、
+[SceneLayer](https://developers.meta.com/horizon/reference/spatial-sdk/v0.13.2/com_meta_spatial_runtime_scenelayer)。

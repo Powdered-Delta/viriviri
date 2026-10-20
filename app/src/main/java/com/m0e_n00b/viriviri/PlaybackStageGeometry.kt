@@ -15,10 +15,11 @@ internal data class StageVideoCrop(
 internal data class PlaybackStageGeometry(
     val viewport: SpatialVideoContentQuad,
     val videoContent: SpatialVideoContentQuad,
-    val videoShape: SpatialVideoContentQuad,
     val videoCrop: StageVideoCrop,
     val curvature: PlaybackStageCurvature,
 ) {
+  // One final physical shape for aperture and compositor. UV trimming has no spatial scale.
+  val videoShape: SpatialVideoContentQuad get() = videoContent
   // Option A: one full-stage raster and physical aspect for danmaku, independent of source aspect.
   val danmakuContent: SpatialVideoContentQuad get() = viewport
   val backdropContent: SpatialVideoContentQuad get() = viewport
@@ -45,12 +46,9 @@ internal fun playbackStageGeometry(
     val height = outputAspect / source
     StageVideoCrop(top = (1f - height) / 2f, bottom = (1f + height) / 2f)
   }
-  // SDK Crop shrinks BOTH the rendered layer and aperture footprint. Compensate the pre-crop
-  // shape, rather than narrowing the whole FIT buffer again (which preserves its black bars).
   return PlaybackStageGeometry(
       viewport = viewport,
       videoContent = fitted,
-      videoShape = SpatialVideoContentQuad(fitted.halfWidth / crop.width, fitted.halfHeight / crop.height),
       videoCrop = crop,
       curvature = curvature,
   )

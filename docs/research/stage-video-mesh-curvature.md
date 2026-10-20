@@ -1,5 +1,12 @@
 # Stage video layer: mesh ownership and curvature
 
+> Historical investigation log. Current coordinate/anchor contract is verified in
+> [spatial-coordinates.md](../spatial-coordinates.md), including the SDK 0.13.2
+> API/native Z reflection and axis-origin cylinder. Earlier speculative coordinate
+> statements below are retained as history and must not override that contract.
+> Current aperture and video share the existing carrier compensation; the separate
+> whole-panel Crop/footprint scaling experiment has been retired.
+
 Status: implemented in `SpatialVideoSampleActivity` (unverified on device).
 
 ## Symptom (user report)

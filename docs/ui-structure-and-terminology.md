@@ -112,9 +112,13 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `PlaybackStageGeometry` 下发给视频、开孔、`StageBackdrop` 和 `DanmakuOverlay`。
 视频使用 `videoContent`，幕布压暗与弹幕使用完整 16:9 的 `viewport`，不随视频比例缩窄（方案 A）。
 曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**（不是累加）。
-固定 1920×1080 FIT 缓冲中的黑边由 `StageVideoCrop` / SDK `Crop` 去除；`videoShape` 是裁切前的物理尺寸，
-裁切后的视频与开孔范围共同收紧到 `videoContent`，避免把已有黑边的缓冲再次压进竖屏矩形。
-`videoShapeOptions()` 的 panel shape 同时驱动 compositor 视频和 SDK 生成的主场景缓冲开孔网格。
+`videoShape` 直接取 `videoContent`，开孔与视频使用同一最终物理 shape；
+固定 1920×1080 FIT 缓冲中的黑边由 `StageVideoCrop` 提供 UV 范围，交给
+`applyVideoTextureClip()` / `SceneLayer.setClip` 取样。整面板 Crop/footprint 被清除，UV 不再缩放开孔。
+`videoPanelConfig()` 在创建、reshape 和诊断时复用 `videoShapeOptions()`，同时驱动 compositor 视频和
+SDK 生成的主场景缓冲开孔网格。两者共享 carrier，均经 `applyStageLayerCurvatureOffset()` 应用既有补偿。
+API 局部圆柱中央点在 +radius，carrier 的 base-radius 保持中央点不动；API 到原生有 Z 反射，
+详见[坐标与圆柱原点](spatial-coordinates.md)，不能混用原生 -Z 与项目 API +Z forward。
 视频不设置自定义 `sceneMeshCreator`：SDK 0.13.2 遇到自定义 creator 会提前返回，跳过默认开孔材质配置；
 仅阴影 override 会导致完整视频开孔消失。当前没有独立阴影网格或应用自建的反向弧形裁切面。
 backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
@@ -136,10 +140,12 @@ ALPHA_BLEND，避免默认 MASKED 将弹幕字形当二值开孔并写深度。�
 flowchart LR
     Env["环境模型 / 天空背景"] --> Eye["主场景 eye buffer"]
     Params["原生输入 → appState emission"] --> Geometry["PlaybackStageGeometry<br/>共享 scale / curvature"]
-    Geometry --> Shape["videoShape + videoCrop"]
+    Geometry --> Shape["videoShape = videoContent<br/>同一最终物理尺寸"]
+    Geometry --> Clip["videoCrop → layer UV clip<br/>不缩放空间 footprint"]
     Geometry --> Viewport["完整 viewport · 16:9<br/>弹幕方案 A / 压暗层"]
     Shape --> Aperture["SDK 视频开孔网格 · OPAQUE"]
     Shape --> Video["视频 compositor layer · zIndex 1"]
+    Clip --> Video
     Aperture --> Eye
     Viewport --> UI["压暗层 2 / 弹幕与工作台 3<br/>ALPHA_BLEND · 各自可见性"]
     UI --> Composite["最终 compositor 合成"]

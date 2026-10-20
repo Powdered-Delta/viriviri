@@ -42,11 +42,10 @@ sealed interface PlaybackStageCurvature {
   }
 
   /**
-   * Measured local-Z displacement of the cylinder surface relative to its carrier entity. In the
-   * connected SDK 0.13.2 / Quest 2 build, a curved panel with no correction drifted by one radius;
-   * [surfaceAnchorOffsetMeters] is the inverse displacement needed to hold the surface centre at its
-   * authored stage position. This is based on device evidence, not inferred from a generic cylinder API
-   * description.
+   * SDK 0.13.2 cylinder geometry has its axis at the entity origin and its central surface point
+   * at API-local Z=+radius. Verified against native makeCylinderSurface and the API/native Z
+   * reflection at mesh upload. Moving the shared aperture/layer carrier by -radius pins that point
+   * to its authored base. See docs/spatial-coordinates.md for the coordinate boundary.
    */
   fun surfaceAnchorOffsetMeters(): Float =
       when (this) {
@@ -81,12 +80,9 @@ sealed interface PlaybackStageCurvature {
     const val FLAT_SENTINEL: Float = 0f
 
     /**
-     * Direction of [surfaceAnchorOffsetMeters] before the radius is applied: -1 pulls the layer
-     * toward the viewer (stage local -Z), which is what pins the surface back when the runtime has
-     * pushed it away by one radius.
-     *
-     * Flip this single constant if a device run shows a curved layer moving the wrong way (or
-     * moving twice as far) instead of staying put.
+     * Inverse of the verified API-local +radius surface displacement. This is not a tuning knob:
+     * never flip it based on a headset symptom without checking the API/native conversion and
+     * the aperture's independent footprint scale first.
      */
     const val SURFACE_ANCHOR_OFFSET_SIGN: Float = -1f
 
