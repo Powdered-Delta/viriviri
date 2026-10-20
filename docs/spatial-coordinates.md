@@ -88,14 +88,14 @@ Cylinder: carrierLocalZ = baseLocalZ - radius
 ## 5. 开孔是否套用了幕布的方法
 
 当前 SDK 开孔 mesh 和 compositor video layer 绑定同一个 `PanelSceneObject` / `videoSurfaceEntity`。
-创建和 reshape 后都调用 `applyStageLayerCurvatureOffset()`，使用上面的现成方法。
-因此，**源码不支持“当前开孔单纯漏调了该方法”的判断**。
-仍有视觉漂移时，应检查原生 mesh 边界、父级变换、scale 和 footprint 是否产生了另一条变换路径。
+现在由 `PlaybackStagePanelRenderer` 在同一次整组提交中应用现成的半径补偿：
+`PlaybackStageLayerGeometry.localPose()` 计算 base-radius，`worldPose(stageWorld)` 再合成父级姿态。
+每个子层写入新建的绝对局部姿态，局部旋转归零；全部层共用一次采样的舞台世界姿态。
+重构前源码同样有调用补偿，因此不能把现象归结为“开孔漏调方法”；此前分散的创建、重试和调试写入
+已收敛为 `PlaybackStageController` 的最新布局和一个提交入口，视觉效果仍须实机验证。
 
-上一版 setCrop 会额外写 SceneObject footprintScale，而 layer 的尺寸另由 radius/angle/aspect 与
-entity scale 决定；把 videoShape 预先除以 crop 比例，会重新分裂开孔和视频尺寸。
-当前 `videoPanelConfig()` 给二者同一最终 shape，`applyVideoTextureClip()` 清除整面板 Crop/footprint，
-仅用 SceneLayer.setClip 选取 FIT 缓冲中的有效视频 UV。UV 不再参与物理尺寸或半径定位计算。
+`videoPanelConfig()` 给视频和开孔同一最终 shape；renderer 清除整面板 Crop/footprint，
+仅用 SceneLayer.setClip 选取 FIT 缓冲中的有效视频 UV。UV 不参与物理尺寸或半径定位计算。
 弹幕/压暗层按方案 A 使用完整舞台范围，视频/开孔使用有效画面范围；它们共享 scale 和 curvature。
 
 ## 6. 证据与验证边界

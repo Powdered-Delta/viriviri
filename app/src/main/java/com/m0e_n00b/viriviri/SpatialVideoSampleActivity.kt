@@ -63,7 +63,6 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.SpatialFeature
 import com.meta.spatial.core.Vector3
-import com.meta.spatial.core.Vector2
 import com.meta.spatial.datamodelinspector.DataModelInspectorFeature
 import com.meta.spatial.debugtools.HotReloadFeature
 import com.meta.spatial.isdk.IsdkBoxCollider
@@ -149,10 +148,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
   private var spatialVideoPanelSceneObject: PanelSceneObject? = null
-  /** Video panel instance whose geometry has already been re-asserted after creation. */
-  private var reassertedVideoPanelSceneObject: PanelSceneObject? = null
-  /** Last shape handed to the video panel; keeps the debug log from repeating itself. */
-  private var lastLoggedVideoPanelShape: String? = null
   /** Set once the restored (persisted) curvatures have been logged, so the log is readable. */
   private var loggedRestoredCurvature = false
   /**
@@ -160,7 +155,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * as constants because the offset is recomputed from the base on every reshape — reading the
    * entity's current Z instead would accumulate.
    */
-  private val stageBackdropBaseLocalZ = 0.01f
+  private val stageBackdropBaseLocalZ = PlaybackStageLayer.BACKDROP.baseLocalZ
 
   /**
    * Authored local Z of the danmaku layer, cycled at runtime by the debug rail.
@@ -177,7 +172,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var danmakuBaseLocalZIndex = 0
 
   /** Authored local Z of the video surface inside the stage root, before the curvature offset. */
-  private val videoSurfaceBaseLocalZ = 0f
+  private val videoSurfaceBaseLocalZ = PlaybackStageLayer.VIDEO.baseLocalZ
 
   /**
    * Entity that carries the curved video surface.
@@ -191,7 +186,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    */
   private var videoSurfaceEntity: Entity? = null
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
-  private var lastAspectDiagnostic: SpatialVideoAspectDiagnostic? = null
   private var wristDebugPanelEntity: Entity? = null
   private var danmakuOverlayEntity: Entity? = null
   private var stageBackdropEntity: Entity? = null
@@ -229,18 +223,29 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var backdropOrderStatus: TextView? = null
   private var stageTapGuardButton: Button? = null
   private var hasWorkbenchDataSource = false
-  private var appliedStageScale: Float? = null
-  /** True while a stage-overlay reshape is waiting for its PanelSceneObject to exist. */
-  private var stageOverlaysPendingReshape = false
-  /**
-   * Curvature last applied to the stage. ONE value for every layer.
-   *
-   * The layers are not separate owners of the stick: a single value drives the video panel and every
-   * overlay through [reshapeStageLayers], which is also why they cannot drift apart or respond one at
-   * a time. Per-layer curvature was removed after being refuted on device (see
-   * [ViriViriUiState.playbackCurvature]).
-   */
-  private var appliedCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat
+  private val stagePanelRenderer by lazy {
+    PlaybackStagePanelRenderer(
+        config = { layout, layer ->
+          if (layer.role == PlaybackStageLayer.VIDEO) videoPanelConfig(layout.geometry)
+          else stageOverlayPanelSettings(
+                  layer.content.widthMeters, layer.content.heightMeters, layer.curvature,
+                  isBackdrop = layer.role == PlaybackStageLayer.BACKDROP,
+              ).toPanelConfigOptions().apply {
+                applyBackdropOrderCandidate(this, if (layer.role == PlaybackStageLayer.BACKDROP)
+                    BackdropOrderLayer.BACKDROP else BackdropOrderLayer.UI_PANEL)
+              }
+        },
+        prepareStage = { updateGrabBarPose(it.viewport.halfHeight) },
+        stageWorldPose = { worldPoseOf(Entity(R.id.spatialized_video_panel)) },
+    )
+  }
+  private val playbackStageController by lazy {
+    PlaybackStageController<PanelSceneObject>(
+        MR_SCREEN_WIDTH, MR_SCREEN_HEIGHT,
+        resolve = ::resolveStagePanel,
+        commit = { layout, panels -> stagePanelRenderer.apply(layout, panels) },
+    )
+  }
   private lateinit var spatialPanelVisibilityController: SpatialPanelVisibilityController
   private lateinit var immersivePlaybackCanvasHost: ImmersivePlaybackCanvasHost
   lateinit var audio: SceneAudioAsset
@@ -595,9 +600,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           AnalogWorkbenchSummonSystem(onSummon = ::summonWorkbenchFromController)
       )
     }
-    // Panel scene objects are created a frame after their entities, so an overlay reshape requested
-    // while creating those panels is replayed here until it lands.
-    systemManager.registerSystem(StageOverlayReshapeSystem { flushPendingStageOverlayReshape() })
+    // One frame owner commits the latest layout only after the full panel group is ready.
+    systemManager.registerSystem(PlaybackStageGeometrySystem { playbackStageController.flush() })
     // Scheme A: the ANCHOR is the grabbable entity; the stage hangs under it, so the SDK moves
     // everything when the anchor is dragged — no mirroring system needed. Watch the anchor's
     // grab state to persist the stage's world height on release.
@@ -751,20 +755,15 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   /** Stage-local +Y offset above the bar anchor so the video centre sits at the authored height. */
   private fun currentStageAnchorOffsetY(): Float = currentBarOffsetY()
 
-  private fun currentStageScale(): Float = appliedStageScale ?: PlaybackCanvasSize.STANDARD.scale
-
   /**
    * Stage footprint in metres with the shared stage scale already BAKED IN.
    *
-   * k17 root cause: the video `PanelSceneObject` and the danmaku/backdrop panels did not share one
-   * physical size source. The SDK re-runs its panel shape builder on every [PanelSceneObject.reshape]
-   * (confirmed in `PanelShape` bytecode), so the shared scale and aspect-fitted content size are baked
-   * into every shape instead of relying on entity `Scale`. The SDK generates the aperture mesh
-   * from that same shape, so the main scene buffer and compositor agree on its extent and radius.
+   * The controller supplies one layout for all panels. Size is baked into shapes;
+   * the renderer keeps native scale at one and commits aperture/layer poses together.
    */
-  private fun scaledStageWidth(): Float = MR_SCREEN_WIDTH * currentStageScale()
+  private fun scaledStageWidth(): Float = currentPlaybackStageGeometry().viewport.widthMeters
 
-  private fun scaledStageHeight(): Float = MR_SCREEN_HEIGHT * currentStageScale()
+  private fun scaledStageHeight(): Float = currentPlaybackStageGeometry().viewport.heightMeters
 
   /**
    * Video layer shape: quad while the shared stage curvature is [PlaybackStageCurvature.Flat], a
@@ -773,7 +772,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    *
    * The compositor owns the video pixels: `MediaPanelRenderOptions.applyTo` installs the `LayerConfig`,
    * and this shape is the source for its radius/extent. The carrier entity's one-radius position
-   * correction is applied separately by [applyStageLayerCurvatureOffset]; it must be recomputed on
+   * correction is applied separately by [PlaybackStagePanelRenderer]; it must be recomputed on
    * every radius change. Leave sceneMeshCreator unset: the SDK generates the matching eye-buffer
    * aperture as well as configuring its hole-punch material. A shadow-only override bypasses both.
    *
@@ -870,10 +869,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   /**
    * Cycles to the next backdrop-order candidate and applies it to the live panels, without a restart.
    *
-   * Reuses the existing reshape paths rather than inventing a second rebuild mechanism:
-   * [applyOverlayStageShape] for the two stage overlays (which goes through
-   * [StageOverlayReshapeSystem]'s replay for the known one-frame panel-creation delay) and
-   * [reshapeUiPanelsForBackdropOrder] for the rest.
+   * Invalidates the shared stage transaction; other workbench panels retain their own settings.
    *
    * DEBUG-only: a release build stays on candidate 0 and this is a no-op.
    */
@@ -885,7 +881,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun applyBackdropOrderCandidateLive() {
-    applyOverlayStageShape()
+    requestStageGeometry()
     val detail = reshapeUiPanelsForBackdropOrder()
     // One line per switch, on a fixed tag, carrying the candidate AND the values actually written, so a
     // device session can line "what I set" up against "what I see".
@@ -993,13 +989,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         .apply { applyVideoLayerDepth(this) }
   }
 
-  /** An overlay's real layer config, built the same way [reshapeStageOverlay] builds it. */
+  /** An overlay config from the same factory used by the stage batch renderer. */
   private fun overlayProbeConfig(isBackdrop: Boolean): PanelConfigOptions {
-    val content = currentPlaybackStageGeometry().viewport
+    val geometry = currentPlaybackStageGeometry()
+    val content = geometry.viewport
     return stageOverlayPanelSettings(
             content.widthMeters,
             content.heightMeters,
-            appliedCurvature,
+            geometry.curvature,
             isBackdrop = isBackdrop,
         )
         .toPanelConfigOptions()
@@ -1063,21 +1060,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       }
 
   /**
-   * Single rebuild entry point for stage geometry: recomputes the aspect-fitted content rectangle,
-   * reshapes/crops video, and applies the full stage viewport to the overlays.
-   */
-  private fun rebuildStageGeometry() {
-    lastAspectDiagnostic = null
-    // Overlay shapes do not depend on decoded video dimensions, so re-assert them even before the
-    // first video frame; the content helper falls back to the full stage rectangle in that state.
-    updateSpatialVideoContentQuad(
-        videoWidth = player.videoSize.width,
-        videoHeight = player.videoSize.height,
-        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
-    )
-  }
-
-  /**
    * Records the current content half-height; bar/stage anchor geometry derives from it via
    * [currentBarOffsetY] / [currentStageAnchorOffsetY].
    */
@@ -1088,8 +1070,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val pose = stageEntity.tryGetComponent<Transform>()?.transform ?: return
     val newLocalY = currentStageAnchorOffsetY()
     if (kotlin.math.abs(pose.t.y - newLocalY) > 0.0001f) {
-      pose.t = Vector3(pose.t.x, newLocalY, pose.t.z)
-      stageEntity.setComponent(Transform(pose))
+      stageEntity.setComponent(Transform(Pose(Vector3(pose.t.x, newLocalY, pose.t.z), pose.q)))
     }
   }
 
@@ -1121,12 +1102,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       // Initialize the stage with the persisted scale directly at birth so the canvas matches
       // the danmaku/backdrop overlays from frame one (the state observer's early apply can race
       // panel creation; carrying the value here removes that dependency).
-      val persistedStageScale = ViriViriApplication.appState.state.value.playbackStageScale
-      appliedStageScale = PlaybackCanvasSize.clampStageScale(persistedStageScale)
+      val initialStageState = ViriViriApplication.appState.state.value
+      applyPlaybackStageParameters(initialStageState.playbackDisplayRatio,
+          initialStageState.playbackStageScale, initialStageState.playbackCurvature)
       // Seed the content half-height WITH the persisted scale before the anchor is placed, so the
       // bar/stage offset already reflects the loaded canvas size (the content quad re-reports the
       // same value via [updateGrabBarPose] once the aspect is known).
-      grabBarContentHalfHeight = MR_SCREEN_HEIGHT / 2f * appliedStageScale!!
+      grabBarContentHalfHeight = currentPlaybackStageGeometry().viewport.halfHeight
       // Scheme A layout order: create the grabbable ANCHOR first (world pose at the handle spot
       // below the video), then create the stage DIRECTLY as its child (stage-local (0,+offset,0))
       // so the video sits exactly above the bar — relative z = 0, no world-root -> reparent step
@@ -1239,8 +1221,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * Creates, on first use, the child entity that carries the video surface.
    *
    * Mirrors the rail panels (`Transform` + `TransformParent` in one component list) so the pose is
-   * stage-local. The curvature offset is applied straight away, so a persisted curve is honoured
-   * from the first frame instead of only after the first reshape.
+   * stage-local. Creation only registers the carrier; the controller commits its absolute
+   * curvature offset together with every other layer once the full panel group is ready.
    */
   private fun ensureVideoSurfaceEntity(stageRoot: Entity): Entity {
     videoSurfaceEntity?.let { return it }
@@ -1251,7 +1233,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 TransformParent(stageRoot),
             )
         )
-    applyStageLayerCurvatureOffset(entity, appliedCurvature, videoSurfaceBaseLocalZ)
     videoSurfaceEntity = entity
     return entity
   }
@@ -1338,8 +1319,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         }
 
     spatialVideoPanelSceneObject = panelSceneObject
-    applyVideoTextureClip(panelSceneObject, geometry)
-    applyStageLayerCurvatureOffset(videoSurface, geometry.curvature, videoSurfaceBaseLocalZ, panelSceneObject)
     attachImmersiveOutput(panelSceneObject)
 
     systemManager
@@ -1371,16 +1350,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     // The panel's own ISDK dimensions are no longer published either: see above, the moving surface has
     // no hit geometry.
 
-    // The mesh creator can run before the PanelSceneObject reference is available for reshape.
-    lastAspectDiagnostic = null
-    updateSpatialVideoContentQuad(
-        videoWidth = player.videoSize.width,
-        videoHeight = player.videoSize.height,
-        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
-    )
-    // Note: no entity Scale here. The persisted stage scale is baked into the panel shape by
-    // [videoShapeOptions] via [scaledStageWidth] / [scaledStageHeight], which is deterministic
-    // across PanelSceneObject lifetime (see the k17 note on [scaledStageWidth]).
+    // The shared player may already have decoded dimensions before this Activity subscribes.
+    val size = player.videoSize
+    playbackStageController.setVideoSize(size.width, size.height, size.pixelWidthHeightRatio)
+    requestStageGeometry()
   }
 
   // Movies Controller panel
@@ -1499,11 +1472,12 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           R.id.stage_backdrop_panel,
           composeViewCreator = { _, context -> ComposeView(context).apply { setContent { StageBackdrop() } } },
           settingsCreator = {
-            val content = currentPlaybackStageGeometry().backdropContent
+            val geometry = currentPlaybackStageGeometry()
+            val content = geometry.backdropContent
             stageOverlayPanelSettings(
                 content.widthMeters,
                 content.heightMeters,
-                appliedCurvature,
+                geometry.curvature,
                 isBackdrop = true,
             )
           },
@@ -1538,8 +1512,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             }
           },
           settingsCreator = {
-            val content = currentPlaybackStageGeometry().danmakuContent
-            stageOverlayPanelSettings(content.widthMeters, content.heightMeters, appliedCurvature)
+            val geometry = currentPlaybackStageGeometry()
+            val content = geometry.danmakuContent
+            stageOverlayPanelSettings(content.widthMeters, content.heightMeters, geometry.curvature)
           },
       )
 
@@ -1630,10 +1605,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       val modules = ImmersiveWorkbenchReducer.modules(immersiveWorkbenchHost.state)
       spatialPanelVisibilityController.setVisible(PanelSlot.MEDIA_STAGE, stageBackdropEntity!!, modules.isNotEmpty())
     }
-    // The panel shape has to carry the persisted stage scale from frame one: the state observer may
-    // have run its one-shot apply before this panel existed.
-    applyOverlayStageShape()
-    requestStageOverlayReshape()
+    requestStageGeometry()
   }
 
   private fun createDanmakuOverlayPanel() {
@@ -1647,9 +1619,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
             // The overlay must render but never block the stage's controller/hand raycasts.
             .also { it.setComponent(Panel(R.id.danmaku_overlay_panel, MeshCollision.NoCollision)) }
-    // Full-stage overlays share scale and curvature, not the narrower video content dimensions.
-    applyOverlayStageShape()
-    requestStageOverlayReshape()
+    requestStageGeometry()
   }
 
   private fun traceStageInputTargets() {
@@ -1846,9 +1816,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           rootView.findViewById<Button>(R.id.danmaku_z_button).setOnClickListener {
             danmakuBaseLocalZIndex =
                 (danmakuBaseLocalZIndex + 1) % DANMAKU_BASE_LOCAL_Z_CANDIDATES.size
-            danmakuOverlayEntity?.let {
-              applyStageLayerCurvatureOffset(it, appliedCurvature, stageDanmakuBaseLocalZ)
-            }
+            playbackStageController.setDanmakuDepth(stageDanmakuBaseLocalZ)
             Log.i("ViriViriCurve", "danmaku base z -> ${"%.2f".format(stageDanmakuBaseLocalZ)}")
           }
           // Debug rail: backdrop-order candidates (default 0 BASELINE, so the shipped behaviour is
@@ -1915,6 +1883,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   override fun onDestroy() {
+    playbackStageController.close()
     player.removeListener(immersiveStagePlayerListener)
     player.removeListener(immersiveControlsPlayerListener)
     browseSelectionObserver?.cancel()
@@ -2364,76 +2333,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       stageScale: Float,
       curvature: PlaybackStageCurvature,
   ) {
-    val normalizedScale = PlaybackCanvasSize.clampStageScale(stageScale)
     val target = SpatialVideoAspectProbeTarget.from(displayRatio)
-    val changed = appliedStageScale != normalizedScale || appliedCurvature != curvature ||
-        spatialVideoAspectProbeState.appliedTarget != target
-    appliedStageScale = normalizedScale
-    appliedCurvature = curvature
     if (spatialVideoAspectProbeState.appliedTarget != target) {
       spatialVideoAspectProbeState = spatialVideoAspectProbeState.copy(pendingTarget = target, appliedTarget = target)
     }
-    // Commit one geometry snapshot after ALL parameters have been updated, never three partial rebuilds.
-    if (changed) rebuildStageGeometry()
+    playbackStageController.setParameters(PlaybackStageParameters(stageScale, target.displayAspectRatio, curvature))
+    syncSpatialVideoAspectProbeUi()
   }
-
-  /**
-   * One stage overlay that rides the full viewport and the shared curvature.
-   *
-   * Adding a layer — subtitles, for instance — means appending ONE entry to [stageOverlayLayers]:
-   * [applyOverlayStageShape], [replayPendingStageOverlayReshape], [applyPlaybackStageParameters] and
-   * [resetPlaybackCurvatureToFlat] all iterate that list. A new layer therefore cannot bend on its own
-   * radius, and cannot be the one overlay someone forgot when the curvature changed.
-   *
-   * [baseLocalZ] is a provider, not a value, because the danmaku separation is cycled at runtime by
-   * the debug rail.
-   */
-  private class StageOverlayLayer(
-      val name: String,
-      val entity: () -> Entity?,
-      val baseLocalZ: () -> Float,
-      val isBackdrop: Boolean = false,
-  )
-
-  private fun stageOverlayLayers(): List<StageOverlayLayer> =
-      listOf(
-          StageOverlayLayer(
-              "backdrop",
-              { stageBackdropEntity },
-              { stageBackdropBaseLocalZ },
-              isBackdrop = true,
-          ),
-          StageOverlayLayer("danmaku", { danmakuOverlayEntity }, { stageDanmakuBaseLocalZ }),
-      )
-
-  /**
-   * Re-bakes the shared video content dimensions and curvature into every overlay panel.
-   *
-   * A UI panel's physical size comes from its SHAPE, not from an entity `Scale` component, so the
-   * full viewport is written to each overlay; source aspect must never squeeze its raster. Every
-   * overlay takes the SAME curvature: authored local Z separates rendering roles, not different radii.
-   *
-   * The overlay handles passed in here must be the ones returned by [Entity.createPanelEntity]: a
-   * panel registration id and the spawned entity id are different namespaces, so an
-   * `Entity(R.id...)` handle built at call time resolves to nothing and the reshape is dropped.
-   */
-  private fun applyOverlayStageShape(geometry: PlaybackStageGeometry = currentPlaybackStageGeometry()) {
-    stageOverlayLayers().forEach { reshapeOverlay(it, geometry.curvature, geometry.viewport) }
-  }
-
-  private fun reshapeOverlay(
-      layer: StageOverlayLayer,
-      curvature: PlaybackStageCurvature,
-      content: SpatialVideoContentQuad,
-  ): Boolean =
-      reshapeStageOverlay(
-          entity = layer.entity(),
-          curvature = curvature,
-          content = content,
-          baseLocalZ = layer.baseLocalZ(),
-          isBackdrop = layer.isBackdrop,
-          label = layer.name,
-      )
 
   /**
    * Debug escape hatch: puts every stage layer back to [PlaybackStageCurvature.Flat].
@@ -2444,44 +2350,14 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    */
   private fun resetPlaybackCurvatureToFlat() {
     ViriViriApplication.appState.setPlaybackCurvature(PlaybackStageCurvature.Flat)
-    // Re-assert the poses synchronously: the state observer is asynchronous, and this path exists
-    // precisely for the states the user cannot fix by hand.
-    videoSurfaceEntity?.let {
-      applyStageLayerCurvatureOffset(it, PlaybackStageCurvature.Flat, videoSurfaceBaseLocalZ)
-    }
-    stageOverlayLayers().forEach { layer ->
-      layer.entity()?.let {
-        applyStageLayerCurvatureOffset(it, PlaybackStageCurvature.Flat, layer.baseLocalZ())
-      }
-    }
+    val state = ViriViriApplication.appState.state.value
+    applyPlaybackStageParameters(state.playbackDisplayRatio, state.playbackStageScale, PlaybackStageCurvature.Flat)
     Log.i("ViriViriCurve", "curvature reset to flat for every stage layer")
   }
 
   /** Debug-rail formatting for a curvature: "flat", or the cylinder radius in metres. */
   private fun curvatureLabel(curvature: PlaybackStageCurvature): String =
       curvature.radiusOrNull()?.let { "r=%.2f m".format(it) } ?: "flat"
-
-  /**
-   * Coarse shape key for the device log. Quantised to 0.25 m so holding the thumbstick produces a
-   * handful of lines instead of one per frame, while still proving which shape the panel received.
-   */
-  private fun curvatureLogKey(curvature: PlaybackStageCurvature): String =
-      curvature.radiusOrNull()?.let { "cylinder r=%.2f m".format(kotlin.math.round(it * 4f) / 4f) }
-          ?: "flat"
-
-  /**
-   * Records the shape handed to the video panel, so a device run can separate a wiring failure (no
-   * line while the stick bends the layer) from a compositor limitation (the line reports a cylinder
-   * while the image stays flat).
-   */
-  private fun logVideoPanelShape(shapeWidth: Float, shapeHeight: Float) {
-    if (!BuildConfig.DEBUG) return
-    val key =
-        "%s %.2fx%.2f".format(curvatureLogKey(appliedCurvature), shapeWidth, shapeHeight)
-    if (key == lastLoggedVideoPanelShape) return
-    lastLoggedVideoPanelShape = key
-    Log.i("ViriViriCurve", "video panel shape -> $key")
-  }
 
   /**
    * Builds a playback-control menu with the application's dark popup theme.
@@ -2589,299 +2465,36 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     val state = spatialVideoAspectProbeState
     debugAspectTargetButton.thenAccept { it.text = "Target: ${state.pendingTarget.label}" }
     debugAspectApplyButton.thenAccept { it.text = "Apply" }
-    val diagnostic = lastAspectDiagnostic
+    val diagnostic = playbackStageController.diagnostic
     debugAspectDetail.thenAccept { detail ->
       detail.text =
-          if (diagnostic == null) {
-            "Pending ${state.pendingTarget.label}"
-          } else {
-            "src=${diagnostic.displayAspectRatio} target=${resolvedSpatialVideoAspectRatio(diagnostic)} " +
-                "quad=${diagnostic.contentHalfWidth}x${diagnostic.contentHalfHeight}"
-          }
+          "src=${diagnostic.displayAspectRatio} target=${playbackStageController.parameters.targetAspect ?: diagnostic.displayAspectRatio} " +
+              "quad=${currentPlaybackStageGeometry().videoContent.widthMeters}x${currentPlaybackStageGeometry().videoContent.heightMeters}"
     }
   }
 
-  private fun resolvedSpatialVideoAspectRatio(diagnostic: SpatialVideoAspectDiagnostic): Float =
-      spatialVideoAspectProbeState.appliedTarget.displayAspectRatio ?: diagnostic.displayAspectRatio
+  private fun currentPlaybackStageGeometry(): PlaybackStageGeometry = playbackStageController.layout.geometry
 
-  /**
-   * Shared stage geometry: full viewport for overlays, fitted/cropped content for video, one curvature.
-   * This pure snapshot is also used by late panel creation and deferred overlay replay.
-   */
-  private fun currentPlaybackStageGeometry(): PlaybackStageGeometry {
-    val stageWidth = scaledStageWidth()
-    val stageHeight = scaledStageHeight()
-    val diagnostic =
-        spatialVideoAspectDiagnostic(
-            stageWidth = stageWidth,
-            stageHeight = stageHeight,
-            videoWidth = player.videoSize.width,
-            videoHeight = player.videoSize.height,
-            pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
-        )
-    return playbackStageGeometry(
-        stageWidth = stageWidth,
-        stageHeight = stageHeight,
-        sourceAspect = diagnostic.displayAspectRatio,
-        targetAspect = spatialVideoAspectProbeState.appliedTarget.displayAspectRatio,
-        curvature = appliedCurvature,
-    )
+  /** Only panel identity resolution lives in the host; the controller owns readiness and replay. */
+  private fun resolveStagePanel(role: PlaybackStageLayer): PanelSceneObject? {
+    if (role == PlaybackStageLayer.VIDEO) return spatialVideoPanelSceneObject
+    val entity = when (role) {
+      PlaybackStageLayer.BACKDROP -> stageBackdropEntity
+      PlaybackStageLayer.DANMAKU -> danmakuOverlayEntity
+      PlaybackStageLayer.VIDEO -> videoSurfaceEntity
+    } ?: return null
+    return systemManager.findSystem<SceneObjectSystem>().getSceneObject(entity)?.getNow(null) as? PanelSceneObject
   }
 
-  private fun applyVideoTextureClip(panel: PanelSceneObject, geometry: PlaybackStageGeometry) {
-    val crop = geometry.videoCrop
-    // Whole-panel Crop writes a separate footprint scale in SDK 0.13.2. Clear it,
-    // keep both physical shapes identical, and trim only the source UVs of the compositor texture.
-    panel.clearCrop()
-    panel.setScale(Vector3(1f, 1f, 1f))
-    panel.layer?.setClip(Vector2(crop.left, crop.top), Vector2(crop.right, crop.bottom))
-  }
+  private fun requestStageGeometry() = playbackStageController.invalidate()
 
-  /** Reconfigures the existing native panel and refreshes its matching ISDK hit dimensions. */
-  private fun reshapeSpatialVideoPanel(geometry: PlaybackStageGeometry) {
-    val panel = spatialVideoPanelSceneObject
-    if (panel == null) {
-      // DIAGNOSTIC: a dropped media-panel reshape while overlay reshapes land leaves their content
-      // rectangles and radii out of sync. Never leave that failure invisible again.
-      Log.w(
-          "ViriViriAspect",
-          "video reshape DROPPED: spatialVideoPanelSceneObject is null " +
-              "(curvature=$appliedCurvature) — the video keeps its previous shape",
-      )
-      return
-    }
-    // The geometry snapshot already carries the shared stage scale (derived from the stage
-    // footprint), so the shape dimensions below bake scale + curvature together.
-    val shapeWidth = geometry.videoShape.widthMeters
-    val shapeHeight = geometry.videoShape.heightMeters
-    logVideoPanelShape(shapeWidth, shapeHeight)
-    Log.i(
-        "ViriViriAspect",
-        "video reshape APPLIED shape=" +
-            (if (appliedCurvature is PlaybackStageCurvature.Flat) "Quad"
-            else "Cylinder(radius=${appliedCurvature.radiusOrNull()})") +
-            " ${shapeWidth}x${shapeHeight}",
-    )
-    panel.reshape(videoPanelConfig(geometry))
-    // Re-assert AFTER reshape as well as on the state edge. The SDK reshape rebuilds PanelShape but
-    // does not promise to preserve this app-owned carrier correction; this is the single place where
-    // the new radius and the new shape are committed together.
-    applyVideoTextureClip(panel, geometry)
-    updateGrabBarPose(geometry.viewport.halfHeight)
-    videoSurfaceEntity?.let {
-      applyStageLayerCurvatureOffset(it, geometry.curvature, videoSurfaceBaseLocalZ, panel)
-    }
-    panel.updateIsdkComponentProperties(videoSurfaceEntity ?: Entity(R.id.spatialized_video_panel))
-    if (BuildConfig.DEBUG) {
-      Log.i("ViriViriAspect", "isdkPanelDimensions=$shapeWidth x $shapeHeight")
-    }
-  }
-
-  /**
-   * Re-asserts the curvature of both stage overlays.
-   *
-   * k18 root cause: panel scene objects are instantiated by the SDK's panel-creation system a frame
-   * after [Entity.createPanelEntity], so a reshape issued at creation time is silently dropped. The
-   * danmaku/backdrop therefore kept the shape their registration produced — and that registration is
-   * evaluated before the persisted scale is known — leaving the overlay centred on the stage but
-   * never resized. Requesting the reshape here and replaying it from [StageOverlayReshapeSystem]
-   * makes the result independent of that creation order.
-   */
-  private fun requestStageOverlayReshape() {
-    stageOverlaysPendingReshape = true
-    flushPendingStageOverlayReshape()
-  }
-
-  /**
-   * Replays the deferred stage reshapes: the danmaku / backdrop overlays while a reshape is still
-   * pending, then the video panel geometry once its scene object exists.
-   */
-  private fun flushPendingStageOverlayReshape() {
-    if (stageOverlaysPendingReshape) replayPendingStageOverlayReshape()
-    reassertAppliedVideoStageGeometry()
-  }
-
-  /** Replays a pending overlay reshape. A no-op once every overlay has landed. */
-  private fun replayPendingStageOverlayReshape() {
-    val geometry = currentPlaybackStageGeometry()
-    val landed = stageOverlayLayers().map { reshapeOverlay(it, geometry.curvature, geometry.viewport) }
-    if (landed.all { it }) stageOverlaysPendingReshape = false
-  }
-
-  /**
-   * Re-asserts the video panel geometry once its scene object exists.
-   *
-   * [applyPlaybackStageParameters] can fire before the panel is created (the app-state collector runs
-   * during `onCreate`, while the panel is created later), and [reshapeSpatialVideoPanel] silently
-   * drops a reshape when the scene object is missing. Because the caller has already recorded the
-   * requested curvature in `appliedCurvature`, its `if (applied == curvature) return` guard then
-   * blocks every later retry, so a persisted curvature never reached the panel. Re-running the
-   * content-quad path once per panel instance makes the result independent of that ordering, the
-   * same way the overlay replay above does for the overlays.
-   */
-  private fun reassertAppliedVideoStageGeometry() {
-    val panel = spatialVideoPanelSceneObject ?: return
-    if (panel === reassertedVideoPanelSceneObject) return
-    reassertedVideoPanelSceneObject = panel
-    lastAspectDiagnostic = null
-    updateSpatialVideoContentQuad(
-        videoWidth = player.videoSize.width,
-        videoHeight = player.videoSize.height,
-        pixelWidthHeightRatio = player.videoSize.pixelWidthHeightRatio,
-    )
-  }
-
-  /**
-   * Reshapes one overlay now, or defers it until its panel scene object exists.
-   *
-   * [entity] must be the handle returned by [Entity.createPanelEntity]. The panel registration id
-   * and the spawned entity id are different namespaces, so a freshly built `Entity(R.id...)` handle
-   * addresses nothing: every overlay reshape issued through one was silently dropped, which is why
-   * the danmaku and backdrop layers never followed the stage scale.
-   *
-   * [label] only names the layer in the deferred-reshape log; an unnamed overlay is whatever is in
-   * [stageOverlayLayers], so a fourth layer shows up there the moment it is added. [content] is the
-   * full stage viewport; video has its own decoded-content crop within that viewport.
-   */
-  private fun reshapeStageOverlay(
-      entity: Entity?,
-      curvature: PlaybackStageCurvature,
-      content: SpatialVideoContentQuad,
-      baseLocalZ: Float,
-      isBackdrop: Boolean = false,
-      label: String = "overlay",
-  ): Boolean {
-    val overlayEntity = entity ?: return true
-    val overlay =
-        systemManager.findSystem<SceneObjectSystem>()
-            .getSceneObject(overlayEntity)
-            ?.getNow(null) as? PanelSceneObject
-    if (overlay == null) {
-      stageOverlaysPendingReshape = true
-      if (BuildConfig.DEBUG) {
-        Log.i(
-            "ViriViriStage",
-            "$label reshape deferred: panel scene object not created yet " +
-                "(curvature=$curvature baseLocalZ=$baseLocalZ)",
-        )
-      }
-      return false
-    }
-    val config =
-        stageOverlayPanelSettings(
-                content.widthMeters,
-                content.heightMeters,
-                curvature,
-                isBackdrop = isBackdrop,
-            )
-            .toPanelConfigOptions()
-    // DEBUG-only: no-op unless the ZINDEX backdrop-order candidate is active.
-    applyBackdropOrderCandidate(
-        config,
-        if (isBackdrop) BackdropOrderLayer.BACKDROP else BackdropOrderLayer.UI_PANEL,
-    )
-    overlay.reshape(config)
-    overlay.setScale(Vector3(1f, 1f, 1f))
-    applyStageLayerCurvatureOffset(overlayEntity, curvature, baseLocalZ, overlay)
-    return true
-  }
-
-  /**
-   * Applies the shared absolute radius correction to a stage layer's carrier entity.
-   *
-   * Every stage layer uses the same measured one-radius correction. [baseLocalZ] is the authored
-   * separation between the video, backdrop and danmaku; the correction is recomputed from that base
-   * instead of accumulated, so changing r1 -> r2 moves the carrier by exactly the correction delta.
-   * The SDK builds aperture and compositor geometry from the same panel shape, so both
-   * receive this carrier correction. There is no app-owned mesh to inverse-shift.
-   */
-  private fun applyStageLayerCurvatureOffset(
-      entity: Entity,
-      curvature: PlaybackStageCurvature,
-      baseLocalZ: Float,
-      panel: PanelSceneObject? = null,
-  ) {
-    val transform = entity.tryGetComponent<Transform>() ?: return
-    val pose = transform.transform
-    val targetZ = curvature.entityLocalZForSurface(baseLocalZ)
-    // These layers all sit on the stage-local axis and are separated only along Z, so x/y are part of
-    // the contract: re-asserting them also repairs a transform that TransformParent re-derived from
-    // the world pose when the entity was attached to the stage root.
-    if (kotlin.math.abs(pose.t.x) >= 0.0001f ||
-        kotlin.math.abs(pose.t.y) >= 0.0001f ||
-        kotlin.math.abs(pose.t.z - targetZ) >= 0.0001f) {
-      // Copy instead of mutating the Pose retained by the component before the ECS write.
-      entity.setComponent(Transform(Pose(Vector3(0f, 0f, targetZ), pose.q)))
-    }
-    // Shape recreation and native ECS transform propagation occur in different phases. Commit
-    // the corrected WORLD pose to this very PanelSceneObject too, including when local Z already
-    // matched before reshape. The aperture and compositor are attached to this same native object.
-    if (panel != null) {
-      val world = worldPoseOf(entity) ?: return
-      panel.setPosition(world.t)
-      panel.setRotationQuat(world.q)
-      if (BuildConfig.DEBUG) {
-        val bounds = panel.mesh?.computeCombinedBounds()
-        Log.i("ViriViriStage", "panel pose radius=${curvature.radiusOrNull()} baseZ=$baseLocalZ " +
-            "carrierZ=$targetZ submittedWorldZ=${world.t.z} unitScale=true " +
-            "sharedCarrier=${panel.entity == entity} " +
-            "expectedSurfaceCenterStageZ=${targetZ + (curvature.radiusOrNull() ?: 0f)} " +
-            "apertureLocalBounds=$bounds panelShape=" +
-            "${panel.panelShapeConfig?.width}x${panel.panelShapeConfig?.height}")
-      }
-    }
-  }
-
-  /**
-   * Single entry point for aspect geometry: every ratio, scale or curvature change rebuilds the
-   * compositor shape/crop and fans the full viewport to backdrop/danmaku from the same snapshot.
-   * The SDK recreates the matching aperture from that same shape; compositor owns video pixels.
-   */
   private fun updateSpatialVideoContentQuad(
       videoWidth: Int,
       videoHeight: Int,
       pixelWidthHeightRatio: Float,
   ) {
-    // All content geometry is derived from the SCALED stage footprint, so the persisted canvas
-    // size is baked into the resulting mesh/shape rather than applied as an entity Scale.
-    val stageWidth = scaledStageWidth()
-    val stageHeight = scaledStageHeight()
-    val diagnostic =
-        spatialVideoAspectDiagnostic(
-            stageWidth = stageWidth,
-            stageHeight = stageHeight,
-            videoWidth = videoWidth,
-            videoHeight = videoHeight,
-            pixelWidthHeightRatio = pixelWidthHeightRatio,
-        )
-    if (diagnostic == lastAspectDiagnostic) return
-    val targetAspectRatio = resolvedSpatialVideoAspectRatio(diagnostic)
-    val geometry =
-        playbackStageGeometry(
-            stageWidth = stageWidth,
-            stageHeight = stageHeight,
-            sourceAspect = diagnostic.displayAspectRatio,
-            targetAspect = spatialVideoAspectProbeState.appliedTarget.displayAspectRatio,
-            curvature = appliedCurvature,
-        )
-    reshapeSpatialVideoPanel(geometry)
-    // The same snapshot fans out to independent full-stage overlays even before video exists.
-    applyOverlayStageShape(geometry)
-    lastAspectDiagnostic = diagnostic
+    playbackStageController.setVideoSize(videoWidth, videoHeight, pixelWidthHeightRatio)
     syncSpatialVideoAspectProbeUi()
-    if (BuildConfig.DEBUG) {
-      Log.i(
-          "ViriViriAspect",
-          "video=${diagnostic.videoWidth}x${diagnostic.videoHeight} " +
-              "pixelRatio=${diagnostic.pixelWidthHeightRatio} " +
-              "sourceAspect=${diagnostic.displayAspectRatio} " +
-              "targetAspect=$targetAspectRatio " +
-              "visibleVideo=${geometry.videoContent.widthMeters}x${geometry.videoContent.heightMeters} " +
-              "panelShape=${geometry.videoShape.widthMeters}x${geometry.videoShape.heightMeters} " +
-              "viewport=${geometry.viewport.widthMeters}x${geometry.viewport.heightMeters} crop=${geometry.videoCrop} " +
-              "target=${spatialVideoAspectProbeState.appliedTarget.label}",
-      )
-    }
   }
 
   private fun startTransportTimelineUpdates() {
@@ -3044,7 +2657,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     /**
      * Candidates for the danmaku layer's authored local Z, stepped by the debug rail. This is only its
      * authored separation from the video/backdrop; the shared radius correction is applied identically
-     * to every carrier by [applyStageLayerCurvatureOffset].
+     * to every carrier by [PlaybackStagePanelRenderer].
      */
     val DANMAKU_BASE_LOCAL_Z_CANDIDATES: FloatArray = floatArrayOf(-0.01f, 0.01f, -0.05f, 0.05f)
 

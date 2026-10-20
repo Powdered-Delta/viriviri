@@ -107,25 +107,34 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。
 
 媒体面板**不**直接绑在 `spatialized_video_panel` 上，而是绑在运行时创建的子实体
-`videoSurfaceEntity` 上。[实现] `applyPlaybackStageParameters()` 在一次状态 emission 中接收比例、缩放、曲率，
-更新完全部参数后，由 `currentPlaybackStageGeometry()` / `playbackStageGeometry()` 计算同一份
-`PlaybackStageGeometry` 下发给视频、开孔、`StageBackdrop` 和 `DanmakuOverlay`。
+`videoSurfaceEntity` 上。[实现] `applyPlaybackStageParameters()` 把一次 emission 的比例、缩放、曲率
+交给 `PlaybackStageController`；视频尺寸回调只提交源尺寸。控制器持有唯一一份 `PlaybackStageLayout`，
+由 `PlaybackStageGeometrySystem` 在视频、压暗层、弹幕面板全部就绪后，交给 `PlaybackStagePanelRenderer`
+一次同步提交。未就绪时保留最新请求，不把部分层标记为已完成；面板实例替换后自动重放最新整组布局。
 视频使用 `videoContent`，幕布压暗与弹幕使用完整 16:9 的 `viewport`，不随视频比例缩窄（方案 A）。
-曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**（不是累加）。
-`videoShape` 直接取 `videoContent`，开孔与视频使用同一最终物理 shape；
-固定 1920×1080 FIT 缓冲中的黑边由 `StageVideoCrop` 提供 UV 范围，交给
-`applyVideoTextureClip()` / `SceneLayer.setClip` 取样。整面板 Crop/footprint 被清除，UV 不再缩放开孔。
-`videoPanelConfig()` 在创建、reshape 和诊断时复用 `videoShapeOptions()`，同时驱动 compositor 视频和
-SDK 生成的主场景缓冲开孔网格。两者共享 carrier，均经 `applyStageLayerCurvatureOffset()` 应用既有补偿。
+`videoShape` 直接取 `videoContent`，开孔与视频使用同一最终物理 shape。
+`StageVideoCrop` 只提供 FIT 缓冲的 UV 范围，由 renderer 的 `SceneLayer.setClip` 取样；整面板
+Crop/footprint 被清除。`videoPanelConfig()` 在创建、整组 reshape 和诊断时复用 `videoShapeOptions()`。
+曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**。
+开孔与视频共用 carrier，renderer 对每个 carrier 同时写入绝对局部姿态和原生世界姿态。
+
+```text
+app state + video size -> PlaybackStageController -> PlaybackStageLayout
+                              | latest pending; wait for all panel identities
+PlaybackStageGeometrySystem --+-> PlaybackStagePanelRenderer
+                                  | reshape + unit scale + UV clip
+                                  + fresh local poses -> one stage-world pose -> all native poses
+```
+
 API 局部圆柱中央点在 +radius，carrier 的 base-radius 保持中央点不动；API 到原生有 Z 反射，
 详见[坐标与圆柱原点](spatial-coordinates.md)，不能混用原生 -Z 与项目 API +Z forward。
 视频不设置自定义 `sceneMeshCreator`：SDK 0.13.2 遇到自定义 creator 会提前返回，跳过默认开孔材质配置；
 仅阴影 override 会导致完整视频开孔消失。当前没有独立阴影网格或应用自建的反向弧形裁切面。
 backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
 只保留其设计层间距，曲率补偿完全相同。
-[实现] reshape 会保留原有原生 scale；宿主因而重置为单位 scale，并在 ECS 写入
-`entityLocalZForSurface(baseLocalZ)` 后，将 `worldPoseOf()` 算出的世界姿态提交到对应的
-`PanelSceneObject`。局部 Z 已匹配也不跳过新建/reshape 后的原生姿态提交。
+[实现] renderer 先更新舞台与抓取条间距，再采样一次舞台世界姿态；全部子层使用该姿态和
+`PlaybackStageLayerGeometry.localPose()` / `worldPose()`。子层局部旋转统一归零，不沿用重挂父级时的
+旧旋转。初始化、reset、调试 Z 和 render policy 切换都提交/失效同一控制器，没有独立补偿旁路。
 [实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，开孔网格不独立拥有输入或视频 Surface。
 `LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
 `spatialized_video_panel` 仍是舞台根；只移动 surface/overlay carrier，不会带动 rail / transport / navigation /
@@ -699,7 +708,7 @@ grab_bar.xml（非交互、不可抓取，仅指示）
 | `VideoStageGrabPersistenceSystem` | 监听锚点抓取结束，持久化舞台世界高度（仅 Y） |
 | `AnalogMediaStageTuningSystem` | 右摇杆：上/下缩放全部层，左/右弯曲**全部层共用的那一个曲率**（无目标层）；**双扳机（任意手）** = 舞台主操作。判定用几何 `StageRayTargeting`（取不到姿态时回退 `rightEntity`）；**workbench 可见时模拟量整体不生效**；`ViriViriTarget` 每秒一行诊断 |
 | `StageRayTargeting` | 纯数学：控制器射线与舞台平面/矩形的求交，使输入不受曲率位移影响（有 JVM 单测） |
-| `StageOverlayReshapeSystem` | 等待 `PanelSceneObject` 就绪后重放覆盖层重塑请求 |
+| `PlaybackStageGeometrySystem` | 等待全部舞台 `PanelSceneObject` 就绪，整组提交控制器的最新布局 |
 | `AnalogWorkbenchSummonSystem` | DEBUG：按 A 执行与舞台点击**完全相同**的 `onStagePrimaryAction()`，不依赖命中舞台也能呼出 workbench |
 
 > 契约文档中的 `grab-handle` 组件（`CinemaTheme` 的 `cinema-watch-controls` 画布成员）
@@ -841,7 +850,7 @@ SHORTS_COMMENTS  [契约]
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
-| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackStageParameters` 统一接收比例/缩放/曲率，用同一快照更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，SDK 同源开孔网格与 compositor 共同接受 carrier 补偿。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
+| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 右摇杆更新 `ViriViriUiState.playbackCurvature`，宿主通过 `applyPlaybackStageParameters` 把完整参数提交给 `PlaybackStageController`；`PlaybackStageGeometrySystem` 等待全部面板就绪，再由 `PlaybackStagePanelRenderer` 同步提交 shape、UV、单位 scale 和绝对半径补偿。视频/开孔同 shape，弹幕和压暗层为完整 viewport。原覆盖层重试和视频一次性重放已删除；持久化键不变 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题

@@ -287,7 +287,7 @@ The output buffer stays fixed while the physical panel shape follows content:
   scale and curvature from an app-state emission before rebuilding anything.
 - `PlaybackStageGeometry` distinguishes full-stage viewport, visible video
   content and normalized FIT-buffer UV clip. `videoShape` MUST equal videoContent:
-  one final physical shape for layer and aperture. `applyVideoTextureClip` clears
+  one final physical shape for layer and aperture. `PlaybackStagePanelRenderer` clears
   whole-panel Crop/footprintScale, keeps unit native scale, then calls the actual
   layer's setClip with decoded-content UV bounds. Do not pre-divide shape by crop
   fractions or scale the mesh independently. SDK 0.13.2 setCrop writes a separate
@@ -306,13 +306,17 @@ The output buffer stays fixed while the physical panel shape follows content:
   removes the video aperture; remaining UI glyph apertures can reveal only
   silhouettes of video. The generated quad/cylinder aperture and compositor
   must use the same shape and measured carrier radius compensation.
-- reshape preserves previous native PanelShape scale: explicitly restore unit
-  native scale when dimensions are baked into shape. After creation/reshape,
-  commit both ECS carrier local Z (authored base minus radius; base for flat)
-  and its resolved world pose to the SAME native PanelSceneObject, even when
-  the ECS pose already equals the target. Do not mutate the component's retained
-  Pose in place before the ECS write. Native pose synchronization does not add
-  a second listener or independent tuning state.
+- The host submits parameters/source dimensions to `PlaybackStageController`; only
+  `PlaybackStageGeometrySystem` flushes pending work. The controller waits for the
+  complete panel set and acknowledges only a successful group commit. Replacement
+  panel identity triggers replay without requiring another state emission.
+- `PlaybackStagePanelRenderer` is the only live stage geometry writer. It restores
+  unit scale, applies UV-only video clip and writes fresh absolute local poses
+  (identity child rotation), then native poses composed from ONE stage-world pose.
+  Update the stage/bar offset before sampling that parent. Never add a creation,
+  debug/reset, overlay-only or aspect-diagnostic-gated geometry writer.
+- See [Playback stage geometry](./playback-stage-geometry.md) for scheduling,
+  readiness, lifecycle and test contracts. Keep player/Surface ownership unchanged.
 - Coordinates must be verified against the pinned SDK, not a generic convention:
   actual Pose().forward() is API +Z; native mesh/pose upload reflects Z to the
   rendering/OpenXR space. API cylinder central point is +radius, so existing
@@ -334,7 +338,7 @@ The output buffer stays fixed while the physical panel shape follows content:
   or unit test is not evidence of visual correctness on a headset.
 - Preserve the panel instance, player and Surface when dimensions change.
   Invalid video dimensions retain the full stage rectangle; deferred panel
-  availability is handled by the existing geometry replay path.
+  availability is handled by the controller, without independent replay flags.
 - Regression coverage must retain pending/apply aspect behavior, contained
   aspect dimensions and absolute carrier correction across radii and back to flat.
   Device acceptance covers flat/curved transitions, ratio changes, layer order,
