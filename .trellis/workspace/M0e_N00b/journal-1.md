@@ -170,3 +170,36 @@ Executed pinned SDK Pose/Quaternion; verified native Z reflection and cylinder a
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Refactor stage into one geometry controller and native batch renderer
+
+**Date**: 2026-10-20
+**Task**: Refactor stage into one geometry controller and native batch renderer
+**Branch**: `main`
+
+### Summary
+
+Replaced Activity video/overlay reshape, one-shot replay, pending flags and direct reset/debug pose writes with PlaybackStageController plus PlaybackStageGeometrySystem and PlaybackStagePanelRenderer. Serializes inputs, waits for full panel set, coalesces latest layout and replays replaced identities. Fresh local poses compose through one sampled stage world pose; source/shape factories read one snapshot; full viewport danmaku and verified base-radius sign retained. Windows debug build passed and 201 JVM tests passed. Docs/spec synchronized. APK built with DEV 0c278276; no install/launch; headset visual acceptance pending.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b6627f5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

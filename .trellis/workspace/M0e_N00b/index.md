@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 5
+- **Total Sessions**: 6
 - **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~172 | Active |
+| `journal-1.md` | ~205 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 6 | 2026-10-20 | Refactor stage into one geometry controller and native batch renderer | `b6627f5` | `main` |
 | 5 | 2026-10-20 | Verify SDK coordinate boundary and unify cylinder aperture dimensions | `47137cf` | `main` |
 | 4 | 2026-10-20 | Unify stage geometry and full-stage danmaku | `27f4887` | `main` |
 | 3 | 2026-10-20 | Correct video aperture and compositor visibility | `130967e` | `main` |
