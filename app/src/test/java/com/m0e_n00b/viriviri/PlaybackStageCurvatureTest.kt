@@ -76,19 +76,19 @@ class PlaybackStageCurvatureTest {
   }
 
   @Test
-  fun radiusChangeRecomputesEntityAndInverseMeshCorrectionFromBase() {
+  fun radiusChangeRecomputesCarrierFromAuthoredBaseAndFlatRestoresIt() {
     val baseZ = 0.01f
     val previous = PlaybackStageCurvature.Cylinder(2.7f)
     val next = PlaybackStageCurvature.Cylinder(1.5f)
 
-    assertEquals(baseZ, next.compensatedMeshCentreLocalZ(baseZ), 0.0001f)
-    assertEquals(baseZ, previous.compensatedMeshCentreLocalZ(baseZ), 0.0001f)
+    assertEquals(-2.69f, previous.entityLocalZForSurface(baseZ), 0.0001f)
+    assertEquals(-1.49f, next.entityLocalZForSurface(baseZ), 0.0001f)
     assertEquals(
         next.surfaceAnchorOffsetMeters() - previous.surfaceAnchorOffsetMeters(),
         next.entityLocalZForSurface(baseZ) - previous.entityLocalZForSurface(baseZ),
         0.0001f,
     )
-    assertEquals(-next.surfaceAnchorOffsetMeters(), next.meshVertexPositionCorrectionMeters(), 0f)
+    assertEquals(baseZ, PlaybackStageCurvature.Flat.entityLocalZForSurface(baseZ), 0f)
   }
 
   @Test

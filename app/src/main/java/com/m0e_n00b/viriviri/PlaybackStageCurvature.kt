@@ -62,16 +62,6 @@ sealed interface PlaybackStageCurvature {
   fun entityLocalZForSurface(baseLocalZ: Float): Float =
       baseLocalZ + surfaceAnchorOffsetMeters()
 
-  /**
-   * Inverse local-Z correction baked into custom mesh vertices that share the shifted entity.
-   * Entity offset + mesh correction is zero, leaving the mesh surface's centre at [baseLocalZ].
-   */
-  fun meshVertexPositionCorrectionMeters(): Float = -surfaceAnchorOffsetMeters()
-
-  /** Test/debug invariant: the carrier and its inverse-shifted mesh preserve the authored centre. */
-  fun compensatedMeshCentreLocalZ(baseLocalZ: Float): Float =
-      entityLocalZForSurface(baseLocalZ) + meshVertexPositionCorrectionMeters()
-
   companion object {
     /** Smallest allowed cylinder radius (tightest supported curve). */
     const val MIN_RADIUS_METERS: Float = 1.5f

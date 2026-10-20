@@ -85,7 +85,7 @@ graph TD
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
     Root --> Stage["spatialized_video_panel<br/>MEDIA_STAGE · 视频输出"]
 
-    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · compositor 视频 + 可选平面底部阴影"]
+    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · compositor 视频 + SDK 同源开孔网格"]
     Stage --> LeftRail["video_selector_panel<br/>左 Detail rail · yaw -45°"]
     Stage --> RightRail["mode_panel<br/>右 Context rail · yaw +45°"]
     Stage --> Transport["controls_id<br/>TRANSPORT · pitch 20°"]
@@ -110,21 +110,44 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `videoSurfaceEntity` 上。[实现] compositor 视频、`StageBackdrop` 和 `DanmakuOverlay` 都使用同一
 `currentVideoContentQuad()` 宽高与共享 `playbackCurvature`；任一画幅裁切/用户比例变化都会同批 reshape。
 曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**（不是累加）。
-`createVideoShadowMesh()` 仅保留内容底边的平面阴影，用 `meshVertexPositionCorrectionMeters()`
-抵消 carrier 位移，停留在 authored 平面，不参与视频卷曲或裁切。视频曲率只由
-`videoShapeOptions()` 的 panel shape 提供。backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
+`videoShapeOptions()` 的 panel shape 同时驱动 compositor 视频和 SDK 生成的主场景缓冲开孔网格。
+视频不设置自定义 `sceneMeshCreator`：SDK 0.13.2 遇到自定义 creator 会提前返回，跳过默认开孔材质配置；
+仅阴影 override 会导致完整视频开孔消失。当前没有独立阴影网格或应用自建的反向弧形裁切面。
+backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
 只保留其设计层间距，曲率补偿完全相同。
-[实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，阴影不拥有输入或视频 Surface。
+[实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，开孔网格不独立拥有输入或视频 Surface。
 `LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
 `spatialized_video_panel` 仍是舞台根；只移动 surface/overlay carrier，不会带动 rail / transport / navigation /
 中心内容 / 键盘。
+
+[实现] 上面的父子关系负责变换，**不等于离屏合成组**。环境模型与天空背景先进入主场景 eye buffer；
+视频、压暗层、弹幕和工作台 panel 各自提交 compositor layer。SDK 的 hole-punch 在主场景缓冲中写透明区域，
+让对应 layer 可见，不会裁切或修改环境模型。视频使用完整矩形的 OPAQUE 开孔；透明 UI 统一使用
+ALPHA_BLEND，避免默认 MASKED 将弹幕字形当二值开孔并写深度。视频是否有弹幕不能决定视频是否可见。
+
+```mermaid
+flowchart LR
+    Env["环境模型 / 天空背景"] --> Eye["主场景 eye buffer"]
+    Shape["videoShapeOptions / 共享尺寸与曲率"] --> Aperture["SDK 视频开孔网格 · OPAQUE"]
+    Shape --> Video["视频 compositor layer · zIndex 1"]
+    Aperture --> Eye
+    UI["压暗层 2 / 弹幕与工作台 3<br/>ALPHA_BLEND · 各自可见性"] --> Composite["最终 compositor 合成"]
+    Eye --> Composite
+    Video --> Composite
+```
+
+[实现] 视频持续显示；压暗层只在工作台打开时显示；弹幕跟随其内容及既有可见性状态；工作台面板由
+`SpatialPanelVisibilityController` 通过 layer alpha 与 `Visible` 控制。字幕目前没有独立运行时 layer，
+不能把字幕契约计入已实现的 compositor 组。实现目标与后续组化方案分别见
+[目标架构](immersive-ui-low-code-architecture.md)、[工作台原型](prototypes/workbench/README.md)
+和[空间坐标](spatial-coordinates.md)。
 
 | 实体 | 术语 | 本地位置（x, y, z） | 旋转 | 父节点 |
 | --- | --- | --- | --- | --- |
 | `workbenchRootEntity` | 工作台锚点 `workbenchRoot` | 世界坐标，抓取条所在高度 | — | Scene |
 | `grab_bar_panel` | 抓手条 `grab_bar` | (0, 0, 0) | — | `workbenchRoot` |
 | `spatialized_video_panel` | 媒体舞台 `MediaStage` | (0, `currentStageAnchorOffsetY()`, 0) | — | `workbenchRoot` |
-| `videoSurfaceEntity` | [实现] compositor 视频 + 可选平面底部阴影（运行时 `Entity.create`） | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
+| `videoSurfaceEntity` | [实现] compositor 视频 + SDK 同源开孔网格（运行时 `Entity.create`） | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
 | `video_selector_panel` | 左侧 Detail rail | (-`railX`, 0, `railLocalZ`) ≈ (-1.05, 0, -1.05) | yaw `-45°` | MediaStage |
 | `mode_panel` | 右侧 Context rail | (+`railX`, 0, `railLocalZ`) ≈ (+1.05, 0, -1.05) | yaw `+45°` | MediaStage |
 | `controls_id` | 播放控制 `Transport` | (0, -0.78, -0.66) | pitch `20°` | MediaStage |
@@ -801,7 +824,7 @@ SHORTS_COMMENTS  [契约]
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
-| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackCurvature` 用同一公式更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，可选平面阴影 mesh 另加其精确反向量。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
+| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackCurvature` 用同一公式更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，SDK 同源开孔网格与 compositor 共同接受 carrier 补偿。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题

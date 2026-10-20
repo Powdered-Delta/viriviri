@@ -270,7 +270,7 @@ player. Its compact elapsed/duration labels and seek bar remain Android views in
 ### 3.7 Immersive Video Aspect Ratio
 
 The persistent `spatialized_video_panel` anchors the stage. Its child
-`videoSurfaceEntity` carries the compositor video panel and optional flat shadow.
+`videoSurfaceEntity` carries the compositor video panel and SDK-generated aperture.
 The output buffer stays fixed while the physical panel shape follows content:
 
 - Use `1920x1080` output pixels with `StereoMode.None`. Do not carry the
@@ -284,21 +284,32 @@ The output buffer stays fixed while the physical panel shape follows content:
   radius. Every aspect/scale/curvature change uses `PanelSceneObject.reshape`;
   never restore the old mesh-only PLAN_1 debug path. Target/Apply uses the shared
   display-ratio state. Backdrop and danmaku consume the same content rectangle.
-- The custom mesh contains only a flat bottom shadow, recreated on creation and
-  reshape. It has no video texture material or hole-punch cutter. Keep the
-  carrier's measured `entityLocalZForSurface(baseLocalZ)` radius compensation
-  and the shadow's inverse `meshVertexPositionCorrectionMeters()` correction.
+- Leave `sceneMeshCreator` unset at video creation AND reshape. SDK 0.13.2
+  `PanelShapeConfig.generateSceneMeshCreator()` returns an explicit creator
+  BEFORE preparing hole-punch alpha mode and shader. A shadow-only override
+  removes the video aperture; remaining UI glyph apertures can reveal only
+  silhouettes of video. The generated quad/cylinder aperture and compositor
+  must use the same shape and measured carrier radius compensation.
+- Explicitly use OPAQUE for the video's full content rectangle and ALPHA_BLEND
+  for transparent UI layers. The default UI Layer is MASKED (binary alpha with
+  depth writes), inappropriate for smooth dimming and transparent overlapping UI.
 - `LayerConfig.zIndex` orders compositor layers (video 1, backdrop 2, other UI 3);
-  it does not repair curvature, position, or ordinary scene-mesh depth.
+  it does not replace the aperture needed to integrate with the main scene eye
+  buffer or repair curvature/position. Environment meshes render into that buffer,
+  not a separate low-zIndex panel. Transform parents do not create a compositor
+  group or flatten their child textures. Hole punching changes the buffer alpha,
+  not the environment model. Do not assume a video layer needs no aperture merely
+  because its zIndex is positive.
 - Debug builds log source aspect and applied panel shape. A successful reshape
   or unit test is not evidence of visual correctness on a headset.
 - Preserve the panel instance, player and Surface when dimensions change.
   Invalid video dimensions retain the full stage rectangle; deferred panel
   availability is handled by the existing geometry replay path.
 - Regression coverage must retain pending/apply aspect behavior, contained
-  aspect dimensions and absolute carrier/inverse-shadow correction across radii.
+  aspect dimensions and absolute carrier correction across radii and back to flat.
   Device acceptance covers flat/curved transitions, ratio changes, layer order,
-  shadow placement and stage input with no extra video output.
+  full video with danmaku disabled/enabled, transparent UI and stage input with
+  no extra video output. Never use glyph visibility as proof of full-video visibility.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
   Use this value, rather than APK filename or install time, to identify the
   running build during Quest testing.

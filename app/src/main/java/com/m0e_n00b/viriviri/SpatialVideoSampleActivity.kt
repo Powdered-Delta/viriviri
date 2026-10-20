@@ -15,7 +15,6 @@ import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -72,21 +71,19 @@ import com.meta.spatial.isdk.IsdkPanelGrabHandle
 import com.meta.spatial.isdk.updateIsdkComponentProperties
 import com.meta.spatial.ovrmetrics.OVRMetricsDataModel
 import com.meta.spatial.ovrmetrics.OVRMetricsFeature
-import com.meta.spatial.runtime.AlphaMode
 import com.meta.spatial.runtime.ButtonBits
 import com.meta.spatial.runtime.HitInfo
 import com.meta.spatial.runtime.InputListener
 import com.meta.spatial.runtime.PanelConfigOptions
 import com.meta.spatial.runtime.PanelSceneObject
+import com.meta.spatial.runtime.PanelShapeLayerBlendType
 import com.meta.spatial.runtime.ReferenceSpace
 import com.meta.spatial.runtime.SceneAudioAsset
 import com.meta.spatial.runtime.SceneMaterial
 import com.meta.spatial.runtime.SceneMesh
 import com.meta.spatial.runtime.SceneObject
-import com.meta.spatial.runtime.SceneTexture
 import com.meta.spatial.runtime.SessionState
 import com.meta.spatial.runtime.StereoMode
-import com.meta.spatial.runtime.TriangleMesh
 import com.meta.spatial.toolkit.ActivityPanelRegistration
 import com.meta.spatial.toolkit.AppSystemActivity
 import com.meta.spatial.toolkit.AvatarSystem
@@ -129,12 +126,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
-
-/** Geometry of the optional flat drop-shadow footprint under the compositor video layer. */
-private const val VIDEO_SHADOW_VERTEX_COUNT = 4
-private const val VIDEO_SHADOW_INDEX_COUNT = 6
-private const val VIDEO_SHADOW_DEPTH_METERS = 0.1f
-private const val VIDEO_SHADOW_ROUNDING_METERS = 0.075f
 
 // default activity
 class SpatialVideoSampleActivity : AppSystemActivity() {
@@ -767,8 +758,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * k17 root cause: the video `PanelSceneObject` and the danmaku/backdrop panels did not share one
    * physical size source. The SDK re-runs its panel shape builder on every [PanelSceneObject.reshape]
    * (confirmed in `PanelShape` bytecode), so the shared scale and aspect-fitted content size are baked
-   * into every shape instead of relying on entity `Scale`. The optional flat shadow mesh follows the
-   * same dimensions and does not own video pixels.
+   * into every shape instead of relying on entity `Scale`. The SDK generates the aperture mesh
+   * from that same shape, so the main scene buffer and compositor agree on its extent and radius.
    */
   private fun scaledStageWidth(): Float = MR_SCREEN_WIDTH * currentStageScale()
 
@@ -782,8 +773,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * The compositor owns the video pixels: `MediaPanelRenderOptions.applyTo` installs the `LayerConfig`,
    * and this shape is the source for its radius/extent. The carrier entity's one-radius position
    * correction is applied separately by [applyStageLayerCurvatureOffset]; it must be recomputed on
-   * every radius change. The optional flat shadow mesh receives the exact inverse
-   * offset so its flat footprint stays on this same plane; it does not cut or curve the video surface.
+   * every radius change. Leave sceneMeshCreator unset: the SDK generates the matching eye-buffer
+   * aperture as well as configuring its hole-punch material. A shadow-only override bypasses both.
    *
    * The SHAPE owns size and curvature; a reshape skipped here freezes both axes regardless of the
    * thumbstick state.
@@ -806,6 +797,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    */
   private fun applyVideoLayerDepth(config: com.meta.spatial.runtime.PanelConfigOptions) {
     config.layerConfig?.zIndex = VIDEO_LAYER_Z_INDEX
+    // Video is opaque over its entire aspect-fitted rectangle, even with no danmaku present.
+    // The default SDK builder turns this into the corresponding full-rectangle aperture.
+    config.layerBlendType = PanelShapeLayerBlendType.OPAQUE
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -829,16 +823,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   /**
    * Render options for a `UIPanelSettings`, per the active backdrop-order candidate.
    *
-   * Candidate 0 (BASELINE) and candidate 1 (ZINDEX) both return a plain [UIPanelRenderOptions], which is
-   * exactly what the SDK substitutes when `rendering` is omitted — so the default build keeps the render
-   * mode it has always had, and candidate 1 changes only the `LayerConfig.zIndex` written afterwards.
-   *
-   * WHY THIS EXISTS: `UIPanelRenderOptions()` defaults to `PanelRenderMode.Layer` (verified in the SDK
-   * bytecode of the no-arg constructor). Every `UIPanelSettings` panel in this app therefore IS a
-   * compositor layer — not just the video — and a compositor layer is drawn over scene geometry however
-   * far in front that geometry sits (the `VIDEO_LAYER_Z_INDEX` note claimed the opposite, from a check
-   * that never looked at `UIPanelSettings`). That is why `stage_backdrop_panel` at stage-local z = +0.01
-   * covers the centre panel at z = -0.52.
+   * UI panels are compositor layers, with SDK-generated apertures in the main scene buffer.
+   * Use ALPHA_BLEND for transparent roots, glyph edges and the translucent backdrop; the SDK
+   * default MASKED mode treats texture alpha as a binary aperture and writes depth at glyphs.
+   * Layer zIndex orders the panel textures, while these apertures integrate them with the scene.
+   * Transform parenting does not flatten the panels into a single compositor group.
    */
   private fun uiPanelRenderOptions(isBackdrop: Boolean = false): UIPanelRenderOptions =
       if (BuildConfig.DEBUG && backdropOrderUsesMesh(isBackdrop)) {
@@ -846,7 +835,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         // takes part in depth testing instead of a compositor layer.
         UIPanelRenderOptions(PanelRenderMode.Mesh())
       } else {
-        UIPanelRenderOptions()
+        UIPanelRenderOptions(
+            PanelRenderMode.Layer(layerBlendType = PanelShapeLayerBlendType.ALPHA_BLEND)
+        )
       }
 
   private fun backdropOrderUsesMesh(isBackdrop: Boolean): Boolean =
@@ -862,7 +853,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * [applyVideoLayerDepth] relies on.
    *
    * No-op outside candidate 1. `LayerConfig()` defaults `zIndex` to 0, so the ordering used here is
-   * video (-1) < backdrop (1) < other UI panels (2): every role is written explicitly rather than relying
+   * video (1) < backdrop (2) < other UI panels (3): every role is written explicitly rather than relying
    * on a default that coincides with another role's value.
    */
   private fun applyBackdropOrderCandidate(config: PanelConfigOptions, layer: BackdropOrderLayer) {
@@ -1018,12 +1009,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     // pre-candidate default the SDK produced.
     applyBackdropOrderCandidate(config, layer)
     val renderMode = if (config.layerConfig == null) "Mesh" else "Layer"
-    return "renderMode=$renderMode layerZIndex=${config.layerConfig?.zIndex ?: "none"}"
+    return "renderMode=$renderMode layerZIndex=${config.layerConfig?.zIndex ?: "none"} " +
+        "blend=${config.layerBlendType} customMesh=${config.sceneMeshCreator != null}"
   }
 
   private fun cycleBackdropOrderCandidateLabel(): String =
       if (!BuildConfig.DEBUG) {
-        "0 ${BACKDROP_ORDER_CANDIDATE_LABELS[BACKDROP_ORDER_BASELINE]} (release)"
+        "1 ${BACKDROP_ORDER_CANDIDATE_LABELS[BACKDROP_ORDER_ZINDEX]} (release)"
       } else {
         "$backdropOrderCandidate ${BACKDROP_ORDER_CANDIDATE_LABELS[backdropOrderCandidate]}"
       }
@@ -1049,61 +1041,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     stagePrimaryActionOcclusionGuardEnabled = !stagePrimaryActionOcclusionGuardEnabled
     Log.i(STAGE_TAP_TAG, "stageTapOcclusionGuard=$stagePrimaryActionOcclusionGuardEnabled")
     syncStageTapGuardUi()
-  }
-
-  /**
-   * Builds the optional flat stage-bottom shadow mesh for the same content rectangle as the
-   * compositor video layer.
-   *
-   * This mesh contains only a flat shadow: it has no curved cutter and no video texture. The compositor layer
-   * renders the video directly; its z-index orders it against the other panel layers. This optional
-   * mesh contributes only a flat shadow. The entity carrier is shifted by the radius correction, so
-   * the shadow vertices receive the exact inverse and stay on the authored stage plane.
-   */
-  private fun createVideoShadowMesh(
-      texture: SceneTexture,
-      width: Float,
-      height: Float,
-  ): SceneMesh {
-    val halfWidth = width / 2f
-    val halfHeight = height / 2f
-    val halfDepth = VIDEO_SHADOW_DEPTH_METERS
-    val rounding = VIDEO_SHADOW_ROUNDING_METERS
-    val positions =
-        translatedZ(
-            floatArrayOf(
-                -halfWidth, -halfHeight, halfDepth,
-                halfWidth, -halfHeight, halfDepth,
-                halfWidth, -halfHeight, -halfDepth,
-                -halfWidth, -halfHeight, -halfDepth,
-            ),
-            appliedCurvature.meshVertexPositionCorrectionMeters(),
-        )
-    val uvs = FloatArray(VIDEO_SHADOW_VERTEX_COUNT * 2)
-    for (index in uvs.indices step 2) {
-      uvs[index] = halfWidth - rounding
-      uvs[index + 1] = halfDepth - rounding
-    }
-    val indices = intArrayOf(0, 2, 1, 0, 3, 2)
-    val mesh =
-        TriangleMesh(
-            VIDEO_SHADOW_VERTEX_COUNT,
-            VIDEO_SHADOW_INDEX_COUNT,
-            intArrayOf(0, VIDEO_SHADOW_INDEX_COUNT),
-            arrayOf(
-                SceneMaterial(texture, AlphaMode.TRANSLUCENT, "data/shaders/spatial/shadow")
-                    .apply { setUnlit(true) },
-            ),
-        )
-    mesh.updateGeometry(
-        0,
-        positions,
-        FloatArray(VIDEO_SHADOW_VERTEX_COUNT * 3) { if (it % 3 == 2) 1f else 0f },
-        uvs,
-        IntArray(VIDEO_SHADOW_VERTEX_COUNT) { Color.WHITE },
-    )
-    mesh.updatePrimitives(0, indices)
-    return SceneMesh.fromTriangleMesh(mesh, false)
   }
 
   /**
@@ -1296,23 +1233,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   /**
-   * Shifts every z component of an xyz-interleaved position array by [dz].
-   *
-   * Used to cancel the curvature displacement on the optional flat shadow mesh, which rides the shared carrier so
-   * the compositor's surface can land on the authored plane. Returns the input untouched for a zero
-   * shift, which is the flat case.
-   */
-  private fun translatedZ(positions: FloatArray, dz: Float): FloatArray {
-    if (dz == 0f) return positions
-    var index = 2
-    while (index < positions.size) {
-      positions[index] += dz
-      index += 3
-    }
-    return positions
-  }
-
-  /**
    * Creates, on first use, the child entity that carries the video surface.
    *
    * Mirrors the rail panels (`Transform` + `TransformParent` in one component list) so the pose is
@@ -1353,13 +1273,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         videoSurface,
         settings.toPanelConfigOptions().apply {
           applyVideoLayerDepth(this)
-          // A reshape rebuilds the panel mesh from this config, so the optional shadow mesh must be
-          // supplied here exactly as it is on creation (see [createVideoShadowMesh]).
-          if (!BuildConfig.NO_VIDEO_MESH) {
-            sceneMeshCreator = { texture ->
-              createVideoShadowMesh(texture = texture, width = width, height = height)
-            }
-          }
+          // No custom mesh creator: SDK must prepare the opaque video aperture and its matching
+          // quad/cylinder mesh, not just the compositor layer. See videoShapeOptions.
         },
     )
         .apply {
@@ -1442,9 +1357,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             videoSurface,
             CompletableFuture<SceneObject>().apply { complete(panelSceneObject) },
         )
-    // The video surface is a RENDER CARRIER: no hit geometry at all. Its optional shadow mesh travels
-    // with the curvature offset, so anything hittable on this entity would sit a radius away and
-    // swallowed the controller ray and its cursor for everything behind it. NoCollision is asserted
+    // The video surface is a RENDER CARRIER: the SDK aperture must not become a hit target.
+    // NoCollision is asserted
     // explicitly rather than merely dropping Hittable, because dropping it alone did NOT stop the
     // interception on device. The stage's own tap is geometric now
     // (AnalogMediaStageTuningSystem + StageRayTargeting) and needs no hit geometry.
@@ -2798,12 +2712,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             .toPanelConfigOptions()
                 .apply {
                   applyVideoLayerDepth(this)
-                  // Keep the same optional flat shadow mesh on creation and reshape.
-                  if (!BuildConfig.NO_VIDEO_MESH) {
-                    sceneMeshCreator = { texture ->
-                      createVideoShadowMesh(texture = texture, width = width, height = height)
-                    }
-                  }
+                  // Keep SDK aperture/material generation enabled on every reshape too.
                 }
     )
     // Re-assert AFTER reshape as well as on the state edge. The SDK reshape rebuilds PanelShape but
@@ -2934,9 +2843,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * Every stage layer uses the same measured one-radius correction. [baseLocalZ] is the authored
    * separation between the video, backdrop and danmaku; the correction is recomputed from that base
    * instead of accumulated, so changing r1 -> r2 moves the carrier by exactly the correction delta.
-   * Optional shadow-mesh vertices receive the inverse correction from
-   * [PlaybackStageCurvature.meshVertexPositionCorrectionMeters], keeping the shadow on
-   * its authored plane; compositor video needs only the carrier correction.
+   * The SDK builds aperture and compositor geometry from the same panel shape, so both
+   * receive this carrier correction. There is no app-owned mesh to inverse-shift.
    */
   private fun applyStageLayerCurvatureOffset(
       entity: Entity,
@@ -2961,7 +2869,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   /**
    * Single entry point for aspect geometry: every ratio, scale or curvature change rebuilds the
    * compositor panel shape and fans the same content rectangle to the backdrop/danmaku overlays.
-   * The optional shadow mesh is recreated from that panel shape; it is never a pixel or crop owner.
+   * The SDK recreates the matching aperture from that same shape; compositor owns video pixels.
    */
   private fun updateSpatialVideoContentQuad(
       videoWidth: Int,

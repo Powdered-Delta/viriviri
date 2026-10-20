@@ -56,14 +56,9 @@ android {
         (project.findProperty("viriviri.inputInjection") as String?)?.toBooleanStrictOrNull() ?: false
     buildConfigField("boolean", "INPUT_INJECTION_ENABLED", inputInjectionEnabled.toString())
 
-    // Video pixels are owned by the compositor layer. The optional custom mesh is now only a flat
-    // bottom shadow (with the carrier's inverse radius correction); no curved cutter or video texture
-    // is rendered by it. The old reflect material was a second pixel owner and produced the narrow band.
-    // Keep the legacy opt-out flag for A/B diagnostics:
-    //   -Pviriviri.noVideoMesh=true -> omit the optional shadow mesh
-    val noVideoMesh =
-        (project.findProperty("viriviri.noVideoMesh") as String?)?.toBooleanStrictOrNull() ?: false
-    buildConfigField("boolean", "NO_VIDEO_MESH", noVideoMesh.toString())
+    // Video uses the SDK-generated layer aperture. A custom sceneMeshCreator overrides both the
+    // generated mesh and hole-punch material setup, so the former noVideoMesh/shadow experiment
+    // is retired. Shape dimensions and cylinder radius are shared by aperture and compositor.
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
