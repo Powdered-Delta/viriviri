@@ -104,3 +104,36 @@ SDK 0.13.2 bytecode confirms custom shadow creator skips default aperture setup.
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Unify stage geometry and full-stage danmaku
+
+**Date**: 2026-10-20
+**Task**: Unify stage geometry and full-stage danmaku
+**Branch**: `main`
+
+### Summary
+
+Implemented one app-state parameter commit and PlaybackStageGeometry snapshot for video/crop/aperture and full-stage overlays. SDK Crop removes FIT-buffer bars with matching aperture footprint; danmaku option A keeps 16:9 viewport/raster. Reset native shape scale and explicitly synchronize ECS/native world pose after reshape. Fixed debug Apply state ordering. Windows tests: 188 passed; debug APK built. Headset validation of all four reported issues remains pending; no install/launch/device writes.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `27f4887` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
