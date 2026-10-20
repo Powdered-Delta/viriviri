@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-10-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~205 | Active |
+| `journal-1.md` | ~238 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-10-20 | Remove synthetic decoder FIT crop causing 4:3 distortion | `8b3fad5` | `main` |
 | 6 | 2026-10-20 | Refactor stage into one geometry controller and native batch renderer | `b6627f5` | `main` |
 | 5 | 2026-10-20 | Verify SDK coordinate boundary and unify cylinder aperture dimensions | `47137cf` | `main` |
 | 4 | 2026-10-20 | Unify stage geometry and full-stage danmaku | `27f4887` | `main` |

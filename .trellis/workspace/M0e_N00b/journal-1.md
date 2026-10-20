@@ -203,3 +203,36 @@ Replaced Activity video/overlay reshape, one-shot replay, pending flags and dire
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Remove synthetic decoder FIT crop causing 4:3 distortion
+
+**Date**: 2026-10-20
+**Task**: Remove synthetic decoder FIT crop causing 4:3 distortion
+**Branch**: `main`
+
+### Summary
+
+Confirmed Media3 1.4.1 SurfaceView-specific scaling contract and Android MediaCodec Surface scaling semantics. Prior fixed-output-aspect black-bar assumption produced a .75-wide crop for full 4:3 frames, magnifying horizontal image contents. Regression failed against old code first, then removed StageVideoCrop arithmetic and mapped actual SDK Crop.NONE through the existing renderer. Corrected current UI/coordinate/spec docs; retained controller, Surface/player and curvature math. Windows build passed; 202 JVM tests passed. APK DEV 47814203. Read-only headset log queries returned no retained lines; no install/launch; visual acceptance pending.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8b3fad5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
