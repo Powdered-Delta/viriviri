@@ -38,3 +38,36 @@ Replaced the disposable Unity template with a Meta Spatial SDK Hybrid Android fo
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Finish compositor video cutter cleanup
+
+**Date**: 2026-10-20
+**Task**: Finish compositor video cutter cleanup
+**Branch**: `main`
+
+### Summary
+
+Completed existing cutter/PLAN_1 removal; fixed orphan val compilation failure; kept flat shadow and carrier radius compensation; synced runtime terminology and aspect spec. Windows app tests: 183 passed; debug APK assembled; no device installation or launch. Unrelated Penpot and skill work untouched.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5671cbb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
