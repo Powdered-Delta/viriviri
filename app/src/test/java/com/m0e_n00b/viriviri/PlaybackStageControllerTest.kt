@@ -36,7 +36,8 @@ class PlaybackStageControllerTest {
     assertEquals(1.62f, layout.geometry.viewport.heightMeters, 0.0001f)
     assertEquals(0.91125f, layout.geometry.videoShape.widthMeters, 0.0001f)
     assertEquals(1.62f, layout.geometry.videoShape.heightMeters, 0.0001f)
-    assertEquals(PlaybackStageCurvature.Cylinder(2.7f), layout.geometry.curvature)
+    assertEquals(4.86f, layout.geometry.curvature.radiusOrNull()!!, 0.0001f)
+    assertEquals(PlaybackStageCurvature.Cylinder(2.7f), host.controller.parameters.curvature)
     assertEquals(layout.geometry.viewport, layout.geometry.danmakuContent)
     assertEquals(layout.geometry.videoContent, layout.geometry.videoShape)
     assertEquals(3, host.commits.single().second.size)
@@ -110,7 +111,7 @@ class PlaybackStageControllerTest {
       host.controller.setParameters(PlaybackStageParameters(1.7f, null, curvature))
       for (layer in host.controller.layout.layers) {
         val expected = stage * Vector3(0f, 0f, layer.baseLocalZ)
-        val actual = layer.worldPose(stage) * Vector3(0f, 0f, curvature.radiusOrNull() ?: 0f)
+        val actual = layer.worldPose(stage) * Vector3(0f, 0f, layer.curvature.radiusOrNull() ?: 0f)
         assertEquals(expected.x, actual.x, 0.0001f)
         assertEquals(expected.y, actual.y, 0.0001f)
         assertEquals(expected.z, actual.z, 0.0001f)
@@ -129,6 +130,80 @@ class PlaybackStageControllerTest {
     // Pixel aspect belongs in physical display aspect, never an inferred source UV crop.
     assertEquals(0f, geometry.videoTextureCrop.left, 0f)
     assertEquals(1f, geometry.videoTextureCrop.right, 0f)
+  }
+
+  @Test fun wholeGroupScalePreservesShapeAndScalesAllSurfaceSeparationsExactlyOnce() {
+    val host = Host()
+    host.controller.setVideoSize(1440, 1080, 1f)
+    host.controller.setDanmakuDepth(-0.2f)
+    for (radius in listOf(1.5f, 2.7f, 7.9f)) {
+      for (scale in listOf(0.7f, 1f, 1.5f, 2f)) {
+        host.controller.setParameters(PlaybackStageParameters(scale, null, PlaybackStageCurvature.Cylinder(radius)))
+        val geometry = host.controller.layout.geometry
+        assertEquals(1.6f * scale, geometry.viewport.widthMeters, 0.0001f)
+        assertEquals(0.9f * scale, geometry.viewport.heightMeters, 0.0001f)
+        assertEquals(1.2f * scale, geometry.videoShape.widthMeters, 0.0001f)
+        assertEquals(radius * scale, geometry.curvature.radiusOrNull()!!, 0.0001f)
+        assertEquals(1.6f / radius, geometry.viewport.widthMeters / geometry.curvature.radiusOrNull()!!, 0.0001f)
+        for (layer in host.controller.layout.layers) {
+          val authoredZ = if (layer.role == PlaybackStageLayer.DANMAKU) -0.2f else layer.role.baseLocalZ
+          assertEquals(geometry.curvature, layer.curvature)
+          assertEquals(authoredZ * scale, layer.baseLocalZ, 0.0001f)
+          assertEquals((authoredZ - radius) * scale, layer.localPose().t.z, 0.0001f)
+        }
+        assertEquals(0f, geometry.videoTextureCrop.left, 0f)
+        assertEquals(1f, geometry.videoTextureCrop.right, 0f)
+      }
+    }
+  }
+
+  @Test fun radiusAndScaleTransitionsResetFromAuthoredValuesAndRestoreRawPreferences() {
+    val host = Host(); host.readyAll()
+    val restored = PlaybackStageParameters(2f, null, PlaybackStageCurvature.fromRadius(7.9f))
+    host.controller.setParameters(restored); host.controller.flush()
+    assertEquals(15.8f, host.commits.last().first.geometry.curvature.radiusOrNull()!!, 0.0001f)
+    repeat(3) {
+      for ((radius, expectedVideoZ) in listOf(2.7f to -5.4f, 1.5f to -3f)) {
+        host.controller.setParameters(restored.copy(curvature = PlaybackStageCurvature.fromRadius(radius)))
+        host.controller.flush()
+        assertEquals(expectedVideoZ, host.commits.last().first.layers.first().localPose().t.z, 0.0001f)
+      }
+      host.controller.setParameters(restored.copy(curvature = PlaybackStageCurvature.Flat))
+      host.controller.flush()
+      host.commits.last().first.layers.forEach {
+        assertEquals(it.role.baseLocalZ * 2f, it.localPose().t.z, 0.0001f)
+      }
+      host.controller.setParameters(restored.copy(scale = 0.7f)); host.controller.flush()
+      host.controller.setParameters(restored); host.controller.flush()
+      assertEquals(restored, host.controller.parameters)
+      assertEquals(-15.8f, host.commits.last().first.layers.first().localPose().t.z, 0.0001f)
+    }
+  }
+
+  @Test fun scaledCurvedEdgesFollowSimilarityTransformUnderRotatedParent() {
+    val host = Host()
+    val stage = Pose(Vector3(0.7f, 1.2f, 2.1f), Quaternion(10f, 35f, 0f))
+    val radius = 2.7f
+    for (scale in listOf(0.7f, 1.5f, 2f)) {
+      host.controller.setParameters(PlaybackStageParameters(scale, null, PlaybackStageCurvature.Cylinder(radius)))
+      for (layer in host.controller.layout.layers) {
+        val angle = (layer.content.halfWidth / scale) / radius
+        val expected = stage * Vector3(
+            radius * kotlin.math.sin(angle) * scale,
+            layer.content.halfHeight,
+            (layer.role.baseLocalZ + radius * (kotlin.math.cos(angle) - 1f)) * scale,
+        )
+        val effectiveRadius = layer.curvature.radiusOrNull()!!
+        val actual = layer.worldPose(stage) * Vector3(
+            effectiveRadius * kotlin.math.sin(layer.content.halfWidth / effectiveRadius),
+            layer.content.halfHeight,
+            effectiveRadius * kotlin.math.cos(layer.content.halfWidth / effectiveRadius),
+        )
+        assertEquals(expected.x, actual.x, 0.0001f)
+        assertEquals(expected.y, actual.y, 0.0001f)
+        assertEquals(expected.z, actual.z, 0.0001f)
+      }
+    }
   }
 
   @Test fun inputSubmittedDuringCommitIsNotAcknowledgedAsAlreadyApplied() {

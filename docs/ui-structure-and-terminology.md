@@ -102,6 +102,13 @@ graph TD
 
 ### 2.2 深度与姿态（stage-local 坐标，单位：米）
 
+最新用户验收：4:3／竖屏纹理比例通过，视频开孔漂移仍未解决。
+整组缩放实现与后续验收见[播放舞台规格](playback-stage-rendering-spec.md)；本节继续记录当前实现。
+参数核对更新：[实现] `PlaybackStageController` 将同一倍率烘入宽高、有效半径和层间距；
+载体 local Z 等于缩放后的层间距减有效半径，原生 scale 为 1。控制和保存使用未缩放半径。
+[组件／参数图](diagrams/playback-stage-components.html)同步记录派生链；视觉漂移仍待实机验收。
+
+
 深度顺序自视频面向用户递进为：`video (0) → nav/center → transport → keyboard`，
 local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼。数值集中定义在
 `WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。

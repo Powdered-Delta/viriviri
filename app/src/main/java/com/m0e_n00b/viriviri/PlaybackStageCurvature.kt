@@ -5,7 +5,8 @@ package com.m0e_n00b.viriviri
  * all consume this one value; authored local-Z offsets distinguish their roles, not their curvature.
  *
  * Persistence keeps this type self-contained: [Flat] is encoded as the [FLAT_SENTINEL] sentinel
- * (a flat quad has an effectively infinite radius), a [Cylinder] as its clamped radius.
+ * (a flat quad has an effectively infinite radius), a [Cylinder] as its raw control radius.
+ * Render layouts derive an effective radius with [scaledBy]; never persist that derived radius.
  */
 sealed interface PlaybackStageCurvature {
   /** Flat panel / quad (infinite radius). Default and current behaviour. */
@@ -24,6 +25,15 @@ sealed interface PlaybackStageCurvature {
         Flat -> null
         is Cylinder -> radiusMeters
       }
+
+  /** Similarity scaling for rendering, without the raw control/persistence radius clamp. */
+  fun scaledBy(scale: Float): PlaybackStageCurvature {
+    require(scale.isFinite() && scale > 0f)
+    return when (this) {
+      Flat -> Flat
+      is Cylinder -> Cylinder(radiusMeters * scale)
+    }
+  }
 
   /**
    * Steps this curvature by [curveDelta] metres of radius. A positive delta curves the layer

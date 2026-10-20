@@ -1,0 +1,15 @@
+s=1.0 W=1.600 H=0.900 radius=2.700 desiredRadius=2.700
+  VIDEO localZ=-2.7000 desiredZ=-2.7000 centralZ=0.0000
+  BACKDROP localZ=-2.6900 desiredZ=-2.6900 centralZ=0.0100
+  DANMAKU localZ=-2.7100 desiredZ=-2.7100 centralZ=-0.0100
+s=1.5 W=2.400 H=1.350 radius=2.700 desiredRadius=4.050
+  VIDEO localZ=-2.7000 desiredZ=-4.0500 centralZ=0.0000
+  BACKDROP localZ=-2.6900 desiredZ=-4.0350 centralZ=0.0100
+  DANMAKU localZ=-2.7100 desiredZ=-4.0650 centralZ=-0.0100
+s=2.0 W=3.200 H=1.800 radius=2.700 desiredRadius=5.400
+  VIDEO localZ=-2.7000 desiredZ=-5.4000 centralZ=0.0000
+  BACKDROP localZ=-2.6900 desiredZ=-5.3800 centralZ=0.0100
+  DANMAKU localZ=-2.7100 desiredZ=-5.4200 centralZ=-0.0100
+curvature-only change at s=2:
+  radius=2.700 localZ=-2.700 desiredZ=-5.400
+  radius=1.500 localZ=-1.500 desiredZ=-3.000

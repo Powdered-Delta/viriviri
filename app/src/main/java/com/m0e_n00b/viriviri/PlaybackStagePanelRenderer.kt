@@ -43,7 +43,7 @@ internal class PlaybackStagePanelRenderer(
       panel.setRotationQuat(world.q)
       if (BuildConfig.DEBUG) {
         Log.i("ViriViriStage", "batch ${layer.role} content=${layer.content.widthMeters}x${layer.content.heightMeters} " +
-            "radius=${layer.curvature.radiusOrNull()} baseZ=${layer.baseLocalZ} " +
+            "scale=${layout.scale} radius=${layer.curvature.radiusOrNull()} baseZ=${layer.baseLocalZ} " +
             "carrierZ=${layer.localPose().t.z} submittedWorldZ=${world.t.z} " +
             "apertureLocalBounds=${panel.mesh?.computeCombinedBounds()}")
       }

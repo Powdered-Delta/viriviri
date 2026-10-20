@@ -1,5 +1,18 @@
 # Playback Stage Geometry
 
+## Whole-group similarity scaling (2026-10-21)
+
+Raw control/persistence curvature stays in PlaybackStageParameters. The controller
+bakes scale once into width, height, effective radius and surface separations.
+Effective radius = raw radius * scale; carrier local Z =
+(baseLocalZ - raw radius) * scale (flat: baseLocalZ * scale).
+PlaybackStageLayerGeometry.baseLocalZ is the already-scaled surface separation.
+Native panel scale stays one. Never pass effective radii through fromRadius:
+raw 7.9 at scale 2 renders radius 15.8 without becoming flat, and raw 1.5 at
+scale 0.7 renders radius 1.05 without a minimum clamp. World parent translation
+is not scaled. Preserve the accepted full-frame texture mapping. Headset aperture
+drift acceptance remains separate from mathematical and build verification.
+
 ## 1. Scope / Trigger
 
 Stage scale, source/target aspect, curvature, layer separation and panel readiness.
@@ -35,7 +48,7 @@ PlaybackStagePanelRenderer.apply(layout, panels): Boolean
   to setCrop, resetting footprint and sampling the full frame. A fixed 1920x1080
   pixel budget does not prove any FIT bars in a direct decoder Surface. Never
   derive UV cropping from source/output aspect or divide physical dimensions by UV.
-- Local child poses are rebuilt with identity rotation and base-radius Z (base for
+- Local child poses are rebuilt with identity rotation and scaled base minus effective radius Z (scaled base for
   flat). Update stage/bar spacing, sample its world pose once, then compose every
   child from that same parent. Do not flip the verified coordinate sign.
 - Preserve native panel, Surface and player. No new visibility or hit-test owner.

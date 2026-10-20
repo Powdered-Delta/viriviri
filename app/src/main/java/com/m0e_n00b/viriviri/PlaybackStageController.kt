@@ -17,6 +17,7 @@ internal data class PlaybackStageLayerGeometry(
     val role: PlaybackStageLayer,
     val content: SpatialVideoContentQuad,
     val curvature: PlaybackStageCurvature,
+    /** Surface separation after stage scaling; curvature already contains the effective radius. */
     val baseLocalZ: Float,
 ) {
   // All render carriers are aligned to the stage. The axis-origin offset is local, before rotation.
@@ -28,11 +29,12 @@ internal data class PlaybackStageLayerGeometry(
 internal data class PlaybackStageLayout(
     val geometry: PlaybackStageGeometry,
     val danmakuBaseLocalZ: Float,
+    val scale: Float,
 ) {
   val layers: List<PlaybackStageLayerGeometry> = listOf(
-      PlaybackStageLayerGeometry(PlaybackStageLayer.VIDEO, geometry.videoShape, geometry.curvature, PlaybackStageLayer.VIDEO.baseLocalZ),
-      PlaybackStageLayerGeometry(PlaybackStageLayer.BACKDROP, geometry.backdropContent, geometry.curvature, PlaybackStageLayer.BACKDROP.baseLocalZ),
-      PlaybackStageLayerGeometry(PlaybackStageLayer.DANMAKU, geometry.danmakuContent, geometry.curvature, danmakuBaseLocalZ),
+      PlaybackStageLayerGeometry(PlaybackStageLayer.VIDEO, geometry.videoShape, geometry.curvature, PlaybackStageLayer.VIDEO.baseLocalZ * scale),
+      PlaybackStageLayerGeometry(PlaybackStageLayer.BACKDROP, geometry.backdropContent, geometry.curvature, PlaybackStageLayer.BACKDROP.baseLocalZ * scale),
+      PlaybackStageLayerGeometry(PlaybackStageLayer.DANMAKU, geometry.danmakuContent, geometry.curvature, danmakuBaseLocalZ * scale),
   )
 }
 
@@ -123,8 +125,10 @@ internal class PlaybackStageController<T : Any>(
   private fun buildLayout(): PlaybackStageLayout = PlaybackStageLayout(
       playbackStageGeometry(
           widthMeters * parameters.scale, heightMeters * parameters.scale,
-          diagnostic.displayAspectRatio, parameters.targetAspect, parameters.curvature,
+          diagnostic.displayAspectRatio, parameters.targetAspect,
+          parameters.curvature.scaledBy(parameters.scale),
       ),
       danmakuBaseLocalZ,
+      parameters.scale,
   )
 }

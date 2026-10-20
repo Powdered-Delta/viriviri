@@ -81,6 +81,12 @@ Cylinder: carrierLocalZ = baseLocalZ - radius
 中央点:   carrierLocalZ + radius = baseLocalZ
 ```
 
+上述 base−radius 使用同一有效米制空间。整组缩放已烘入宽高、半径和层间距：
+有效半径 rEffective=r0×s，载体局部 Z=(base−r0)×s，平面时为 base×s。
+原生 panel scale 保持 1，父级世界位置不乘倍率；控制与保存使用未缩放半径。
+见[规格 §5](playback-stage-rendering-spec.md#5-坐标与曲率契约)，实机漂移仍待验收。
+不能把“有调用补偿方法”表述为“已经正确实现整组缩放”。
+
 保持的是 **曲面中央点**，不是每一个边缘点；改变曲率时边缘会按圆弧移动。
 `SURFACE_ANCHOR_OFFSET_SIGN=-1` 是上述原点关系的结果，不是调试旋钮。
 半径变化时从 authored base 绝对重算；不要累加，也不要根据画面症状试着改成 +1。
@@ -101,6 +107,8 @@ Cylinder: carrierLocalZ = baseLocalZ - radius
 
 ## 6. 证据与验证边界
 
+- 用户最新实机反馈：4:3／竖屏纹理修复已通过；视频开孔漂移仍未通过。两者验收状态必须分开。
+- 后续修改等待[播放舞台规格草案](playback-stage-rendering-spec.md)审核，不能把本文件的数学关系当成实机重合证据。
 - `SpatialCoordinateContractTest` 执行实际 SDK 的 Pose/Quaternion，并检验带舞台旋转的半径补偿。
 - 详细原生地址、AAR/SO 哈希和独立探针保存在 Trellis 本次任务的 research 记录。
 - 运行日志中的 apertureLocalBounds 是 SDK mesh 数据；submittedWorldZ 是提交值，不等于头显像素测量。
