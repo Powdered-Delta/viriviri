@@ -6,7 +6,7 @@
 
 1. 界面上看到的一块区域，在代码里叫什么？
 2. 它挂在哪个宿主、哪个 Spatial 实体、哪个槽位（slot）下？
-3. 它是**已接线到 runtime**，还是只存在于 `spatial-workbench-core` 的**契约层**？
+3. 它是**已接线到 runtime**，还是只存在于 `spatial-workbench-core` / `playback-stage-core` 的**契约层**？
 
 与本文的关系：
 
@@ -22,7 +22,7 @@
 标注约定：
 
 - **[实现]** —— 已在 runtime 生效。
-- **[契约]** —— 仅存在于 `spatial-workbench-core` 的类型/枚举，尚未被 runtime 使用。
+- **[契约]** —— 存在于纯 Kotlin core 模块的类型/协调逻辑，尚未被 runtime 使用；条目明确所属模块。
 - **[未接线]** —— runtime 已声明该名称，但没有对应实体或行为。
 
 ---
@@ -85,7 +85,8 @@ graph TD
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
     Root --> Stage["spatialized_video_panel<br/>MEDIA_STAGE · 视频输出"]
 
-    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · compositor 视频 + SDK 同源开孔网格"]
+    Stage --> Surface["videoSurfaceEntity<br/>compositor 视频轴载体 · 场景颜色/深度不写入"]
+    Stage --> ApertureSurface["PlaybackStageAperture<br/>动态表面开孔 · 中心 Z=0"]
     Stage --> LeftRail["video_selector_panel<br/>左 Detail rail · yaw -45°"]
     Stage --> RightRail["mode_panel<br/>右 Context rail · yaw +45°"]
     Stage --> Transport["controls_id<br/>TRANSPORT · pitch 20°"]
@@ -123,9 +124,10 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `videoTextureCrop` 固定为 SDK 的 `Crop.NONE`：完整解码帧映射到该物理 shape。
 1920×1080 是面板的像素配置，不保证解码帧先被填黑边为 16:9。此前按 source/output 比例推算
 FIT 黑边并二次裁切的逻辑已删除；4:3 视频不再被额外裁去左右各 12.5%。
-`videoPanelConfig()` 在创建、整组 reshape 和诊断时复用 `videoShapeOptions()`。
+`videoPanelConfig()` 在创建和整组 reshape 时复用 `videoShapeOptions()`。
 曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**。
-开孔与视频共用 carrier，renderer 对每个 carrier 同时写入绝对局部姿态和原生世界姿态。
+视频轴载体使用 base-radius；独立 `PlaybackStageAperture` 使用表面原点，仅写 scaled base，不做半径平移。
+renderer 从同一次舞台采样提交这两种 carrier。
 
 ```text
 app state + video size -> PlaybackStageController -> PlaybackStageLayout
@@ -137,12 +139,15 @@ PlaybackStageGeometrySystem --+-> PlaybackStagePanelRenderer
 
 API 局部圆柱中央点在 +radius，carrier 的 base-radius 保持中央点不动；API 到原生有 Z 反射，
 详见[坐标与圆柱原点](spatial-coordinates.md)，不能混用原生 -Z 与项目 API +Z forward。
-视频不设置自定义 `sceneMeshCreator`：SDK 0.13.2 遇到自定义 creator 会提前返回，跳过默认开孔材质配置；
-仅阴影 override 会导致完整视频开孔消失。当前没有独立阴影网格或应用自建的反向弧形裁切面。
+视频配置先调用 SDK 初始化，再设置 `sceneMeshCreator`。回调读取最终宽高／有效半径，
+同时更新 `PlaybackStageAperture` 的表面中心开孔和视频载体的轴原点 bounds。
+`createPlaybackStageLayerCarrierMesh` 关闭颜色、深度写入；真正开孔由
+`createPlaybackStageApertureMesh` 生成，中心 Z=0，边缘 r*(cos(theta)-1)，沿 local -Z。
+开孔是动态 sibling 实体，不是额外 Panel；不持有视频 Surface，不创建阴影或独立输入。
 backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
 只保留其设计层间距，曲率补偿完全相同。
-[实现] renderer 先更新舞台与抓取条间距，再采样一次舞台世界姿态；全部子层使用该姿态和
-`PlaybackStageLayerGeometry.localPose()` / `worldPose()`。子层局部旋转统一归零，不沿用重挂父级时的
+[实现] renderer 先更新舞台与抓取条间距，再采样一次舞台世界姿态；视频/UI 轴载体使用该姿态和
+`PlaybackStageLayerGeometry.localPose()` / `worldPose()`；表面开孔使用 `playbackStageApertureLocalPose()`。子层局部旋转统一归零，不沿用重挂父级时的
 旧旋转。初始化、reset、调试 Z 和 render policy 切换都提交/失效同一控制器，没有独立补偿旁路。
 [实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，开孔网格不独立拥有输入或视频 Surface。
 `LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
@@ -161,7 +166,7 @@ flowchart LR
     Geometry --> Shape["videoShape = videoContent<br/>同一最终物理尺寸"]
     Geometry --> Clip["videoTextureCrop = Crop.NONE<br/>完整解码帧，不推算 FIT 黑边"]
     Geometry --> Viewport["完整 viewport · 16:9<br/>弹幕方案 A / 压暗层"]
-    Shape --> Aperture["SDK 视频开孔网格 · OPAQUE"]
+    Shape --> Aperture["显式视频开孔网格 · HOLE_PUNCH"]
     Shape --> Video["视频 compositor layer · zIndex 1"]
     Clip --> Video
     Aperture --> Eye
@@ -182,7 +187,8 @@ flowchart LR
 | `workbenchRootEntity` | 工作台锚点 `workbenchRoot` | 世界坐标，抓取条所在高度 | — | Scene |
 | `grab_bar_panel` | 抓手条 `grab_bar` | (0, 0, 0) | — | `workbenchRoot` |
 | `spatialized_video_panel` | 媒体舞台 `MediaStage` | (0, `currentStageAnchorOffsetY()`, 0) | — | `workbenchRoot` |
-| `videoSurfaceEntity` | [实现] compositor 视频 + SDK 同源开孔网格（运行时 `Entity.create`） | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
+| `videoSurfaceEntity` | [实现] compositor 视频轴载体；bounds 网格不写颜色/深度 | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
+| `PlaybackStageAperture` | [实现] 动态表面开孔；中心 Z=0，无输入/Surface | (0, 0, scaled video base) | 恒等 | MediaStage |
 | `video_selector_panel` | 左侧 Detail rail | (-`railX`, 0, `railLocalZ`) ≈ (-1.05, 0, -1.05) | yaw `-45°` | MediaStage |
 | `mode_panel` | 右侧 Context rail | (+`railX`, 0, `railLocalZ`) ≈ (+1.05, 0, -1.05) | yaw `+45°` | MediaStage |
 | `controls_id` | 播放控制 `Transport` | (0, -0.78, -0.66) | pitch `20°` | MediaStage |
@@ -210,6 +216,13 @@ railWidth   = 0.70 m     leftRailHeight = 0.90 m   rightRailHeight = 0.58 m
 railYawDegrees = 45°     stageBackdropAlpha = 0.42
 STAGE_WORLD_Z = 2.00 m   STAGE_DEFAULT_WORLD_Y = 2.14 m
 ```
+
+[实现] 全部构建的 `videoSurfaceEntity` 保持 NoCollision、原生点击按钮为零，不注册视频点击回调。
+舞台主操作只由 `AnalogMediaStageTuningSystem` 的扳机按下沿处理；松开不再次切换工作台。
+MR/VR 切换也不重新发布视频 ISDK 面板尺寸。曾启用 LineTest 的诊断探针已撤回。
+
+[实现] `PlaybackStageAperture` 的可见性跟随 `videoSurfaceEntity`，没有额外显示开关；
+宽高与曲率在视频 mesh creator 中更新，姿态由既有 renderer 提交，Activity 销毁时注销并释放。
 
 ### 2.3 场景（Meta Spatial Editor）授权部分
 
@@ -266,6 +279,8 @@ app/scenes/Composition/Main.scene
 
 ## 3. 面板注册与内容映射
 
+`PlaybackStageAperture` 是普通动态 `SceneObject`，不是 Panel，不新增注册项或 `PanelSlot`。
+
 ### 3.1 注册表（`registerPanels()`）
 
 | 资源 id | 面板术语 | 注册方式 | 内容实现 | 形制（m） | 显示（dp / dpi） |
@@ -316,6 +331,8 @@ PLAYBACK_CONFIG      -> (无实体)                 -> SYSTEM_TOOLBAR   [未接�
 ---
 
 ## 4. 状态机
+
+新增播放呈现协调契约见 4.4；它尚未参与下面三个现有 runtime 状态的流转。
 
 沉浸式模式同时存在三个层次的「状态」，术语极易混淆，必须区分：
 
@@ -471,6 +488,23 @@ stateDiagram-v2
 时才 `returnToPlayback`，避免搜索/浏览时误关工作台。
 
 ---
+
+### 4.4 播放呈现协调契约（尚未接管 runtime）
+
+[契约，playback-stage-core] `StageCoordinator` 接收 `StageInput`，经 `solveStageLayout`
+生成 `StageLayout`，按 revision 和资源 generation 向 `StageRenderer` 提交 `StageFrame`。
+`StageApplyResult` 记录资源提交结果，不表示实机画面验收通过。
+
+```text
+StageInput → StageCoordinator → StageFrame → StageRenderer（接口）
+                 ↑                              │
+                 └──── StageApplyResult ─────────┘
+```
+
+[未接线，app] `PlaybackStageHost` 提供宿主状态映射和提交入口，但沉浸 Activity 尚未实例化它。
+当前画面仍由 `PlaybackStageController` / `PlaybackStagePanelRenderer` 驱动；没有新增 SDK 后端、
+面板注册、场景实体或视频 Surface。模块边界与验证说明见
+[playback-stage-core/README.md](../playback-stage-core/README.md)。
 
 ## 5. 面板内容结构
 
@@ -699,6 +733,13 @@ danmaku_overlay_panel（DanmakuOverlay）
 两条覆盖层都是 `MeshCollision.NoCollision`，只渲染、不吃射线；
 压暗层默认 `Visible(false)`，弹幕层默认 `Visible(true)`。
 
+### 5.7.1 `PlaybackStageAperture` — 表面开孔
+
+[实现] owner 为 `PlaybackStagePanelRenderer` / Activity 生命周期；parent 为舞台根。
+可见性跟随视频；输入为 NoCollision，无监听；相对深度使用 scaled video base。
+只有 mesh 与材质，不持有视频 Surface／播放器；半径变化不改变其载体 Z。
+视频轴载体仍存在，但关闭颜色／深度写入，不生成第二个开孔。
+
 ### 5.8 `grab_bar_panel` — 抓手条
 
 ```text
@@ -855,12 +896,14 @@ SHORTS_COMMENTS  [契约]
 | --- | --- | --- |
 | 清晰度 | `PlaybackQuality` | `AUTO` / `360p` / `480p` / `720p` / `1080p` |
 | 显示比例 | `PlaybackDisplayRatio` | `Auto` / `16:9` / `4:3` / `1:1` / `9:16` |
-| 画布大小 | `PlaybackCanvasSize` | `紧凑 0.82` / `标准 1.00` / `宽大 1.18`（钳制 0.70–1.50） |
+| 画布大小 | `PlaybackCanvasSize` | `紧凑 0.82` / `标准 1.00` / `宽大 1.18`（钳制 0.70–2.00） |
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
 | 曲率编辑器 | `AnalogMediaStageTuningSystem` | 右摇杆更新 `ViriViriUiState.playbackCurvature`，宿主通过 `applyPlaybackStageParameters` 把完整参数提交给 `PlaybackStageController`；`PlaybackStageGeometrySystem` 等待全部面板就绪，再由 `PlaybackStagePanelRenderer` 同步提交 shape、完整帧 UV、单位 scale 和绝对半径补偿。视频/开孔同 shape，弹幕和压暗层为完整 viewport。原覆盖层重试和视频一次性重放已删除；持久化键不变 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
+| 播放呈现契约 | `StageInput` / `StageLayout` / `StageCoordinator` / `StageRenderer` | [契约，playback-stage-core] 参数与资源提交协调；未接管实际画面，见 4.4 |
+| 播放呈现宿主适配 | `PlaybackStageHost` | [未接线，app] 已有状态到新契约的映射；与现有 `PlaybackStageController` 区分 |
 
 ### 6.8 视觉与主题
 
@@ -919,6 +962,9 @@ SHORTS_COMMENTS  [契约]
 8. **`ImmersiveLayoutMode` 与 `WorkbenchPresentation` 描述同一维度**
    `WATCH`/`SHORTS` 与 `NORMAL`/`SHORTS` 重复表达了「横版 / 竖版」，且
    `ImmersiveLayoutMode` 多了 `FOCUS`/`EDIT`。
+9. **播放呈现新契约与现有渲染并存**
+   `StageCoordinator` 属于新纯 Kotlin 模块，尚未进入 runtime；`PlaybackStageController`
+   仍驱动当前画面。不得把前者的测试通过描述为后者的曲率、开孔或缩放已修复。
 
 ---
 

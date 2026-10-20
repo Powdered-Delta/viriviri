@@ -93,3 +93,32 @@ overlayPending = true
 controller.setParameters(parameters.copy(curvature = PlaybackStageCurvature.Flat))
 // PlaybackStageGeometrySystem.execute(): controller.flush()
 ```
+
+## Separate surface-origin aperture and axis-origin media carrier (2026-10-21)
+
+PlaybackStageAperture owns one dynamic sibling entity under the stage root, no Panel
+registration, player, Surface or input listener. Its visible hole mesh is centered:
+Z=r*(cos(theta)-1), center Z=0 for flat and all radii. Its carrier uses scaled
+baseLocalZ only, never +/-radius. SceneObject visibility mirrors video Visible;
+there is no independent UI visibility state. Activity closes/unregisters the object.
+
+Video config first initializes SDK settings, then its sceneMeshCreator updates the
+surface opening using the final PanelShapeConfig width/height/effective radius.
+The existing video carrier still uses base-effectiveRadius, and retains axis-origin
+mesh bounds (+r center) for culling. That carrier's material is OPAQUE/unlit with
+color writes zero and depth writes DISABLE: it must never punch a second hole.
+The decoder Surface, compositor shape/crop, zIndex and video compensation stay intact.
+The existing stage renderer commits both origins from one sampled stage-world pose.
+
+All builds keep both carriers NoCollision and video clickButtons=0. No native video
+InputListener may call the stage action; geometric Controller.isDown rising-edge
+handling is the sole owner. No video ISDK dimensions publication on MR/VR transitions.
+
+PlaybackStageApertureMeshTest checks actual centered opening vertices against world
+surface points under rotated parents, flat/cylinder transitions, scale/aspect and
+both windings. Separately check video axis bounds. Build/JVM success does not prove
+GPU/compositor alignment. User confirmed direction correct but center drift persists
+in the shared-carrier build; this structural correction still requires headset QA.
+
+## Headset rejection of the surface-origin slice
+107bccb also FAILED: user reports video aperture does not respond to curvature, danmaku geometry responds with Z drift, and scale is still wrong. The separate-origin implementation above describes current code, not a validated pattern that must be retained. See docs/playback-stage-handoff-2026-10-21.md before further changes. Prior 292 batches/Inspector snapshots belong to the old shared-carrier APK; do not apply that evidence to the new callback/mesh path.

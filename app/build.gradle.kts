@@ -56,9 +56,8 @@ android {
         (project.findProperty("viriviri.inputInjection") as String?)?.toBooleanStrictOrNull() ?: false
     buildConfigField("boolean", "INPUT_INJECTION_ENABLED", inputInjectionEnabled.toString())
 
-    // Video uses the SDK-generated layer aperture. A custom sceneMeshCreator overrides both the
-    // generated mesh and hole-punch material setup, so the former noVideoMesh/shadow experiment
-    // is retired. Shape dimensions and cylinder radius are shared by aperture and compositor.
+    // Video axis carrier keeps bounds but writes no scene color/depth. PlaybackStageAperture owns
+    // the surface-centered opening; both derive scaled dimensions/radius from the same shape.
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -93,6 +92,7 @@ android {
 //noinspection UseTomlInstead
 dependencies {
   implementation(project(":spatial-workbench-compose"))
+  implementation(project(":playback-stage-core"))
   implementation(libs.androidx.core.ktx)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.junit)

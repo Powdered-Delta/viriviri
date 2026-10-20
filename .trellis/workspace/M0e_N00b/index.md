@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 12
 - **Last Active**: 2026-10-21
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~271 | Active |
+| `journal-1.md` | ~403 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,10 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-10-21 | Handoff rejected stage aperture implementation | `8e0dd32` | `main` |
+| 11 | 2026-10-21 | Separate surface opening from video cylinder axis carrier | `107bccb` | `main` |
+| 10 | 2026-10-21 | Restore explicit video aperture and sole trigger owner | `d14f93f` | `main` |
+| 9 | 2026-10-21 | Aperture drift remains; prepare opt-in native mesh probe | `28a6bb1` | `main` |
 | 8 | 2026-10-21 | Scale stage radius and carrier depth as one layout | `a42f117` | `main` |
 | 7 | 2026-10-20 | Remove synthetic decoder FIT crop causing 4:3 distortion | `8b3fad5` | `main` |
 | 6 | 2026-10-20 | Refactor stage into one geometry controller and native batch renderer | `b6627f5` | `main` |

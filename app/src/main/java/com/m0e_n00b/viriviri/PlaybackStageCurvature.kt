@@ -54,7 +54,7 @@ sealed interface PlaybackStageCurvature {
   /**
    * SDK 0.13.2 cylinder geometry has its axis at the entity origin and its central surface point
    * at API-local Z=+radius. Verified against native makeCylinderSurface and the API/native Z
-   * reflection at mesh upload. Moving the shared aperture/layer carrier by -radius pins that point
+   * reflection at mesh upload. Moving each compositor axis carrier by -radius pins that point
    * to its authored base. See docs/spatial-coordinates.md for the coordinate boundary.
    */
   fun surfaceAnchorOffsetMeters(): Float =

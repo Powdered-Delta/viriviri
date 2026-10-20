@@ -68,12 +68,9 @@ import com.meta.spatial.debugtools.HotReloadFeature
 import com.meta.spatial.isdk.IsdkBoxCollider
 import com.meta.spatial.isdk.IsdkGrabbable
 import com.meta.spatial.isdk.IsdkPanelGrabHandle
-import com.meta.spatial.isdk.updateIsdkComponentProperties
 import com.meta.spatial.ovrmetrics.OVRMetricsDataModel
 import com.meta.spatial.ovrmetrics.OVRMetricsFeature
 import com.meta.spatial.runtime.ButtonBits
-import com.meta.spatial.runtime.HitInfo
-import com.meta.spatial.runtime.InputListener
 import com.meta.spatial.runtime.PanelConfigOptions
 import com.meta.spatial.runtime.PanelSceneObject
 import com.meta.spatial.runtime.PanelShapeLayerBlendType
@@ -185,6 +182,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * entity moves; the root never does.
    */
   private var videoSurfaceEntity: Entity? = null
+  private var stageAperture: PlaybackStageAperture? = null
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var wristDebugPanelEntity: Entity? = null
   private var danmakuOverlayEntity: Entity? = null
@@ -237,6 +235,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         },
         prepareStage = { updateGrabBarPose(it.viewport.halfHeight) },
         stageWorldPose = { worldPoseOf(Entity(R.id.spatialized_video_panel)) },
+        commitAperturePose = { layer, stage ->
+          checkNotNull(stageAperture).applyPose(layer.baseLocalZ, stage)
+        },
     )
   }
   private val playbackStageController by lazy {
@@ -601,7 +602,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       )
     }
     // One frame owner commits the latest layout only after the full panel group is ready.
-    systemManager.registerSystem(PlaybackStageGeometrySystem { playbackStageController.flush() })
+    systemManager.registerSystem(PlaybackStageGeometrySystem {
+      playbackStageController.flush()
+      stageAperture?.syncVisibility(videoSurfaceEntity)
+    })
+
     // Scheme A: the ANCHOR is the grabbable entity; the stage hangs under it, so the SDK moves
     // everything when the anchor is dragged — no mirroring system needed. Watch the anchor's
     // grab state to persist the stage's world height on release.
@@ -759,7 +764,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * Stage footprint in metres with the shared stage scale already BAKED IN.
    *
    * The controller supplies one layout for all panels. Size is baked into shapes;
-   * the renderer keeps native scale at one and commits aperture/layer poses together.
+   * the renderer keeps native scale at one and commits surface/axis carrier poses together.
    */
   private fun scaledStageWidth(): Float = currentPlaybackStageGeometry().viewport.widthMeters
 
@@ -773,8 +778,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * The compositor owns the video pixels: `MediaPanelRenderOptions.applyTo` installs the `LayerConfig`,
    * and this shape is the source for its radius/extent. The carrier entity's one-radius position
    * correction is applied separately by [PlaybackStagePanelRenderer]; it must be recomputed on
-   * every radius change. Leave sceneMeshCreator unset: the SDK generates the matching eye-buffer
-   * aperture as well as configuring its hole-punch material. A shadow-only override bypasses both.
+   * every radius change. The explicit aperture creator reads the final PanelShapeConfig dimensions
+   * and radius after SDK initialization. The opening uses its own stable surface-origin carrier;
+   * the video axis mesh retains bounds but writes neither scene color nor depth.
    *
    * The SHAPE owns size and curvature; a reshape skipped here freezes both axes regardless of the
    * thumbstick state.
@@ -984,9 +990,23 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                       height = IMMERSIVE_VIDEO_OUTPUT_HEIGHT,
                   ),
               rendering = MediaPanelRenderOptions(stereoMode = StereoMode.None, zIndex = VIDEO_LAYER_Z_INDEX),
+              input = PanelInputOptions(0),
           )
         .toPanelConfigOptions()
-        .apply { applyVideoLayerDepth(this) }
+        .apply {
+          applyVideoLayerDepth(this)
+          // Preserve SDK layer initialization before installing the explicit aperture generator.
+          init()
+          sceneMeshCreator = { texture ->
+            val apertureCurvature = if (panelShapeType == com.meta.spatial.runtime.PanelShapeType.CYLINDER)
+                PlaybackStageCurvature.Cylinder(radiusForCylinderOrSphere) else PlaybackStageCurvature.Flat
+            val opening = stageAperture ?: PlaybackStageAperture(
+                scene, systemManager.findSystem<SceneObjectSystem>(), Entity(R.id.spatialized_video_panel),
+            ).also { stageAperture = it }
+            opening.reshape(texture, width, height, apertureCurvature)
+            createPlaybackStageLayerCarrierMesh(texture, width, height, apertureCurvature)
+          }
+        }
   }
 
   /** An overlay config from the same factory used by the stage batch renderer. */
@@ -1285,36 +1305,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             )
           }
 
-          addInputListener(
-              object : InputListener {
-                override fun onHoverStart(
-                    receiver: SceneObject,
-                    sourceOfInput: Entity,
-                ) = Unit
-
-                override fun onClick(
-                    receiver: SceneObject,
-                    hitInfo: HitInfo,
-                    sourceOfInput: Entity,
-                ) {
-                  Log.d(
-                      WORKBENCH_TRACE_TAG,
-                      "stageClick canvas=${immersivePlaybackCanvasHost.state.canvas} " +
-                          "workbench=${if (::immersiveWorkbenchHost.isInitialized) immersiveWorkbenchHost.state else "uninitialized"}",
-                  )
-                  onStagePrimaryAction()
-                }
-
-                override fun onInput(
-                    receiver: SceneObject,
-                    hitInfo: HitInfo,
-                    sourceOfInput: Entity,
-                    changed: Int,
-                    clicked: Int,
-                    downTime: Long,
-                ): Boolean = false
-              }
-          )
+          // Stage actions belong exclusively to AnalogMediaStageTuningSystem's press edge.
+          // A native onClick callback here fires on release and would toggle the workbench twice.
 
         }
 
@@ -1884,6 +1876,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   override fun onDestroy() {
     playbackStageController.close()
+    stageAperture?.close()
+    stageAperture = null
     player.removeListener(immersiveStagePlayerListener)
     player.removeListener(immersiveControlsPlayerListener)
     browseSelectionObserver?.cancel()
@@ -2609,10 +2603,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   public fun setMrMode(isMrMode: Boolean) {
-    // The panel is bound to the dedicated surface entity, not to the stage root; see
-    // [videoSurfaceEntity].
-    val videoPanelEntity = videoSurfaceEntity ?: Entity(R.id.spatialized_video_panel)
-
     if (isMrMode) {
       environmentGLXF?.setComponent(Visible(false))
       skydome?.setComponent(Visible(false))
@@ -2621,10 +2611,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       skydome?.setComponent(Visible(true))
     }
 
-    val sceneObjectSystem = systemManager.findSystem<SceneObjectSystem>()
-    val sysObject = sceneObjectSystem.getSceneObject(videoPanelEntity)?.getNow(null)
-    val panel = sysObject as PanelSceneObject?
-    panel?.updateIsdkComponentProperties(videoPanelEntity)
+    // Video is a render carrier, not an ISDK interactive panel. Publishing dimensions here
+    // reintroduces the curvature-dependent collider retired by the geometric stage input path.
 
     scene.enablePassthrough(isMrMode)
     // Locomotion is never re-enabled on a mode switch; see the scene-ready disable for why.

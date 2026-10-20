@@ -91,31 +91,30 @@ Cylinder: carrierLocalZ = baseLocalZ - radius
 `SURFACE_ANCHOR_OFFSET_SIGN=-1` 是上述原点关系的结果，不是调试旋钮。
 半径变化时从 authored base 绝对重算；不要累加，也不要根据画面症状试着改成 +1。
 
-## 5. 开孔是否套用了幕布的方法
+## 5. 开孔与视频分别采用哪一种原点
 
-当前 SDK 开孔 mesh 和 compositor video layer 绑定同一个 `PanelSceneObject` / `videoSurfaceEntity`。
-现在由 `PlaybackStagePanelRenderer` 在同一次整组提交中应用现成的半径补偿：
-`PlaybackStageLayerGeometry.localPose()` 计算 base-radius，`worldPose(stageWorld)` 再合成父级姿态。
-每个子层写入新建的绝对局部姿态，局部旋转归零；全部层共用一次采样的舞台世界姿态。
-重构前源码同样有调用补偿，因此不能把现象归结为“开孔漏调方法”；此前分散的创建、重试和调试写入
-已收敛为 `PlaybackStageController` 的最新布局和一个提交入口，视觉效果仍须实机验证。
+用户确认上一版弯曲方向正确，但开孔中心仍随曲率漂移。292 组日志及只读 Inspector 表明，
+有效半径、mesh 边界和 ECS 补偿均已更新，父链无额外 Scale；这不是最终渲染姿态读数。
 
-`videoPanelConfig()` 给视频和开孔同一最终 shape；renderer 应用 `Crop.NONE`，完整解码帧映射
-到该 shape，footprint 为单位值。不再按固定 1920×1080 配置推算 FIT 黑边并裁切：直接解码 Surface
-没有这项契约。4:3 / 16:9 = 0.75 的人为横向裁切会让画面内容放大 1/0.75；该错误路径已删除。
-弹幕/压暗层按方案 A 使用完整舞台范围，视频/开孔使用有效画面范围；它们共享 scale 和 curvature。
+当前实现将两种原点分开：
+
+| 对象 | 网格中心局部 Z | 载体局部 Z | 半径变化影响 |
+| --- | --- | --- | --- |
+| compositor 视频载体 | +r（只保留 bounds，不写颜色/深度） | base-r | 继续现有视频补偿 |
+| `PlaybackStageAperture` 开孔 | 0 | base | 只改变弧边，中心不使用半径抵消 |
+
+`createPlaybackStageApertureMesh` 使用表面中心坐标 r*(cos(theta)-1)，边缘方向保持 local -Z。
+独立动态开孔实体与视频实体同属舞台根，不挂在视频的圆柱轴载体下。
+`PlaybackStagePanelRenderer` 用同一份布局和舞台世界姿态提交两者，宽高、有效半径都已包含倍率。
+开孔的 baseLocalZ 已缩放；原生 scale 为 1。视频旧轴网格关闭颜色、深度写入，不再产生第二个孔。
+
+`videoTextureCrop` 仍为 `Crop.NONE`；4:3／竖屏完整帧和全舞台弹幕保持原有契约。
+这项结构修正消除开孔的半径级平移，不能被描述为已测得或修复了一个 SDK 内部 bug。
 
 ## 6. 证据与验证边界
 
-- 用户最新实机反馈：4:3／竖屏纹理修复已通过；视频开孔漂移仍未通过。两者验收状态必须分开。
-- 后续修改等待[播放舞台规格草案](playback-stage-rendering-spec.md)审核，不能把本文件的数学关系当成实机重合证据。
-- `SpatialCoordinateContractTest` 执行实际 SDK 的 Pose/Quaternion，并检验带舞台旋转的半径补偿。
-- 详细原生地址、AAR/SO 哈希和独立探针保存在 Trellis 本次任务的 research 记录。
-- 运行日志中的 apertureLocalBounds 是 SDK mesh 数据；submittedWorldZ 是提交值，不等于头显像素测量。
-- 2026-10-20 只读发现在线 Quest 2，未取到相关保留日志；本轮未安装、启动应用或修改设备。
-- JVM/构建通过不能替代头显上的尺寸、Z 定位与遮挡验收。
-
-官方资料：
-[Architecture](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-sdk-architecture)、
-[Editor transforms](https://developers.meta.com/horizon/documentation/spatial-sdk/spatial-editor-transforms-coordinates)、
-[SceneLayer](https://developers.meta.com/horizon/reference/spatial-sdk/v0.13.2/com_meta_spatial_runtime_scenelayer)。
+- 用户已确认旧共享载体版弯曲方向正确，中心漂移未通过；表面原点版尚待实机验收。
+- `SpatialCoordinateContractTest` 执行实际 SDK Pose/Quaternion；`PlaybackStageApertureMeshTest`
+  检查表面原点的实际生成顶点，覆盖旋转父节点、倍率、比例及平面切换。
+- apertureLocalBounds 是原生 mesh 局部边界；submittedWorldZ 仅为提交值，不能直接相加。
+- Inspector 读数为操作后的 ECS 组件，不是 GPU／compositor readback。

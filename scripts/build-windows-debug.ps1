@@ -25,6 +25,7 @@ if (-not (Test-Path -LiteralPath $gradleWrapper -PathType Leaf)) {
 $env:JAVA_HOME = $JavaHome
 $tasks = @('--no-daemon', '--no-configuration-cache', '--console=plain')
 if (-not $SkipTests) {
+  $tasks += ':playback-stage-core:test'
   $tasks += ':app:testDebugUnitTest'
 }
 $tasks += ':app:assembleDebug'

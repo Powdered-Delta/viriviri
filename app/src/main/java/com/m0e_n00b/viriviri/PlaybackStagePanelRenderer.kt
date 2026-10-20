@@ -12,6 +12,7 @@ internal class PlaybackStagePanelRenderer(
     private val config: (PlaybackStageLayout, PlaybackStageLayerGeometry) -> PanelConfigOptions,
     private val prepareStage: (PlaybackStageGeometry) -> Unit,
     private val stageWorldPose: () -> Pose?,
+    private val commitAperturePose: (PlaybackStageLayerGeometry, Pose) -> Unit,
 ) {
   fun apply(layout: PlaybackStageLayout, panels: Map<PlaybackStageLayer, PanelSceneObject>): Boolean {
     // No partial acknowledgement if the ECS hierarchy has not been initialized yet.
@@ -48,6 +49,7 @@ internal class PlaybackStagePanelRenderer(
             "apertureLocalBounds=${panel.mesh?.computeCombinedBounds()}")
       }
     }
+    commitAperturePose(layout.layers.first { it.role == PlaybackStageLayer.VIDEO }, stage)
     return true
   }
 }

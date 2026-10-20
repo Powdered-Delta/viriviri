@@ -1,0 +1,78 @@
+{
+  "source": "SDK 0.13.2 DataModel Inspector, ws://headset:8011; receive-only, no commands sent",
+  "captureUTC": "2026-10-21T01:29:01.252274+00:00",
+  "roles": {
+    "stage": "2131362243",
+    "anchor": "4503599627370518",
+    "video": "4503599627370519",
+    "backdrop": "4503599627370521",
+    "danmaku": "4503599627370522"
+  },
+  "entities": {
+    "4503599627370522": {
+      "Panel.panel": 2131361929,
+      "Panel.hittable": 0,
+      "Transform.transform": [
+        0,
+        0,
+        -10.2307710647583,
+        0,
+        0,
+        0,
+        1
+      ],
+      "TransformParent.entity": "2131362243"
+    },
+    "4503599627370521": {
+      "Panel.panel": 2131362253,
+      "Panel.hittable": 0,
+      "Transform.transform": [
+        0,
+        0,
+        -10.202120780944824,
+        0,
+        0,
+        0,
+        1
+      ],
+      "TransformParent.entity": "2131362243"
+    },
+    "4503599627370519": {
+      "Panel.hittable": 0,
+      "Transform.transform": [
+        0,
+        0,
+        -10.216445922851562,
+        0,
+        0,
+        0,
+        1
+      ],
+      "TransformParent.entity": "2131362243"
+    },
+    "2131362243": {
+      "Transform.transform": [
+        0,
+        0.7046158909797668,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "TransformParent.entity": "4503599627370518"
+    },
+    "4503599627370518": {
+      "Transform.transform": [
+        -0.14112325012683868,
+        1.1936782598495483,
+        2.0275511741638184,
+        -0.031151050701737404,
+        -0.053102992475032806,
+        -0.004656681325286627,
+        0.9980922937393188
+      ]
+    }
+  },
+  "limits": "ECS snapshot only. No final GPU/object-world pose readback. Absent Scale means no ECS Scale override; does not measure native object scale."
+}
