@@ -71,3 +71,36 @@ Completed existing cutter/PLAN_1 removal; fixed orphan val compilation failure; 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Correct video aperture and compositor visibility
+
+**Date**: 2026-10-20
+**Task**: Correct video aperture and compositor visibility
+**Branch**: `main`
+
+### Summary
+
+SDK 0.13.2 bytecode confirms custom shadow creator skips default aperture setup. Restored SDK quad/cylinder aperture on video creation and reshape; explicit opaque video and alpha-blended UI; preserved carrier correction and stage input; retired shadow override and inverse helpers. Synced terminology and spec. Windows tests 183 passed; debug APK built; actual headset visual acceptance pending; no install or launch.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `130967e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
