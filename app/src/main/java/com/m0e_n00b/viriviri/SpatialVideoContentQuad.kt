@@ -3,7 +3,34 @@ package com.m0e_n00b.viriviri
 internal data class SpatialVideoContentQuad(
     val halfWidth: Float,
     val halfHeight: Float,
-)
+) {
+  val widthMeters: Float
+    get() = halfWidth * 2f
+
+  val heightMeters: Float
+    get() = halfHeight * 2f
+
+  val aspectRatio: Float
+    get() = widthMeters / heightMeters
+}
+
+internal data class SpatialPanelDisplaySize(val widthDp: Float, val heightDp: Float)
+
+/** UI texture dimensions with the same aspect ratio as the physical panel shape. */
+internal fun spatialPanelDisplaySizeForAspect(
+    aspectRatio: Float,
+    longEdgeDp: Float = 1280f,
+): SpatialPanelDisplaySize {
+  val safeLongEdgeDp = longEdgeDp.takeIf { it.isFinite() && it > 0f } ?: 1280f
+  if (!aspectRatio.isFinite() || aspectRatio <= 0f) {
+    return SpatialPanelDisplaySize(safeLongEdgeDp, safeLongEdgeDp * 9f / 16f)
+  }
+  return if (aspectRatio >= 1f) {
+    SpatialPanelDisplaySize(safeLongEdgeDp, safeLongEdgeDp / aspectRatio)
+  } else {
+    SpatialPanelDisplaySize(safeLongEdgeDp * aspectRatio, safeLongEdgeDp)
+  }
+}
 
 internal fun spatialVideoContentQuad(
     stageWidth: Float,

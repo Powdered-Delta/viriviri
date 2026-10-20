@@ -216,7 +216,9 @@ Meta-official Horizon OS tooling is available in this repo (Apache-2.0, installe
   `hz-platform-sdk`, `hz-immersive-designer`, `metavr-cli`. The skill catalog loads them automatically.
 - **metavr CLI**: invoke without install via `npx -y metavr ...` (Node 18+; verified working).
 - **metavr MCP server**: configured in project-root `mcp.json` (40+ device/docs/perf tools).
-  Shareable; it contains no user secrets.
+  `mcp.json` is machine-local and git-ignored: it also carries per-user MCP credentials
+  (the Penpot entries embed a user token). `mcp.example.json` is the tracked,
+  credential-free template; copy it and fill in your own token.
 
 ### Docs-first (replaces guessing / web search)
 

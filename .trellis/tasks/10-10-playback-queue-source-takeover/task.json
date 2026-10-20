@@ -1,0 +1,30 @@
+{
+  "id": "playback-queue-source-takeover",
+  "name": "playback-queue-source-takeover",
+  "title": "播放队列来源可接管（连播「下一集」归属）",
+  "description": "把当前无 owner 的连播来源（搜索结果页/首页推荐列表）提升为可接管的纯契约：单 owner、按优先级抢占、显式释放、回落次高。仅做 core 契约 + 测试，不接线。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "spatial-workbench-core",
+  "package": "spatial-workbench-core",
+  "priority": "P1",
+  "creator": "M0e_N00b",
+  "assignee": "M0e_N00b",
+  "createdAt": "2026-10-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "10-07-immersive-ui-theme-runtime-assessment",
+  "relatedFiles": [
+    "spatial-workbench-core/src/main/kotlin/com/m0e_n00b/spatialworkbench/core/WorkbenchContracts.kt",
+    "docs/research/bilibili-list-semantics.md",
+    "docs/prototypes/interaction-skeleton/README.md"
+  ],
+  "notes": "设计来源：2026-10-10 用户在右 rail 讨论中提出「连播来源应做成可接管的形式」。契约设计见 prd.md。",
+  "meta": {}
+}

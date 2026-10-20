@@ -8,8 +8,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -33,22 +33,45 @@ internal fun StageBackdrop(alpha: Float = WorkbenchLayoutConfig.DEFAULT.stageBac
   }
 }
 
+/**
+ * Everything the overlay needs from its host.
+ *
+ * It used to read `ViriViriApplication.appState` directly — both the selected video and, inside a
+ * polling loop, `playerSession.player`. That made it impossible to render without the app singleton
+ * (and therefore impossible to preview, test, or re-host), so the three facts it actually depends on
+ * are now parameters. The function types are deliberate: the overlay needs the *current* clock value
+ * each frame, not a snapshot taken at composition.
+ */
+internal data class DanmakuOverlayProps(
+    /** Video identity; null renders nothing. Also the key that rebuilds the canvas runtime. */
+    val selectedVideoId: String?,
+    /** Danmaku source for a video id. Called once per [selectedVideoId] change. */
+    val streamSourceFor: (String) -> DanmakuStreamSource,
+    /** Playback position in ms, read once per frame. */
+    val playerPositionMs: () -> Long,
+    /** Whether playback is running, which selects the frame cadence. */
+    val isPlaying: () -> Boolean,
+)
+
 @Composable
-internal fun DanmakuOverlay() {
-  val appState by ViriViriApplication.appState.state.collectAsState()
+internal fun DanmakuOverlay(props: DanmakuOverlayProps) {
   var frameTick by remember { mutableLongStateOf(0L) }
+  // The loop is keyed on Unit, not on `props`: `props` holds lambdas whose identity changes on every
+  // recomposition, so keying on it would tear down and restart the frame loop continuously and the
+  // overlay would stutter. `rememberUpdatedState` keeps one long-lived loop that always reads the
+  // latest props instead.
+  val currentProps by rememberUpdatedState(props)
   LaunchedEffect(Unit) {
     while (true) {
-      val player = ViriViriApplication.appState.playerSession.player
-      frameTick = player.currentPosition
+      frameTick = currentProps.playerPositionMs()
       // UX: danmaku uses a bounded animation cadence; video playback remains on Media3's clock.
-      delay(if (player.isPlaying) DANMAKU_FRAME_INTERVAL_MS else 100L)
+      delay(if (currentProps.isPlaying()) DANMAKU_FRAME_INTERVAL_MS else 100L)
     }
   }
-  val selectedVideoId = appState.selected?.videoId
+  val selectedVideoId = props.selectedVideoId
   val runtime = remember(selectedVideoId) {
     val videoId = selectedVideoId ?: return@remember null
-    DanmakuCanvasRuntime(ViriViriApplication.appState.danmakuStreamSource(videoId))
+    DanmakuCanvasRuntime(props.streamSourceFor(videoId))
   }
   val fillPaint = remember { Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = DANMAKU_TEXT_SIZE_PX } }
   val outlinePaint = remember {

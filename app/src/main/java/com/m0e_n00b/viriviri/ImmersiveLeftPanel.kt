@@ -46,7 +46,8 @@ import com.m0e_n00b.spatialworkbench.core.CinemaPalette
 
 @Composable
 internal fun ImmersiveLeftPanel(
-    appState: ViriViriAppState = ViriViriApplication.appState,
+    // Required, not defaulted: see ImmersiveCenterContentPanel.
+    appState: ViriViriAppState,
     palette: CinemaPalette = CinemaPalette.DARK,
 ) {
   val state by appState.state.collectAsState()

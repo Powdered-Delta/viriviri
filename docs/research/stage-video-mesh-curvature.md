@@ -618,3 +618,62 @@ They are kept so this stays a behaviour fix rather than a persistence migration,
 lockstep keeps them equal. Collapsing them into one field and one key is a follow-up cleanup, and it should
 be done before anyone adds a second curvature source.
 
+## Stage 3m (2026-10-20): the collapse landed — one field, one key, one reshape pass
+
+The follow-up cleanup in 3l is done, driven by two device reports in one session:
+
+1. **两种模式无差异** — the ISDK call that `setMrMode` makes (`updateIsdkComponentProperties`) only writes
+   `IsdkPanelDimensions` + `IsdkCurvedPanel.fieldOfView`, and the video surface entity deliberately has no
+   `IsdkPanelDimensions`, so that call is a no-op. Nothing per-mode was ever touching the input path.
+2. **摇杆两轴都只表现为"调距离"** — the axes were not the problem. The installed APK was the
+   `-Pviriviri.noVideoMesh=true` diagnostic build, in which `createVideoSceneMesh` never runs, so
+   `spatialVideoTriangleMesh` stayed null and `updateSpatialVideoContentQuad`'s `?: return` skipped
+   `reshapeSpatialVideoPanel` entirely: the video panel's SHAPE (the only owner of scale and curvature) was
+   frozen at creation while the entity Z kept following the live radius. Fixed by letting the mesh gate only
+   the in-place vertex rewrite.
+
+With the shape path alive, the per-layer machinery had no remaining purpose, so:
+
+- state: `playbackVideoCurvature` / `playbackDanmakuCurvature` / `playbackBackdropCurvature` →
+  **`playbackCurvature`**;
+- persistence: `playback_stage_curvature`, with a read-only fallback to the three legacy keys so an existing
+  install keeps its radius instead of opening flat;
+- host: `appliedCurvature` + `applyPlaybackCurvature`, which fans the one value out to the video surface and
+  every overlay by iterating `stageOverlayLayers()`;
+- deleted: `PlaybackStageCurvatureLayer`, `curvatureFor`, `withCurvature`, and the per-layer test.
+
+A fourth layer (subtitles) is now one entry in `stageOverlayLayers()`: reshape, deferred replay, curvature
+apply and the flat reset all iterate that list, so a new layer cannot bend on its own radius.
+
+## Stage 3n (2026-10-20): backdrop, video content and cutter share one geometry snapshot
+
+The next Quest report was concrete: “幕布和裁切器的位置和大小都没同步，裁切层的曲率半径变化时依旧没带坐标位置修正值”.
+The source confirmed two independent split paths:
+
+- `reshapeSpatialVideoPanel` used the aspect-fitted `SpatialVideoContentQuad` (crop / selected display ratio), while
+  `reshapeStageOverlay` and both overlay registration creators used the uncropped `scaledStageWidth/Height`.
+  Thus they agreed only when the video aspect happened to equal the 16:9 stage aspect.
+- The previous P2 workaround set `NO_VIDEO_MESH=true` by default. That removed not only the duplicate video-texture
+  material but also the custom cutter / hole-punch geometry where the inverse `+r` vertex correction lives.
+  The compositor carrier still moved by `-r`, but the cutter layer no longer had a mesh carrying its compensating
+  vertex translation.
+
+Correction:
+
+1. `currentVideoContentQuad()` is now the single physical width/height source for video, backdrop, danmaku, and
+   future attached layers. The aspect-fit dimensions are passed through the same reshape call rather than
+   independently deriving full-stage dimensions in overlay code.
+2. The default custom mesh is enabled again, but it now contains only front-side hole-punch indices plus the
+   bottom shadow. The reverse-winding reflect/video material (the duplicate pixel owner that made the narrow
+   band) is removed; the compositor remains the only video-pixel owner.
+3. Carrier position is recomputed absolutely as `baseLocalZ + surfaceAnchorOffsetMeters()` for every layer.
+   Custom cutter vertices receive `meshVertexPositionCorrectionMeters()` (the exact inverse), and video carrier
+   correction is reasserted after `PanelSceneObject.reshape`. SDK 0.13.2 bytecode confirms `reshape` rebuilds
+   `PanelShape` and preserves `scale` but does not write the ECS `Transform`; the explicit post-reshape write
+   therefore owns that correction rather than relying on incidental SDK state.
+4. Unit coverage pins the inverse-radius invariant and cutter material ranges: no video texture indices remain,
+   while hole-punch and shadow ranges are preserved.
+
+This replaces the temporary A default from §6: `-Pviriviri.noVideoMesh=true` remains available for isolating
+compositor vs. custom-mesh behavior, not as the shipping/manual-test configuration.
+

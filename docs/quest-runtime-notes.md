@@ -238,3 +238,9 @@ adb shell dumpsys activity activities > temp\viriviri-spatial-video-activity.txt
 - 2D/immersive handoff 黑屏尚无应用层根治方案。
 - 若系统结束 OpenXR session，应用不能强制重启 Horizon OS PhaseSync、恢复 runtime focus 或清理 stale compositor frame。
 - reference-space 重定位策略仅保持面板相对于返回时用户姿态的连续性；它不是跨 session 的持久世界锚定方案。
+
+## 相关文档
+
+- [quest-device-debug-loop.md](quest-device-debug-loop.md) — 设备调试闭环：构建变体、装机校验、截图（含单眼 crop）、日志流程、A/B 纪律、陷阱清单
+- [ui-structure-and-terminology.md](ui-structure-and-terminology.md) — 面板/槽位/实体的当前实现
+- [spatial-coordinates.md](spatial-coordinates.md) — 坐标系约定

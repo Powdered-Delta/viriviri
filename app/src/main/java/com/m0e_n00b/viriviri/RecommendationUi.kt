@@ -165,7 +165,8 @@ fun RecommendationContent(
 
 @Composable
 fun RecommendationPanel(
-    appState: ViriViriAppState = ViriViriApplication.appState,
+    // Required, not defaulted: see ImmersiveCenterContentPanel.
+    appState: ViriViriAppState,
     onReturnToPlayback: (() -> Unit)? = null,
     palette: CinemaPalette = CinemaPalette.DARK,
     showViewerContent: Boolean = true,

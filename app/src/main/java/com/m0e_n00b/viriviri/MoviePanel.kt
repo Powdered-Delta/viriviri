@@ -15,6 +15,7 @@ class MoviePanel : ComponentActivity() {
   override fun onCreate(savedInstanceBundle: Bundle?) {
     super.onCreate(savedInstanceBundle)
     // UX: the original angled left panel remains video Detail in every Workbench route.
-    setContent { ImmersiveLeftPanel() }
+    // The host passes its state explicitly; the panel itself must not reach for the singleton.
+    setContent { ImmersiveLeftPanel(appState = ViriViriApplication.appState) }
   }
 }

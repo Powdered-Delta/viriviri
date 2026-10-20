@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-10-playback-queue-source-takeover/prd.md", "reason": "本任务需求：连播来源可接管的契约设计、7 条接管规则、以及 §1.1 的关键修正（当前根本没有连播）"}
+{"file": "spatial-workbench-core/src/main/kotlin/com/m0e_n00b/spatialworkbench/core/WorkbenchContracts.kt", "reason": "复用 PlaybackBrowseOrigin（:154-165）；新增契约应与之并列，不得改其既有取值语义"}
+{"file": "spatial-workbench-core/src/test/kotlin/com/m0e_n00b/spatialworkbench/core/WorkbenchContractsTest.kt", "reason": "既有契约测试的写法与断言风格（:120-142）"}
+{"file": ".trellis/spec/frontend/bilibili-recommendation-playback.md", "reason": ":61-69 已声明 ViriViriAppState own 'subsequent media-source request and player update'——本契约不得与它冲突，边界必须写清"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "唯一状态源 / owner 约定；本契约的核心就是'恰好一个 owner'"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与验证命令（:spatial-workbench-core:test）"}
+{"file": "docs/research/bilibili-list-semantics.md", "reason": "合集/系列/播放列表的语义与归属（决定 PlaybackQueueSource 的取值划分）"}
+{"file": "docs/prototypes/interaction-skeleton/README.md", "reason": "§4.1 本设计的来源与 PiliPlus toAudioPage 优先级实证"}
+{"file": "spatial-workbench-core/src/main/kotlin/com/m0e_n00b/spatialworkbench/core/PlaybackCanvasContracts.kt", "reason": "PlaybackCanvas 是可见性状态机——本契约是正交维度，不得混入该文件的状态"}

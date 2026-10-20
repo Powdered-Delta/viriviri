@@ -7,7 +7,7 @@ import org.junit.Test
 
 class PlaybackCanvasContractsTest {
   @Test
-  fun primaryStageActionOpensPlaybackOnlyFromQuietWatch() {
+  fun primaryStageActionMovesQuietWatchBrowseAndContextToPlayback() {
     val quiet = PlaybackCanvasState()
     val playback = PlaybackCanvasReducer.reduce(quiet, PlaybackCanvasEvent.PrimaryStageAction)
     val browse = PlaybackCanvasReducer.reduce(PlaybackCanvasState(PlaybackCanvas.BROWSE), PlaybackCanvasEvent.PrimaryStageAction)
@@ -16,6 +16,41 @@ class PlaybackCanvasContractsTest {
     assertEquals(PlaybackCanvas.PLAYBACK, playback.canvas)
     assertEquals(PlaybackCanvas.PLAYBACK, browse.canvas)
     assertEquals(PlaybackCanvas.PLAYBACK, context.canvas)
+  }
+
+  /**
+   * The stage is the Workbench toggle, so repeated actions must walk
+   * QUIET_WATCH -> PLAYBACK -> QUIET_WATCH rather than staying in PLAYBACK.
+   *
+   * A level-triggered call site would flip the Workbench every frame the trigger is held; the
+   * edge-triggered firing lives in the app layer (AnalogMediaStageTuningSystem), and this test pins
+   * only the pure transition it drives.
+   */
+  @Test
+  fun primaryStageActionTogglesQuietWatchAndPlayback() {
+    val opened = PlaybackCanvasReducer.reduce(PlaybackCanvasState(), PlaybackCanvasEvent.PrimaryStageAction)
+    val closed = PlaybackCanvasReducer.reduce(opened, PlaybackCanvasEvent.PrimaryStageAction)
+    val reopened = PlaybackCanvasReducer.reduce(closed, PlaybackCanvasEvent.PrimaryStageAction)
+
+    assertEquals(PlaybackCanvas.PLAYBACK, opened.canvas)
+    assertEquals(PlaybackCanvas.QUIET_WATCH, closed.canvas)
+    assertEquals(PlaybackCanvas.PLAYBACK, reopened.canvas)
+  }
+
+  /**
+   * The toggle is scoped to QUIET_WATCH <-> PLAYBACK. Browse and Context keep returning to Playback,
+   * which is the explicit non-goal recorded in the PRD.
+   */
+  @Test
+  fun primaryStageActionReturnsBrowseAndContextToPlaybackWithoutClosing() {
+    val browse = PlaybackCanvasState(PlaybackCanvas.BROWSE)
+    val context = PlaybackCanvasState(PlaybackCanvas.CONTEXT)
+
+    val fromBrowse = PlaybackCanvasReducer.reduce(browse, PlaybackCanvasEvent.PrimaryStageAction)
+    val fromContext = PlaybackCanvasReducer.reduce(context, PlaybackCanvasEvent.PrimaryStageAction)
+
+    assertEquals(PlaybackCanvas.PLAYBACK, fromBrowse.canvas)
+    assertEquals(PlaybackCanvas.PLAYBACK, fromContext.canvas)
   }
 
   @Test

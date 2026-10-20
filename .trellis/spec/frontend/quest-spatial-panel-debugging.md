@@ -269,8 +269,9 @@ player. Its compact elapsed/duration labels and seek bar remain Android views in
 
 ### 3.7 Immersive Video Aspect Ratio
 
-The persistent `spatialized_video_panel` has a fixed 16:9 physical mesh. Its
-single media output buffer must match that geometry:
+The persistent `spatialized_video_panel` anchors the stage. Its child
+`videoSurfaceEntity` carries the compositor video panel and optional flat shadow.
+The output buffer stays fixed while the physical panel shape follows content:
 
 - Use `1920x1080` output pixels with `StereoMode.None`. Do not carry the
   upstream SpatialVideo sample's `3840x1080` LeftRight stereo buffer into this
@@ -279,25 +280,25 @@ single media output buffer must match that geometry:
   `VIDEO_SCALING_MODE_SCALE_TO_FIT`. Portrait, standard landscape, ultrawide,
   and non-square-pixel sources must retain their display aspect within the one
   existing Surface through pillarbox/letterbox rather than stretch or crop.
-- The custom mesh contains one adaptive video-content quad and its existing
-  shadow/input footprint. Do not add a full-stage black plane behind the video:
-  application geometry at local `-Z` is not Media3 letterboxing and cannot
-  correct compositor or texture sampling.
-- On `VideoSize`, update the retained `TriangleMesh` content vertices. Do not
-  call `SceneMesh.updateWithTriangleMesh(...)` for this panel: the Quest build
-  that introduced that call retained stage hit testing but lost visible video,
-  whereas the existing `TriangleMesh.updateGeometry(...)` path remains visible.
-  A future GPU/material update mechanism requires SDK evidence and separate
-  device validation.
-- Debug builds log one `ViriViriAspect` event for each distinct source size
-  after the retained `TriangleMesh` is updated, including dimensions, pixel
-  ratio, display aspect, target half-size, and `triangleMeshUpdated=true`. It
-  is an event diagnostic, not evidence that the compositor accepted a GPU mesh
-  commit. If a confirmed 9:16 target geometry still displays stretched,
-  investigate the supported material/UV or raw-Surface compositor contract
-  before changing mesh APIs or adding another visual layer.
-- Do not rebuild the panel, mesh, player, or Surface when `VideoSize` changes;
-  invalid or unavailable video dimensions retain full-stage foreground geometry.
+- `videoShapeOptions(width, height, curvature)` owns compositor dimensions and
+  radius. Every aspect/scale/curvature change uses `PanelSceneObject.reshape`;
+  never restore the old mesh-only PLAN_1 debug path. Target/Apply uses the shared
+  display-ratio state. Backdrop and danmaku consume the same content rectangle.
+- The custom mesh contains only a flat bottom shadow, recreated on creation and
+  reshape. It has no video texture material or hole-punch cutter. Keep the
+  carrier's measured `entityLocalZForSurface(baseLocalZ)` radius compensation
+  and the shadow's inverse `meshVertexPositionCorrectionMeters()` correction.
+- `LayerConfig.zIndex` orders compositor layers (video 1, backdrop 2, other UI 3);
+  it does not repair curvature, position, or ordinary scene-mesh depth.
+- Debug builds log source aspect and applied panel shape. A successful reshape
+  or unit test is not evidence of visual correctness on a headset.
+- Preserve the panel instance, player and Surface when dimensions change.
+  Invalid video dimensions retain the full stage rectangle; deferred panel
+  availability is handled by the existing geometry replay path.
+- Regression coverage must retain pending/apply aspect behavior, contained
+  aspect dimensions and absolute carrier/inverse-shadow correction across radii.
+  Device acceptance covers flat/curved transitions, ratio changes, layer order,
+  shadow placement and stage input with no extra video output.
 - Debug builds display `DEV <BuildConfig.GIT_SHA>` on the existing `mode_panel`.
   Use this value, rather than APK filename or install time, to identify the
   running build during Quest testing.

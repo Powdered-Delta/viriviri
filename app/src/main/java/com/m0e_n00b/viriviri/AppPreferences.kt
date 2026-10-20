@@ -15,17 +15,13 @@ interface AppPreferences {
 
   fun savePlaybackStageScale(scale: Float)
 
-  fun loadPlaybackVideoCurvature(): PlaybackStageCurvature
+  /**
+   * The MediaStage curvature. ONE value for every stage layer — see
+   * [ViriViriUiState.playbackCurvature] for why the per-layer split was removed.
+   */
+  fun loadPlaybackCurvature(): PlaybackStageCurvature
 
-  fun savePlaybackVideoCurvature(curvature: PlaybackStageCurvature)
-
-  fun loadPlaybackDanmakuCurvature(): PlaybackStageCurvature
-
-  fun savePlaybackDanmakuCurvature(curvature: PlaybackStageCurvature)
-
-  fun loadPlaybackBackdropCurvature(): PlaybackStageCurvature
-
-  fun savePlaybackBackdropCurvature(curvature: PlaybackStageCurvature)
+  fun savePlaybackCurvature(curvature: PlaybackStageCurvature)
 
   /** Persisted user-adjusted world Y (metres) of the immersive video stage. Null = never adjusted. */
   fun loadWorkbenchStageY(): Float?
@@ -54,25 +50,28 @@ internal class SharedPreferencesAppPreferences(context: Context) : AppPreference
     preferences.edit().putString(KEY_PLAYBACK_STAGE_SCALE, PlaybackCanvasSize.clampStageScale(scale).toString()).apply()
   }
 
-  override fun loadPlaybackVideoCurvature(): PlaybackStageCurvature =
-      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_VIDEO_CURVATURE, null))
-
-  override fun savePlaybackVideoCurvature(curvature: PlaybackStageCurvature) {
-    preferences.edit().putString(KEY_PLAYBACK_VIDEO_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
+  /**
+   * Reads the shared curvature, falling back to the three pre-0.1 keys.
+   *
+   * Installs that ran the per-layer build persisted the same value under all three legacy keys, so
+   * the fallback recovers the user's curvature instead of silently resetting the stage to flat. The
+   * canonical key wins as soon as anything is saved on it, and the legacy keys are never written
+   * again, so they die out on their own.
+   */
+  override fun loadPlaybackCurvature(): PlaybackStageCurvature {
+    val stored =
+        preferences.getString(KEY_PLAYBACK_CURVATURE, null)
+            ?: LEGACY_PLAYBACK_CURVATURE_KEYS.firstNotNullOfOrNull {
+              preferences.getString(it, null)
+            }
+    return AppPreferenceCodec.decodeCurvature(stored)
   }
 
-  override fun loadPlaybackDanmakuCurvature(): PlaybackStageCurvature =
-      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_DANMAKU_CURVATURE, null))
-
-  override fun savePlaybackDanmakuCurvature(curvature: PlaybackStageCurvature) {
-    preferences.edit().putString(KEY_PLAYBACK_DANMAKU_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
-  }
-
-  override fun loadPlaybackBackdropCurvature(): PlaybackStageCurvature =
-      AppPreferenceCodec.decodeCurvature(preferences.getString(KEY_PLAYBACK_BACKDROP_CURVATURE, null))
-
-  override fun savePlaybackBackdropCurvature(curvature: PlaybackStageCurvature) {
-    preferences.edit().putString(KEY_PLAYBACK_BACKDROP_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature)).apply()
+  override fun savePlaybackCurvature(curvature: PlaybackStageCurvature) {
+    preferences
+        .edit()
+        .putString(KEY_PLAYBACK_CURVATURE, AppPreferenceCodec.encodeCurvature(curvature))
+        .apply()
   }
 
   override fun loadWorkbenchStageY(): Float? =
@@ -93,9 +92,14 @@ internal class SharedPreferencesAppPreferences(context: Context) : AppPreference
     const val PREFERENCES_NAME = "viriviri_app_preferences"
     const val KEY_SEARCH_HISTORY = "search_history"
     const val KEY_PLAYBACK_STAGE_SCALE = "playback_stage_scale"
-    const val KEY_PLAYBACK_VIDEO_CURVATURE = "playback_video_curvature"
-    const val KEY_PLAYBACK_DANMAKU_CURVATURE = "playback_danmaku_curvature"
-    const val KEY_PLAYBACK_BACKDROP_CURVATURE = "playback_backdrop_curvature"
+    const val KEY_PLAYBACK_CURVATURE = "playback_stage_curvature"
+
+    /**
+     * Keys written by the per-layer curvature build. Read-only from here on: they exist so a user's
+     * curvature survives the upgrade, not as a second source of truth.
+     */
+    val LEGACY_PLAYBACK_CURVATURE_KEYS =
+        listOf("playback_video_curvature", "playback_danmaku_curvature", "playback_backdrop_curvature")
     const val KEY_WORKBENCH_STAGE_Y = "workbench_stage_y"
   }
 }

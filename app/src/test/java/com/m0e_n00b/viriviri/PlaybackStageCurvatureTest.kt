@@ -51,13 +51,9 @@ class PlaybackStageCurvatureTest {
   }
 
   @Test
-  fun radiusOrNullAndGeometryMapConsistently() {
+  fun radiusOrNullMapsConsistently() {
     assertNull(PlaybackStageCurvature.Flat.radiusOrNull())
-    assertEquals(StageGeometry.Flat, PlaybackStageCurvature.Flat.toStageGeometry())
-
-    val curved = PlaybackStageCurvature.Cylinder(2.5f)
-    assertEquals(2.5f, curved.radiusOrNull()!!, 0f)
-    assertEquals(StageGeometry.Cylinder(2.5f), curved.toStageGeometry())
+    assertEquals(2.5f, PlaybackStageCurvature.Cylinder(2.5f).radiusOrNull()!!, 0f)
   }
 
   @Test
@@ -77,6 +73,22 @@ class PlaybackStageCurvatureTest {
             .surfaceAnchorOffsetMeters(),
         0f,
     )
+  }
+
+  @Test
+  fun radiusChangeRecomputesEntityAndInverseMeshCorrectionFromBase() {
+    val baseZ = 0.01f
+    val previous = PlaybackStageCurvature.Cylinder(2.7f)
+    val next = PlaybackStageCurvature.Cylinder(1.5f)
+
+    assertEquals(baseZ, next.compensatedMeshCentreLocalZ(baseZ), 0.0001f)
+    assertEquals(baseZ, previous.compensatedMeshCentreLocalZ(baseZ), 0.0001f)
+    assertEquals(
+        next.surfaceAnchorOffsetMeters() - previous.surfaceAnchorOffsetMeters(),
+        next.entityLocalZForSurface(baseZ) - previous.entityLocalZForSurface(baseZ),
+        0.0001f,
+    )
+    assertEquals(-next.surfaceAnchorOffsetMeters(), next.meshVertexPositionCorrectionMeters(), 0f)
   }
 
   @Test
@@ -158,17 +170,5 @@ class PlaybackStageCurvatureTest {
         PlaybackStageCurvature.Cylinder(5f),
         PlaybackStageCurvature.Cylinder(5f).adjustedBy(Float.POSITIVE_INFINITY),
     )
-  }
-
-  @Test
-  fun curvatureTargetCyclesThroughEveryLayerAndWraps() {
-    var layer = PlaybackStageCurvatureLayer.VIDEO
-    val visited = mutableListOf(layer)
-    repeat(PlaybackStageCurvatureLayer.entries.size - 1) {
-      layer = layer.next()
-      visited += layer
-    }
-    assertEquals(PlaybackStageCurvatureLayer.entries.toList(), visited)
-    assertEquals(PlaybackStageCurvatureLayer.VIDEO, layer.next())
   }
 }

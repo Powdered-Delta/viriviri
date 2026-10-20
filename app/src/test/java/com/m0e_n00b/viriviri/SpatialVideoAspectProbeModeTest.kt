@@ -5,33 +5,23 @@ import org.junit.Test
 
 class SpatialVideoAspectProbeModeTest {
   @Test
-  fun defaultStateUsesSourceAspectAndPanelReshape() {
+  fun defaultStateUsesSourceAspect() {
     assertEquals(SpatialVideoAspectProbeTarget.DEFAULT, SpatialVideoAspectProbeState().appliedTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, SpatialVideoAspectProbeState().appliedPlan)
   }
 
   @Test
-  fun targetAndPlanSelectionStayPendingUntilApply() {
-    val pendingTarget =
+  fun targetSelectionStaysPendingUntilApply() {
+    val pending =
         SpatialVideoAspectProbeReducer.selectTarget(
             SpatialVideoAspectProbeState(),
             SpatialVideoAspectProbeTarget.PORTRAIT_9_16,
         )
-    val pendingPlan =
-        SpatialVideoAspectProbeReducer.selectPlan(
-            pendingTarget,
-            SpatialVideoAspectProbePlan.PANEL_RESHAPE,
-        )
 
-    assertEquals(SpatialVideoAspectProbeTarget.PORTRAIT_9_16, pendingPlan.pendingTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, pendingPlan.pendingPlan)
-    assertEquals(SpatialVideoAspectProbeTarget.DEFAULT, pendingPlan.appliedTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, pendingPlan.appliedPlan)
+    assertEquals(SpatialVideoAspectProbeTarget.PORTRAIT_9_16, pending.pendingTarget)
+    assertEquals(SpatialVideoAspectProbeTarget.DEFAULT, pending.appliedTarget)
 
-    val applied = SpatialVideoAspectProbeReducer.apply(pendingPlan)
-
+    val applied = SpatialVideoAspectProbeReducer.apply(pending)
     assertEquals(SpatialVideoAspectProbeTarget.PORTRAIT_9_16, applied.appliedTarget)
-    assertEquals(SpatialVideoAspectProbePlan.PANEL_RESHAPE, applied.appliedPlan)
   }
 
   @Test

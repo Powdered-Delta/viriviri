@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-07-workbench-backdrop-layer-order/prd.md", "reason": "本任务需求：根因（UIPanelRenderOptions 默认 Layer）、四个候选、debug 开关设计要求、验收 A1-A7"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "面板可见性/图层/reshape 的既有调试经验与坑位（一帧延迟、实体句柄命名空间等）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与验证命令"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-spatial-scene-and-grab.md", "reason": "全部面板注册表（shape/display/input 精确值）与实体树；本任务需要据此判断哪些面板受影响"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-danmaku-runtime.md", "reason": "其中「only the video is a compositor layer」的结论已被本任务证伪——必须作为**不可信**背景阅读，避免沿用"}
+{"file": "docs/research/stage-video-mesh-curvature.md", "reason": "Stage 3f/3k 记录了 targeting 与 layer 排序的既有实验及未结论项"}
+{"file": "docs/immersive-theme-runtime-design.md", "reason": "§2.8 面板类型学（区分普通 UI 面板/场景面板/手工 compositor 媒体面板）与本任务的候选范围界定"}

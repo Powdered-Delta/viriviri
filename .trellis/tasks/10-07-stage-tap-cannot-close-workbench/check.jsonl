@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-07-stage-tap-cannot-close-workbench/prd.md", "reason": "核对选项 A 的三处必改点是否都改了，以及非目标是否被越界"}
+{"file": "docs/research/workbench-dismiss-hit-layer.md", "reason": "逐条核对 k82 不变量是否仍成立——本次最大回归风险"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对 toggle 未引入第二状态源，owner 仍唯一"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与测试要求"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "§4.2/§5.3 需随 toggle 语义同步；核对术语与标注一致"}

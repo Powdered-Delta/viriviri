@@ -79,17 +79,17 @@ graph TD
     Scene["Scene 根<br/>(Meta Spatial Editor 导出的 GLXF)"]
     Scene --> MediaRoom["MediaRoom<br/>环境 GLXF"]
     Scene --> CenterAuthored["WorkbenchCenterContent<br/>scene 节点 → panel @id/center_content_panel"]
-    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>Hittable 输入层，材质 Blend + alpha 0（可命中但不渲染）"]
+    Scene --> OuterDismiss["WorkbenchOuterDismiss<br/>运行时 Visible(false) + 不可命中（惰性节点，见 2.3）"]
 
     Root["workbenchRootEntity<br/>非 Panel 抓取锚点<br/>IsdkBoxCollider + IsdkGrabbable"]
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
     Root --> Stage["spatialized_video_panel<br/>MEDIA_STAGE · 视频输出"]
 
-    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · 视频表面 + 曲率补偿"]
+    Stage --> Surface["videoSurfaceEntity<br/>运行时创建 · compositor 视频 + 可选平面底部阴影"]
     Stage --> LeftRail["video_selector_panel<br/>左 Detail rail · yaw -45°"]
     Stage --> RightRail["mode_panel<br/>右 Context rail · yaw +45°"]
     Stage --> Transport["controls_id<br/>TRANSPORT · pitch 20°"]
-    Stage --> Nav["mr_panel<br/>SYSTEM_TOOLBAR · pitch 8°"]
+    Stage --> Nav["mr_panel<br/>SYSTEM_TOOLBAR · pitch -40°（向下朝用户）"]
     Stage --> Center["center_content_panel<br/>中心工作区"]
     Stage --> Backdrop["stage_backdrop_panel<br/>压暗层 · NoCollision"]
     Stage --> Danmaku["danmaku_overlay_panel<br/>弹幕层 · NoCollision"]
@@ -107,26 +107,31 @@ local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼�
 `WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。
 
 媒体面板**不**直接绑在 `spatialized_video_panel` 上，而是绑在运行时创建的子实体
-`videoSurfaceEntity` 上：曲面层必须沿 local Z 平移一个曲率半径
-（`PlaybackStageCurvature.surfaceAnchorOffsetMeters()`，平面时为 0），而 `spatialized_video_panel`
-是舞台根、下面挂着全部 rail / transport / navigation / 中心内容 / 键盘 / 两层 overlay，直接平移根会
-把这一整串一起带走。因此只有视频表面自己移动，根的姿态始终不变。`DanmakuOverlay` 与
-`StageBackdrop` 各自已有实体，用同一套 `applyStageLayerCurvatureOffset()` 做同样的补偿，
-基准 local Z 分别是 `stageDanmakuBaseLocalZ` / `stageBackdropBaseLocalZ`。
+`videoSurfaceEntity` 上。[实现] compositor 视频、`StageBackdrop` 和 `DanmakuOverlay` 都使用同一
+`currentVideoContentQuad()` 宽高与共享 `playbackCurvature`；任一画幅裁切/用户比例变化都会同批 reshape。
+曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**（不是累加）。
+`createVideoShadowMesh()` 仅保留内容底边的平面阴影，用 `meshVertexPositionCorrectionMeters()`
+抵消 carrier 位移，停留在 authored 平面，不参与视频卷曲或裁切。视频曲率只由
+`videoShapeOptions()` 的 panel shape 提供。backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
+只保留其设计层间距，曲率补偿完全相同。
+[实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，阴影不拥有输入或视频 Surface。
+`LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
+`spatialized_video_panel` 仍是舞台根；只移动 surface/overlay carrier，不会带动 rail / transport / navigation /
+中心内容 / 键盘。
 
 | 实体 | 术语 | 本地位置（x, y, z） | 旋转 | 父节点 |
 | --- | --- | --- | --- | --- |
 | `workbenchRootEntity` | 工作台锚点 `workbenchRoot` | 世界坐标，抓取条所在高度 | — | Scene |
 | `grab_bar_panel` | 抓手条 `grab_bar` | (0, 0, 0) | — | `workbenchRoot` |
 | `spatialized_video_panel` | 媒体舞台 `MediaStage` | (0, `currentStageAnchorOffsetY()`, 0) | — | `workbenchRoot` |
-| `videoSurfaceEntity` | 视频表面（运行时 `Entity.create`） | (0, 0, `videoSurfaceBaseLocalZ` + `surfaceAnchorOffsetMeters()`) | — | MediaStage |
+| `videoSurfaceEntity` | [实现] compositor 视频 + 可选平面底部阴影（运行时 `Entity.create`） | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
 | `video_selector_panel` | 左侧 Detail rail | (-`railX`, 0, `railLocalZ`) ≈ (-1.05, 0, -1.05) | yaw `-45°` | MediaStage |
 | `mode_panel` | 右侧 Context rail | (+`railX`, 0, `railLocalZ`) ≈ (+1.05, 0, -1.05) | yaw `+45°` | MediaStage |
 | `controls_id` | 播放控制 `Transport` | (0, -0.78, -0.66) | pitch `20°` | MediaStage |
-| `mr_panel` | 全局导航 / 系统工具条（`PanelSlot.SYSTEM_TOOLBAR`） | (0, 0.72, -0.52) | pitch `8°` | MediaStage |
+| `mr_panel` | 全局导航 / 系统工具条（`PanelSlot.SYSTEM_TOOLBAR`） | (0, 0.72, -0.52) | pitch `-40°`（向下朝用户；原 `+8°` 是后仰，2026-10-20 修正） | MediaStage |
 | `center_content_panel` | 中心工作区（scene 节点 `WorkbenchCenterContent`） | (0, `centerLocalY` = -0.03, -0.52) | 无 | MediaStage |
-| `stage_backdrop_panel` | 舞台压暗层 `StageBackdrop` | (0, 0, +0.01) | 无 | MediaStage |
-| `danmaku_overlay_panel` | 弹幕层 `DanmakuOverlay` | (0, 0, -0.01) | 无 | MediaStage |
+| `stage_backdrop_panel` | 舞台压暗层 `StageBackdrop` | (0, 0, `entityLocalZForSurface(+0.01)`) | 无 | MediaStage |
+| `danmaku_overlay_panel` | 弹幕层 `DanmakuOverlay` | (0, 0, `entityLocalZForSurface(stageDanmakuBaseLocalZ)`) | 无 | MediaStage |
 | `input_method_panel` | 输入台（`CinemaInputConsole` 内容） | (0, -0.48, -0.78) | pitch `20°` | MediaStage |
 | `wrist_debug_panel` | 手腕调试面板（DEBUG） | 手部局部偏移 | — | 左手（`WristAttached`） |
 
@@ -156,16 +161,33 @@ STAGE_WORLD_Z = 2.00 m   STAGE_DEFAULT_WORLD_Y = 2.14 m
 app/scenes/Composition/Main.scene
 ├── MediaRoom              -> projref:MediaRoom/Main.metaspatialobj     环境模型
 ├── WorkbenchCenterContent -> panel '@id/center_content_panel'          中心面板占位
-└── WorkbenchOuterDismiss  -> projref:WorkbenchOuterDismiss/...         全屏命中层
+└── WorkbenchOuterDismiss  -> projref:WorkbenchOuterDismiss/...         惰性节点（运行时不可命中 + 隐藏）
 ```
 
-`WorkbenchOuterDismiss` 在运行时被设为 `Hittable`，但**不再设 `Visible(false)`**：它靠自身的
-PbrMaterial（`alphaMode` = `Blend`，`baseColorFactor` 的 alpha 为 0）在渲染上完全不可见，同时
-保留在命中测试中。**这两件事必须成对**：`Visible(false)` 会让实体退出命中测试（2026-10-06 真机
-确诊——该层从未被点中过），而材质若停留在 `Opaque`，alpha 会被忽略，这块 9×6 m 板子就会以**纯黑墙**
-的形式出现在画面上。所以只有「引擎可见 + 材质全透明」能同时满足。授权位置：
-`app/scenes/Composition/Main.scene` 的 `Visibility` `visible: true`，以及
-`app/scenes/WorkbenchOuterDismiss/materials/Material.metaspatialmaterial`。
+> **2026-10-07 反转（任务 `10-07-stage-tap-cannot-close-workbench`，R3）**
+>
+> `WorkbenchOuterDismiss` **不再是命中层**。它现在被 `hideOuterDismissHitLayer()` 设为
+> **不可命中 + `Visible(false)`**，是一个**惰性节点**。"点工作台之外/空旷处收起"改由
+> 舞台扳机的 **void 结果**接管（射线**什么都没打中**时关闭）。
+
+历史原因仍然有效，值得保留：k82 当年必须把它做成「引擎可见 + 材质全透明」，因为当时它是**唯一**的
+"点外部收起"目标，而 `Visible(false)` 会让实体退出命中测试（2026-10-06 真机确诊）。**现在要的恰恰相反**：
+一块位于空旷处的可命中板会让 SDK 在"本该什么都没有"的地方画出**目标点指示器**——这正是用户
+2026-10-07 报告的直觉冲突。
+
+因此现在三者同时成立：
+- 运行时**不加** `Hittable` 组件。导出制品 `Composition.glxf` 中该节点**不含任何组件**，
+  所以它的可命中性**只**来自 Kotlin，场景侧无需改动；
+- 运行时设 **`Visible(false)`** —— 这既移出命中测试，又**关掉 k82 遗留的未决风险**
+  （alpha-0 的 `Blend` 材质可能写深度、遮挡工作台后方的环境几何）；
+- 材质**保持原样**（k82 的 `Blend` 改动变得不必要但无害）。
+
+**`app/scenes` 零改动**：`app/scenes/Composition/Main.scene` 的 `Visibility` `visible: true` 与
+`WorkbenchOuterDismiss/materials/Material.metaspatialmaterial` 都未改。
+
+> ⚠️ **未决的耦合**：void 路径需要该区域射线打到 **nothing**。若 `MediaRoom` 或后方其它几何
+> **可命中**，射线会落在它上面 → 不再触发 void → 等于**失去**"点外部收起"。此点**无法静态判定**，
+> 由 `ViriViriStageTap` 诊断行给出答案（`adb logcat -s ViriViriStageTap:I`）。
 
 `WorkbenchCenterContent` 在运行时被 `bindCenterContentPanel()` 重新挂到 MediaStage 并改写
 `PanelDimensions`，因此 scene 里授权的尺寸不是最终尺寸。
@@ -196,8 +218,8 @@ PbrMaterial（`alphaMode` = `Blend`，`baseColorFactor` 的 alpha 为 0）在渲
 | `mr_panel` | System toolbar / Global nav | `IntentPanelRegistration`(`MRPanel`) | `GlobalNavigation` | 1.24 × 0.30 | 520 × 128 @600 |
 | `center_content_panel` | Center workspace | `ComposeViewPanelRegistration` | `ImmersiveCenterContentPanel` | `centerWidth` × `centerHeight` | 768 × 615 @512 |
 | `input_method_panel` | Input console | `ComposeViewPanelRegistration` | `ImmersiveInputMethodPanel` | 1.62 × 0.68 | 832 × 348 @512 |
-| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | 随舞台缩放 | 1280 × 720 @800 |
-| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | 随舞台缩放 | 1280 × 720 @800 |
+| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | 与 compositor 视频共用 `currentVideoContentQuad()` 宽高 | 长边 1280 dp，display aspect 同步 shape @800 |
+| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | 与 compositor 视频共用 `currentVideoContentQuad()` 宽高 | 长边 1280 dp，display aspect 同步 shape @800 |
 | `grab_bar_panel` | Grab bar | `LayoutXMLPanelRegistration`(`layout/grab_bar.xml`) | 图标 + 文案 | `GRAB_BAR_WIDTH_METERS` × `GRAB_BAR_HEIGHT_METERS` | 512 × 56 @600 |
 | `wrist_debug_panel` | Wrist debug（仅 DEBUG） | `LayoutXMLPanelRegistration` | 版本号文本 | `WRIST_DEBUG_PANEL_*` | 224 × 80 @1600 |
 
@@ -298,6 +320,7 @@ SHORTS                                    -> {NAVIGATION, SHORTS_ACTIONS}
 stateDiagram-v2
     [*] --> QUIET_WATCH
     QUIET_WATCH --> PLAYBACK: PrimaryStageAction（点击主舞台）
+    PLAYBACK --> QUIET_WATCH: PrimaryStageAction（再点主舞台，toggle）
     BROWSE --> PLAYBACK: PrimaryStageAction
     CONTEXT --> PLAYBACK: PrimaryStageAction
     PLAYBACK --> QUIET_WATCH: IdleTimeout（且确实在播放）
@@ -308,6 +331,39 @@ stateDiagram-v2
     PLAYBACK --> BROWSE: OpenBrowse
     PLAYBACK --> CONTEXT: OpenContext
 ```
+
+`PrimaryStageAction` 是**主舞台上的扳机动作**，语义为 toggle，但**范围仅限
+`QUIET_WATCH` ↔ `PLAYBACK`**：`BROWSE` / `CONTEXT` 下点幕布仍一律切到 `PLAYBACK`（非目标，刻意保留）。
+`IdleTimeout` 在生产代码中从不派发，因此 `PLAYBACK → QUIET_WATCH` 的实际入口只有
+`Dismiss` 与 `PrimaryStageAction` 两条。
+
+派发方是 `SpatialVideoSampleActivity.onStagePrimaryAction()`（舞台点击的几何判定与控制器逃生口
+`AnalogWorkbenchSummonSystem` 共用它），而它**不再对开/关分支做任何特判** —— 增删转移只改
+`PlaybackCanvasReducer`。
+
+扳机按下后做什么由**纯函数** `stageTapOutcome(...)` 决定（`StageTapDecision.kt`，有 JVM 单测），
+它只产出三种结果：`TOGGLE_WORKBENCH` / `VOID_DISMISS` / `NONE`。判定顺序：
+
+```text
+!actionEnabled                                  -> NONE
+工作台隐藏 + 几何命中舞台 + 未被面板遮挡          -> TOGGLE_WORKBENCH（打开；void 绝不吞掉打开手势）
+工作台可见 + 射线未命中任何对象                    -> VOID_DISMISS（关闭）
+工作台可见 + 几何命中舞台 + 未被面板遮挡          -> TOGGLE_WORKBENCH（关闭）
+其余（含"命中任何对象"）                          -> NONE
+```
+
+按**上升沿**触发（`AnalogMediaStageTuningSystem` 按控制器分别记录上一帧的按下状态），否则按住扳机会
+逐帧翻转。边沿与"按住"状态取自**同一个** `Controller.isDown` 信号，因此二者不可能互相矛盾。
+
+> **k82 的 `suppressOuterDismissUntilMs` 守卫已随 R3 一并移除**（连同
+> `OUTER_DISMISS_SUPPRESSION_MS`、`onStageTriggerHeld` 与 `openSearchCanvas` 处的布防）。
+> 它当年存在的理由是"松手那一击会打到后方那块板"；板不可命中后，**松手不再有任何点击路径**，
+> 该风险在结构上不可能发生。R1 期间为它补上的"真正每帧重新布防"（见
+> [research/workbench-dismiss-hit-layer.md](research/workbench-dismiss-hit-layer.md)）也随之作废。
+
+这两个信号取自已**按下并保持**的 `Controller.isDown`，**不是** `Controller.isPressed`：后者是 SDK 自己的
+上升沿（`buttonState & changedButtons & bits`），只在按下那一帧为真，用它驱动"按住期间每帧"的回调只会
+每按一次触发一次，正是 k82 那条"每帧重新布防"曾经**并未真正生效**的原因。
 
 槽位配方（`PlaybackCanvasReducer.visibleSlots(state, theme)`）：
 
@@ -405,20 +461,38 @@ ImmersiveLeftPanel → ImmersiveVideoDetailPanel（Compose，MoviePanel 宿主�
 
 收起归属分两层：
 
-- **面板外**：由场景节点 `WorkbenchOuterDismiss` 提供（见 2.1 与 `attachOuterDismissInput`）。
+- **面板外**：工作台可见时，**指向虚空**（扳机射线未命中任何对象）即收起 ——
+  `StageTapOutcome.VOID_DISMISS`，见 4.2。场景节点 `WorkbenchOuterDismiss` **不再是命中层**（见 2.3），
+  因此它不参与这条路径。
 - **面板内**：仅当路由为 `WORKBENCH_EMPTY` 时，点击空白才收起 —— 空视频列表本身等价于一张
   背景面。处于内容路由（`RECOMMENDATIONS` / `SEARCH_RESULTS` / `SEARCH_EMPTY` / 详情）时空白
   保持惰性，避免一次误触把 Workbench 关掉。判定写在 `CenterContentWorkspace` 的
   `isBlankSpaceDismissable`，回调经 `ImmersiveCenterContentPanel` 由 Activity 注入
   （`dismissWorkbenchFromCenterContent(source)`，`source` 仅用于 trace 区分两条入口）。
 
-**舞台上的扳机按压绝不收起 Workbench。** 舞台本身**没有命中几何**（它的点击是几何判定：
-`AnalogMediaStageTuningSystem` + `StageRayTargeting`；`videoSurface` 显式设了
-`MeshCollision.NoCollision`）。因此「按在幕布上、松手时仍指向幕布」这一击，其**松开事件会绕过
-幕布打到后方的 `WorkbenchOuterDismiss`**，被误读成"点了工作台外部"。`onStagePrimaryAction()`
-每次都会重新布防 `suppressOuterDismissUntilMs`，而该系统在按住扳机期间**每帧**都会调用它，
-所以守卫在整个按压期间保持有效、松手那一击被吞掉。这也覆盖了 Workbench 已可见的分支 ——
-即 Workbench 打开时点幕布同样不会把它关掉。
+**舞台扳机的松手一击绝不收起 Workbench —— 而且 R3 之后它在结构上已不可能。** 舞台本身**没有命中几何**
+（它的点击是几何判定：`AnalogMediaStageTuningSystem` + `StageRayTargeting`；`videoSurface` 显式设了
+`MeshCollision.NoCollision`）。R1 期间（2026-10-07）曾发现：「按在幕布上、松手时仍指向幕布」这一击的
+**松开事件会绕过幕布打到后方的 `WorkbenchOuterDismiss`**，被误读成"点了工作台外部"；当时的防线是
+`suppressOuterDismissUntilMs` 时间窗 + 每帧重新布防。
+
+**R3 之后该防线连同它的存在理由一起消失了**：那块板已 **不可命中 + `Visible(false)`**，松手不再有任何
+点击路径可以落下。因此 `suppressOuterDismissUntilMs` / `OUTER_DISMISS_SUPPRESSION_MS` /
+`onStageTriggerHeld` 与 `openSearchCanvas` 处的布防**已全部移除**，而不是"保留但无用"。
+
+关闭现在有两条**各自独立**的显式路径，且都汇入同一个入口 `dismissWorkbenchFromCenterContent(source)`
+（`source` 仅用于 trace 区分）：
+
+1. **舞台 toggle**：`PrimaryStageAction → PLAYBACK → QUIET_WATCH → WorkbenchEvent.Dismiss`（见 4.2）；
+2. **虚空点击**：`StageTapOutcome.VOID_DISMISS → dismissWorkbenchFromCenterContent("voidTap")`。
+
+舞台门控在 2026-10-07 拆成两个：**摇杆**（缩放/曲率）仍受 `isStageInputEnabled()`（即
+`!workbench.visible`）约束 —— 面板下方活着的摇杆会让面板不可用；**扳机**走独立的
+`isStagePrimaryActionEnabled()`，在工作台可见时**保持放行**（否则工作台可由舞台打开、不能由舞台关闭）。
+`StageRayTargeting` 是纯几何判定、看不到拦在前方的面板，而面板自己也吃同样的扳机
+（`video_selector_panel` 的 `PanelInputOptions` 含两个 Trigger），因此扳机 toggle 另有一道
+"射线下方是否已是交互面板"的守卫；该守卫无法静态确证，放在 DEBUG 开关
+`stage_tap_guard_button`（默认 ON，release 恒为 ON）。
 
 ```text
 ImmersiveCenterContentPanel → RecommendationPanel → CenterContentWorkspace
@@ -583,7 +657,7 @@ grab_bar.xml（非交互、不可抓取，仅指示）
 | --- | --- |
 | `GrabBarHoverSystem` | 抓手条悬停高亮；仅播放中且 Workbench 收起时淡出 |
 | `VideoStageGrabPersistenceSystem` | 监听锚点抓取结束，持久化舞台世界高度（仅 Y） |
-| `AnalogMediaStageTuningSystem` | 右摇杆：上/下缩放全部层，左/右弯曲当前曲率目标层；**双扳机（任意手）** = 舞台主操作。判定用几何 `StageRayTargeting`（取不到姿态时回退 `rightEntity`）；**workbench 可见时整体不生效**；`ViriViriTarget` 每秒一行诊断 |
+| `AnalogMediaStageTuningSystem` | 右摇杆：上/下缩放全部层，左/右弯曲**全部层共用的那一个曲率**（无目标层）；**双扳机（任意手）** = 舞台主操作。判定用几何 `StageRayTargeting`（取不到姿态时回退 `rightEntity`）；**workbench 可见时模拟量整体不生效**；`ViriViriTarget` 每秒一行诊断 |
 | `StageRayTargeting` | 纯数学：控制器射线与舞台平面/矩形的求交，使输入不受曲率位移影响（有 JVM 单测） |
 | `StageOverlayReshapeSystem` | 等待 `PanelSceneObject` 就绪后重放覆盖层重塑请求 |
 | `AnalogWorkbenchSummonSystem` | DEBUG：按 A 执行与舞台点击**完全相同**的 `onStagePrimaryAction()`，不依赖命中舞台也能呼出 workbench |
@@ -640,7 +714,7 @@ PancakeActivity → PancakeScreen（MaterialTheme）
 | 抓手条 / Grab bar | `R.id.grab_bar_panel` | 实现 |
 | 舞台压暗层 / Stage backdrop | `R.id.stage_backdrop_panel` + `StageBackdrop()` | 实现 |
 | 弹幕层 | `R.id.danmaku_overlay_panel` + `DanmakuOverlay()` | 实现 |
-| 外部收起命中层 | scene 节点 `WorkbenchOuterDismiss` | 实现（不渲染） |
+| 外部收起命中层 | scene 节点 `WorkbenchOuterDismiss` | **已退役**：运行时设 `Visible(false)` 且不可命中（`hideOuterDismissHitLayer()`）；"点外部收起"改由虚空点击接管 |
 | 中心面板 scene 节点 | scene 节点 `WorkbenchCenterContent` | 实现 |
 | 手腕调试面板 | `R.id.wrist_debug_panel` + `WristAttached` | 实现（DEBUG） |
 | 自定义 ECS 组件 | `SpatializedAudioPanel` / `PanelLayerAlpha` / `WristAttached` | 实现 |
@@ -727,7 +801,7 @@ SHORTS_COMMENTS  [契约]
 | 倍速 | `PlaybackSpeedControl` | 由 `player.playbackParameters.speed` 驱动 |
 | 音量 | `PlaybackVolumeControl` | 由 `player.volume` 驱动 |
 | 舞台曲率 | `PlaybackStageCurvature`（`Flat` / `Cylinder`） | 半径 1.5–8 m（`MIN_RADIUS_METERS` / `MAX_RADIUS_METERS`），`Flat` 等价无限半径 |
-| 曲率编辑层 | `PlaybackStageCurvatureLayer`（`VIDEO` / `DANMAKU` / `BACKDROP`） | **三层共享一套曲率**：`setPlaybackCurvature` 锁步写三个字段，改一层即改全部（实机已推翻「每层独立」）。层切换入口已移除，本枚举与 `curvatureFor` / `withCurvature` 已无运行时调用方；三个字段与三个持久化 key 待合并为一个 |
+| 曲率编辑器 | `AnalogMediaStageTuningSystem` | 舞台曲率只有**一个值** `ViriViriUiState.playbackCurvature`：右摇杆左右改它；宿主 `applyPlaybackCurvature` 用同一公式更新 video carrier，并遍历 `stageOverlayLayers()` reshape 幕布、弹幕（字幕等附加层加一项即可）。曲率共享；位置由 `entityLocalZForSurface(baseLocalZ)` 绝对补偿，可选平面阴影 mesh 另加其精确反向量。逐层曲率字段、层枚举和旧的 per-layer 访问函数已删除；持久化键为 `playback_stage_curvature`，旧三键只读回退 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 
 ### 6.8 视觉与主题

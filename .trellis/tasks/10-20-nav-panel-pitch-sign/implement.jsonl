@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-20-nav-panel-pitch-sign/prd.md", "reason": "本任务需求：根因（符号方向）、几何核算、非目标（不得动 transport/keyboard）、已知限制（舞台高度影响最优角）"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "§2.2 面板姿态表需同步；术语与坐标约定以此为准"}
+{"file": "docs/spatial-coordinates.md", "reason": "坐标系与正负方向约定（−Z 朝用户、−Y 向下），pitch 符号判断的依据"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "面板姿态/命中相关既有坑位"}

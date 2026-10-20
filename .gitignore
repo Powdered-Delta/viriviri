@@ -57,3 +57,25 @@ temp/
 .dsh-kanban.json
 .dsh-kanban.json.bak-*
 
+# Penpot workflow generated artifacts (see tools/penpot-workflow/README.md).
+# These are produced by extract-panels.ps1 / diff-panels.mjs. Regenerate with
+# those scripts; `git add -f out/panel-snapshot.json` if a design snapshot is
+# ever intentionally versioned for review.
+out/
+tools/penpot-workflow/cred.json
+tools/penpot-workflow/node_modules/
+tools/penpot-workflow/shots/
+tools/penpot-workflow/*.log
+
+# Project-local third-party agent skill (dev-god 1.2.4, installed from a local
+# zip, not vendored). The tracked skills under .agents/skills/ are this repo's
+# own hz-* set; this one is machine-local agent tooling. `git add -f` if it is
+# ever intentionally shared.
+.agents/skills/dev-god/
+
+# Local MCP client config. Per-user credentials live here (the Penpot entries
+# carry a user token), so this file stays out of version control. The shareable
+# shape — metavr, ida-pro-mcp, and the Penpot entries with a placeholder token —
+# is tracked as `mcp.example.json`; copy it and fill in your own token.
+mcp.json
+

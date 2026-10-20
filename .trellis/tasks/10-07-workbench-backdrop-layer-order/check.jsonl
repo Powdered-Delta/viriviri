@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-07-workbench-backdrop-layer-order/prd.md", "reason": "核对根因结论、候选设计（默认必须等于 BASELINE）与验收 A1-A7"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "核对 reshape/一帧延迟处理是否正确，避免候选切换时静默丢失几何"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "改动后 §5.7/§2.2 需同步；核对术语与标注"}
+{"file": "docs/research/stage-video-mesh-curvature.md", "reason": "核对结论记录位置与既有未结论项是否被正确闭环"}

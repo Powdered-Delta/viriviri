@@ -14,7 +14,9 @@ import com.m0e_n00b.spatialworkbench.core.CinemaPalette
  */
 @Composable
 internal fun ImmersiveCenterContentPanel(
-    appState: ViriViriAppState = ViriViriApplication.appState,
+    // Required, not defaulted: a composable must not reach for the host singleton itself. The host
+    // passes its state in, which is what keeps this file an adapter rather than a second state owner.
+    appState: ViriViriAppState,
     palette: CinemaPalette = CinemaPalette.DARK,
     onVideoSelected: () -> Unit = {},
     onDismissWorkbench: () -> Unit = {},

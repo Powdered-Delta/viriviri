@@ -42,6 +42,29 @@ android {
 
     buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
 
+    // Input injection (the synthetic panel-click driver used for automated debugging) is OPT-IN at
+    // BUILD time, not at runtime.
+    //
+    // Rationale: a build handed to a human for manual verification must never be able to take input
+    // over. The driver dispatches events with a controller entity as their source, and
+    // PanelInputListener keeps exactly one hover owner per panel — so an injection session can leave a
+    // panel bound to the injector and make the real controller look dead until the app restarts.
+    // Gating at build time means the manual-verification APK contains no reachable path at all:
+    //   default                        -> INPUT_INJECTION_ENABLED = false  (safe for hand testing)
+    //   -Pviriviri.inputInjection=true -> true                             (automation only, never ship)
+    val inputInjectionEnabled =
+        (project.findProperty("viriviri.inputInjection") as String?)?.toBooleanStrictOrNull() ?: false
+    buildConfigField("boolean", "INPUT_INJECTION_ENABLED", inputInjectionEnabled.toString())
+
+    // Video pixels are owned by the compositor layer. The optional custom mesh is now only a flat
+    // bottom shadow (with the carrier's inverse radius correction); no curved cutter or video texture
+    // is rendered by it. The old reflect material was a second pixel owner and produced the narrow band.
+    // Keep the legacy opt-out flag for A/B diagnostics:
+    //   -Pviriviri.noVideoMesh=true -> omit the optional shadow mesh
+    val noVideoMesh =
+        (project.findProperty("viriviri.noVideoMesh") as String?)?.toBooleanStrictOrNull() ?: false
+    buildConfigField("boolean", "NO_VIDEO_MESH", noVideoMesh.toString())
+
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     // Update the ndkVersion to the right version for your app

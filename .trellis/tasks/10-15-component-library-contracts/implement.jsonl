@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-15-component-library-contracts/prd.md", "reason": "本任务需求：R1 状态合同、R2 组件目录、R3 边界校验、验收 A1-A9、非目标（不新增模块/不搬家/不改 app 行为）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Compose 组件与面板内容的既有约定；props/actions 改造必须遵循"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "唯一状态源与 owner 约定；适配器不得引入第二状态源"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "props 数据类与回调集的类型约定"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "core/compose/app 三模块边界；props 类型应落在库模块而非 app"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与验证命令"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "库 → app 适配器的跨层设计；禁止 compose → app 反向依赖"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "动作动词表必须复用 ThemeAction 词汇，不得另立一套"}
+{"file": "docs/immersive-theme-runtime-design.md", "reason": "§4.2 ComponentGroup 领域模型、§13 二开能力边界（受控组件目录）、§11 与既有工作关系——组件目录设计必须与之一致"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/phase1-verification.md", "reason": "Phase 1 已交付 ThemeComponentRegistry 合同但 app 无实例；本任务补那张表，需知道现有合同的确切形状"}

@@ -98,9 +98,16 @@ data class ViriViriUiState(
     val playbackDisplayRatio: PlaybackDisplayRatio = PlaybackDisplayRatio.AUTO,
     val playbackCanvasSize: PlaybackCanvasSize = PlaybackCanvasSize.STANDARD,
     val playbackStageScale: Float = PlaybackCanvasSize.STANDARD.scale,
-    val playbackVideoCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
-    val playbackDanmakuCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
-    val playbackBackdropCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
+    /**
+     * Curvature of the WHOLE MediaStage — video, danmaku, backdrop, and every layer added later.
+     *
+     * Deliberately a single value. Per-layer curvature was implemented, wired to a debug layer
+     * selector, and refuted on device: a backdrop on a different radius cannot dim a stage it does
+     * not follow, and a danmaku plane on a different radius slices through the picture. It also made
+     * every layer a separate owner of the same gesture, so one thumbstick sweep moved the layers
+     * independently. The layers are separated by their AUTHORED local Z, not by their radius.
+     */
+    val playbackCurvature: PlaybackStageCurvature = PlaybackStageCurvature.Flat,
     val danmakuEvents: List<DanmakuEvent> = emptyList(),
     val danmakuLaneAssignments: Map<String, DanmakuLaneAssignment> = emptyMap(),
     val danmakuRenderMetrics: Map<String, DanmakuRenderMetrics> = emptyMap(),
@@ -117,25 +124,6 @@ data class ViriViriUiState(
 )
 
 data class ListScrollPosition(val firstVisibleItemIndex: Int = 0, val firstVisibleItemScrollOffset: Int = 0)
-
-/** The curvature currently configured for [layer]; the three stage layers are independent. */
-internal fun ViriViriUiState.curvatureFor(layer: PlaybackStageCurvatureLayer): PlaybackStageCurvature =
-    when (layer) {
-      PlaybackStageCurvatureLayer.VIDEO -> playbackVideoCurvature
-      PlaybackStageCurvatureLayer.DANMAKU -> playbackDanmakuCurvature
-      PlaybackStageCurvatureLayer.BACKDROP -> playbackBackdropCurvature
-    }
-
-/** A copy of this state with [layer]'s curvature replaced by [curvature]. */
-internal fun ViriViriUiState.withCurvature(
-    layer: PlaybackStageCurvatureLayer,
-    curvature: PlaybackStageCurvature,
-): ViriViriUiState =
-    when (layer) {
-      PlaybackStageCurvatureLayer.VIDEO -> copy(playbackVideoCurvature = curvature)
-      PlaybackStageCurvatureLayer.DANMAKU -> copy(playbackDanmakuCurvature = curvature)
-      PlaybackStageCurvatureLayer.BACKDROP -> copy(playbackBackdropCurvature = curvature)
-    }
 
 internal val ViriViriUiState.searchInput: SearchInputSession
   get() = searchWorkspace.input
@@ -237,9 +225,7 @@ class ViriViriAppState(
           isLoading = true,
           playbackCanvasSize = PlaybackCanvasSize.STANDARD,
           playbackStageScale = appPreferences.loadPlaybackStageScale(),
-          playbackVideoCurvature = appPreferences.loadPlaybackVideoCurvature(),
-          playbackDanmakuCurvature = appPreferences.loadPlaybackDanmakuCurvature(),
-          playbackBackdropCurvature = appPreferences.loadPlaybackBackdropCurvature(),
+          playbackCurvature = appPreferences.loadPlaybackCurvature(),
           searchWorkspace =
               SearchWorkspaceState(
                   input = inputMethods.initialSession(),
@@ -856,25 +842,14 @@ class ViriViriAppState(
    *
    * Video, danmaku and backdrop are kept in lockstep. They have to be: the backdrop exists to dim the
    * MediaStage, so a backdrop on a different radius cannot dim it, and a danmaku plane on a different
-   * radius slices through it. The three persisted keys predate the shared parameter and are all written
-   * with the same value; collapsing them into one is a follow-up cleanup, not a behaviour change.
+   * radius slices through it. A layer added later (subtitles, for instance) inherits the same value by
+   * simply reading [ViriViriUiState.playbackCurvature] — there is nothing per-layer to opt into.
    */
   fun setPlaybackCurvature(curvature: PlaybackStageCurvature) {
     val current = mutableState.value
-    if (current.playbackVideoCurvature == curvature &&
-        current.playbackDanmakuCurvature == curvature &&
-        current.playbackBackdropCurvature == curvature) {
-      return
-    }
-    appPreferences.savePlaybackVideoCurvature(curvature)
-    appPreferences.savePlaybackDanmakuCurvature(curvature)
-    appPreferences.savePlaybackBackdropCurvature(curvature)
-    mutableState.value =
-        current.copy(
-            playbackVideoCurvature = curvature,
-            playbackDanmakuCurvature = curvature,
-            playbackBackdropCurvature = curvature,
-        )
+    if (current.playbackCurvature == curvature) return
+    appPreferences.savePlaybackCurvature(curvature)
+    mutableState.value = current.copy(playbackCurvature = curvature)
   }
 
   /**
@@ -883,7 +858,7 @@ class ViriViriAppState(
    * [PlaybackStageCurvature.Flat].
    */
   fun adjustPlaybackCurvature(curveDelta: Float) {
-    setPlaybackCurvature(mutableState.value.playbackVideoCurvature.adjustedBy(curveDelta))
+    setPlaybackCurvature(mutableState.value.playbackCurvature.adjustedBy(curveDelta))
   }
 
   /**

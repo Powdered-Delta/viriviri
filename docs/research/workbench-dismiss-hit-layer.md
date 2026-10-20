@@ -3,6 +3,35 @@
 专项记录：2026-10-06。「点击工作台外部收起 Workbench」这个功能自加入起**从未真正生效**，
 本次确诊并修复，同时修掉了修复所引入的一个连带回归。
 
+> ## ⚠️ 2026-10-07 二次反转：本方案已被取代（任务 `10-07-stage-tap-cannot-close-workbench`，R3）
+>
+> 本文记录的**修复本身已经退役**。原因不是它错了，而是**目标变了**：
+>
+> - 用户真机反馈：那块板**能指向、能判定、点击确实能关闭**，但指向它会画出**目标点指示器**
+>   （SDK/ISDK 对可命中实体的内置命中标记）—— 对一块本应"什么都没有"的区域而言反直觉。
+> - 因此现在要的恰恰是当年费力避开的那个状态：**不可命中**。
+>
+> **当前实现**：`hideOuterDismissHitLayer()` 对该节点设 `Visible(false)`，且**不再加 `Hittable`**。
+> "点工作台之外/空旷处收起"改由舞台扳机的 **void 结果**接管
+> （`StageTapOutcome.VOID_DISMISS`：射线**什么都没打中**时关闭）。
+>
+> **本文哪些部分已失效**（保留原文是为了留下推理链，不要照抄）：
+> - **§1 TL;DR 第 4 条**（"引擎可见 + 材质全透明是唯一组合"）—— 只在"必须可命中"这个前提下成立，
+>   该前提已不成立；
+> - **§5** 的守卫机制与 **§6 不变量第 1、2 条** —— `suppressOuterDismissUntilMs` /
+>   `OUTER_DISMISS_SUPPRESSION_MS` / `onStageTriggerHeld` 与相关布防**已全部移除**。
+>   板不可命中后，松手**不再有任何点击路径可落下**，所以这个不变量在结构上自动成立，无需守卫；
+> - **§6 不变量第 3、4 条仍然有效**（中心面板空白收起的路由守卫、收起时的路由复位守卫）。
+>
+> **仍然有效的结论**（与本文是否退役无关）：
+> - 舞台**没有命中几何**（`videoSurface` 为 `MeshCollision.NoCollision`），其点击只能靠几何判定；
+> - `app/scenes/**` 是**授权源**，`app/src/main/assets/scenes/**` 是构建产物（§7）；
+> - `Visible(false)` 会让实体退出命中测试 —— 这条事实本身没变，只是现在**我们要的就是它**。
+>
+> **新的未决项**：void 路径要求该区域射线打到 **nothing**。若 `MediaRoom` 或后方其它几何可命中，
+> 射线会落在它上面 → 不触发 void → 等于**失去**"点外部收起"。无法静态判定，
+> 由 `adb logcat -s ViriViriStageTap:I` 的诊断行确认。
+
 ---
 
 ## TL;DR
@@ -13,8 +42,9 @@
 3. 而 `Visible(false)` 会让实体**退出命中测试**。于是这一层永远点不到 —— 逻辑自相矛盾。
 4. 修复：材质改 `Blend`（让 alpha-0 成为真透明）+ 节点改可见 + 代码不再设 `Visible(false)`。
    **"引擎可见 + 材质全透明"是同时满足"不渲染"和"可命中"的唯一组合。**
+   （⚠️ 该结论已于 2026-10-07 退役，见上方反转说明。）
 5. 该修复引入一个回归：舞台**没有命中几何**，于是"按在幕布上再松手"的那次松手会穿过幕布打到
-   这块板子上，把刚呼出的 Workbench 又关掉。已修（见 §5）。
+   这块板子上，把刚呼出的 Workbench 又关掉。已修（见 §5）。（⚠️ 该回归随板退役而**不可能再发生**。）
 
 ---
 
@@ -115,6 +145,13 @@ WorkbenchOuterDismiss.gltf 的 PbrMaterial：alphaMode: Opaque + baseColorFactor
 该系统在按住扳机期间**每帧**都会调用此函数，因此守卫在整个按压期间保持有效，松手那一击必然落在
 窗口内被吞掉。
 
+> **2026-10-07 更正（任务 `10-07-stage-tap-cannot-close-workbench`）**：上面这段描述的"每帧"当年
+> **并没有真正生效**。原实现用 `Controller.isPressed` 判断按下，而 `isPressed` 是 SDK 自己的**上升沿**
+> （`buttonState & changedButtons & bits`），只在按下那一帧为真 —— 所以布防实际只发生一次，真正的防线
+> 是"从按下边沿起算的 500 ms 固定窗口"，正是本文档 §10 警告过的那个会因长按压而复发的形态。
+> 现在回调拆成两个：`onStageAction` 取上升沿（由 `isDown` 的上一帧状态自行推导，用于 toggle），
+> `onStageTriggerHeld` 在按住期间每帧取 `Controller.isDown` 重新布防。至此"每帧重新布防"才成立。
+
 这个做法规避了两个坑：
 - 不需要区分 down / up 边沿（`onClick` 本身不携带按压起点信息）；
 - 不依赖"从某个边沿起算的固定窗口" —— 刻意按住瞄准很容易超出任何固定窗口，而每帧重新布防天然
@@ -124,12 +161,20 @@ WorkbenchOuterDismiss.gltf 的 PbrMaterial：alphaMode: Opaque + baseColorFactor
 
 ## 6. 不变量（不要破坏这些）
 
-- `WorkbenchOuterDismiss` 必须**引擎可见**（不得设 `Visible(false)`），且其材质必须**全透明**
-  （`Blend` + alpha 0）。两者必须成对：少了前者就打不到，少了后者就是黑墙。
-- 舞台动作（`onStagePrimaryAction`）**绝不能**经外部点击层收起 Workbench —— 依靠每次重新布防
-  `suppressOuterDismissUntilMs` 保证。
-- 中心面板只有 `WORKBENCH_EMPTY` 路由下点空白才收起；内容路由下保持惰性。
-- 收起时的路由复位受 `selected != null` 守卫约束：**未选中视频时不得复位**（有意行为）。
+> **2026-10-07（R3）之后，本节的第 1、2 条已失效** —— 板已退役、守卫已移除。
+> 保留原文以便对照推理链；**当前不变量以
+> [ui-structure-and-terminology.md](../ui-structure-and-terminology.md) §2.3 / §4.2 / §5.3 为准。**
+
+- ~~`WorkbenchOuterDismiss` 必须**引擎可见**（不得设 `Visible(false)`），且其材质必须**全透明**
+  （`Blend` + alpha 0）。两者必须成对：少了前者就打不到，少了后者就是黑墙。~~
+  → **已反转**：现在该节点运行时设 `Visible(false)` 且不加 `Hittable`；材质保持不变（无害）。
+- ~~舞台动作（`onStagePrimaryAction`）**绝不能**经外部点击层收起 Workbench —— 依靠每次重新布防
+  `suppressOuterDismissUntilMs` 保证。~~
+  → **已反转**：没有任何"外部点击层"了，松手无点击路径可落，该风险结构上不可能发生；守卫已移除。
+- 中心面板只有 `WORKBENCH_EMPTY` 路由下点空白才收起；内容路由下保持惰性。 **（仍然有效）**
+- 收起时的路由复位受 `selected != null` 守卫约束：**未选中视频时不得复位**（有意行为）。 **（仍然有效）**
+- **（新增，2026-10-07）** `PlayerSession` 的单一活动视频 Surface 不变量与本次改动无关，
+  但改动涉及输入路径时仍需确认未被牵动。 **（仍然有效）**
 
 ## 7. 授权源 vs 产物（改哪里）
 

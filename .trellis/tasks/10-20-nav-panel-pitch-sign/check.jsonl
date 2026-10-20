@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/10-20-nav-panel-pitch-sign/prd.md", "reason": "核对只改了 navPitchDegrees、未动 transport/keyboard、已写明符号约定与已知限制"}
+{"file": "docs/spatial-coordinates.md", "reason": "核对 pitch 符号与坐标系约定一致，文档表述不产生新的歧义"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "核对 §2.2 数值与源码一致（术语表不得漂移）"}

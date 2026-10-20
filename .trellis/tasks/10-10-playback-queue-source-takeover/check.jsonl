@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-10-playback-queue-source-takeover/prd.md", "reason": "逐条核对 3.3 的 7 条接管规则是否都有测试，以及非目标（不接线 app、不改 PlaybackBrowseOrigin）是否被越界"}
+{"file": "spatial-workbench-core/src/main/kotlin/com/m0e_n00b/spatialworkbench/core/WorkbenchContracts.kt", "reason": "核对 PlaybackBrowseOrigin 既有取值语义未被改动；新契约确实与它并列而非替换"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对'恰好一个 owner'成立——这是本任务的核心断言，必须能区分错误实现"}
+{"file": ".trellis/spec/frontend/bilibili-recommendation-playback.md", "reason": "核对与 ViriViriAppState 既有 owner 声明无冲突、无重复 owner"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "若新增契约，:775 附近的契约表需同步标注 [契约]"}
+{"file": ".trellis/tasks/10-10-playback-queue-source-takeover/prd.md", "reason": "核对 §8 后续接线任务已登记——否则本任务只是产出第二个死契约（R1）"}

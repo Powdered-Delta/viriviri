@@ -22,7 +22,9 @@ android {
 
 dependencies {
   api(project(":spatial-workbench-core"))
-  implementation(libs.androidx.core.ktx)
+  // No androidx.core.ktx: no source in this module imports androidx.core.*, and dropping it keeps the
+  // module's Android coupling minimal for a future Compose Multiplatform move. Enforced by
+  // scripts/verify-component-boundary.ps1, which reports declared-but-unused Android dependencies.
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.ui)
   implementation("androidx.compose.material:material")

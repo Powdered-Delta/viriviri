@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-15-component-library-contracts/prd.md", "reason": "核对 R1/R2/R3 三条是否都落地，以及非目标（不新增模块、不搬家、不改 app 行为）是否被越界"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "核对没有引入 compose → app 反向依赖，props 类型落在正确的模块"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对适配器未引入第二状态源，app 仍是唯一读全局处"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对库层未泄漏 app 类型；回调词汇与 ThemeAction 一致"}
+{"file": "docs/immersive-theme-runtime-design.md", "reason": "核对组件目录与 §4.2 ComponentGroup 模型、§13 受控组件目录一致；核对未越界到 Phase 2"}

@@ -1,9 +1,8 @@
 package com.m0e_n00b.viriviri
 
 /**
- * Per-layer curvature of the immersive stage. The video mesh, the danmaku overlay, and the
- * backdrop each hold their own value so curving one layer never affects the others (layers stay
- * decoupled). Default is [Flat], which reproduces today's behaviour exactly.
+ * Shared curvature of the immersive MediaStage. Video, backdrop, danmaku, and future attached layers
+ * all consume this one value; authored local-Z offsets distinguish their roles, not their curvature.
  *
  * Persistence keeps this type self-contained: [Flat] is encoded as the [FLAT_SENTINEL] sentinel
  * (a flat quad has an effectively infinite radius), a [Cylinder] as its clamped radius.
@@ -42,32 +41,36 @@ sealed interface PlaybackStageCurvature {
     return Cylinder(nextRadiusMeters.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS))
   }
 
-  /** Maps to the mesh-builder geometry (shared by the video surface). */
-  fun toStageGeometry(): StageGeometry =
-      when (this) {
-        Flat -> StageGeometry.Flat
-        is Cylinder -> StageGeometry.Cylinder(radiusMeters)
-      }
-
   /**
-   * Local-Z offset, in metres, that keeps this layer's SURFACE where the flat quad was.
-   *
-   * The runtime anchors a composition cylinder layer at the scene object's origin and places the
-   * visible surface one [radius][Cylinder.radiusMeters] away from that origin along the layer's
-   * local Z. A flat quad has its surface ON the origin, so curving a layer without offsetting its
-   * entity translates the layer by one radius instead of bending it in place — which is what threw
-   * the stage roughly a whole radius along its local Z as soon as it was curved.
-   *
-   * This is the OVROverlay reading (origin = cylinder axis). The competing
-   * `XR_KHR_composition_layer_cylinder` reading (pose = centre of the visible section) needs no
-   * offset at all, so the direction is isolated in [SURFACE_ANCHOR_OFFSET_SIGN] and confirmed on
-   * device rather than derived here.
+   * Measured local-Z displacement of the cylinder surface relative to its carrier entity. In the
+   * connected SDK 0.13.2 / Quest 2 build, a curved panel with no correction drifted by one radius;
+   * [surfaceAnchorOffsetMeters] is the inverse displacement needed to hold the surface centre at its
+   * authored stage position. This is based on device evidence, not inferred from a generic cylinder API
+   * description.
    */
   fun surfaceAnchorOffsetMeters(): Float =
       when (this) {
         Flat -> 0f
         is Cylinder -> SURFACE_ANCHOR_OFFSET_SIGN * radiusMeters
       }
+
+  /**
+   * Absolute local-Z offset for the entity carrying this curved surface. The offset is always
+   * recomputed from the authored base position (never accumulated), so changing radius from r1 to r2
+   * moves the entity by exactly the correction delta needed for r2.
+   */
+  fun entityLocalZForSurface(baseLocalZ: Float): Float =
+      baseLocalZ + surfaceAnchorOffsetMeters()
+
+  /**
+   * Inverse local-Z correction baked into custom mesh vertices that share the shifted entity.
+   * Entity offset + mesh correction is zero, leaving the mesh surface's centre at [baseLocalZ].
+   */
+  fun meshVertexPositionCorrectionMeters(): Float = -surfaceAnchorOffsetMeters()
+
+  /** Test/debug invariant: the carrier and its inverse-shifted mesh preserve the authored centre. */
+  fun compensatedMeshCentreLocalZ(baseLocalZ: Float): Float =
+      entityLocalZForSurface(baseLocalZ) + meshVertexPositionCorrectionMeters()
 
   companion object {
     /** Smallest allowed cylinder radius (tightest supported curve). */

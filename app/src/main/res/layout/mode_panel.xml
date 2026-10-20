@@ -120,8 +120,9 @@
       android:layout_marginTop="10dp"
       android:background="#33FFFFFF"
     />
-    <!-- Curvature is per layer: point at the stage and push the right thumbstick left/right to bend
-         the target layer, up/down to resize every layer. The button picks the target layer. -->
+    <!-- Curvature is ONE value for the whole stage: point at the stage and push the right thumbstick
+         left/right to bend every layer together, up/down to resize every layer. There is no target
+         layer any more; the danmaku separation below is a local-Z offset, not a curvature. -->
     <TextView
       android:id="@+id/curvature_text"
       android:layout_width="match_parent"
@@ -130,7 +131,7 @@
       android:fontFamily="monospace"
       android:textSize="12sp"
       android:textColor="#B3FFFFFF"
-      android:text="Curve target: video\n  video:    flat\n  danmaku:  flat\n  backdrop: flat"
+      android:text="Curve (all layers): flat"
     />
     <Button
       android:id="@+id/reset_curve_button"
@@ -150,6 +151,41 @@
       android:layout_marginTop="4dp"
       android:text="Danmaku Z (cycle)"
       android:textSize="12sp"
+    />
+    <!-- Debug-only: cycles the backdrop-order candidates (0 BASELINE / 1 ZINDEX / 2 BACKDROP_MESH /
+         3 ALL_UI_MESH). Candidate 0 is the default and reproduces the current build exactly; the switch
+         exists because which lever re-orders the backdrop against the UI panels cannot be settled
+         statically. Each switch logs one line on the ViriViriBackdrop tag. -->
+    <Button
+      android:id="@+id/backdrop_order_button"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:text="Backdrop order (cycle)"
+      android:textSize="12sp"
+      android:visibility="gone"
+    />
+    <TextView
+      android:id="@+id/backdrop_order_status"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="2dp"
+      android:fontFamily="monospace"
+      android:textSize="11sp"
+      android:textColor="#B3FFFFFF"
+      android:text="backdrop order: 0 BASELINE"
+      android:visibility="gone"
+    />
+    <!-- Debug-only: the stage trigger's panel-occlusion guard. ON means a ray that actually points at an
+         interactive panel does NOT also toggle the workbench. Defaults ON. -->
+    <Button
+      android:id="@+id/stage_tap_guard_button"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:text="Stage tap guard: ON"
+      android:textSize="12sp"
+      android:visibility="gone"
     />
 
     <TextView
@@ -178,14 +214,6 @@
       android:layout_height="wrap_content"
       android:layout_marginTop="4dp"
       android:text="Target: Default"
-      android:visibility="gone"
-    />
-    <Button
-      android:id="@+id/debug_aspect_plan_button"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="4dp"
-      android:text="Plan: Plan 1"
       android:visibility="gone"
     />
     <Button

@@ -40,10 +40,13 @@ object PlaybackCanvasReducer {
             state.copy(
                 canvas =
                     when (state.canvas) {
-                      PlaybackCanvas.QUIET_WATCH,
+                      PlaybackCanvas.QUIET_WATCH -> PlaybackCanvas.PLAYBACK
+                      // The stage is the Workbench's toggle: the action that opened it closes it
+                      // again. BROWSE / CONTEXT deliberately keep their old "return to Playback"
+                      // behaviour, so only the QUIET_WATCH <-> PLAYBACK pair toggles.
+                      PlaybackCanvas.PLAYBACK -> PlaybackCanvas.QUIET_WATCH
                       PlaybackCanvas.BROWSE,
                       PlaybackCanvas.CONTEXT -> PlaybackCanvas.PLAYBACK
-                      PlaybackCanvas.PLAYBACK -> PlaybackCanvas.PLAYBACK
                     }
             )
         PlaybackCanvasEvent.OpenBrowse -> state.copy(canvas = PlaybackCanvas.BROWSE)

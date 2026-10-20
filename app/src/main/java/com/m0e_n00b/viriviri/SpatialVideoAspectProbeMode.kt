@@ -20,16 +20,9 @@ internal enum class SpatialVideoAspectProbeTarget(
   }
 }
 
-internal enum class SpatialVideoAspectProbePlan(val label: String) {
-  PLAN_1("Plan 1"),
-  PANEL_RESHAPE("Panel reshape"),
-}
-
 internal data class SpatialVideoAspectProbeState(
     val pendingTarget: SpatialVideoAspectProbeTarget = SpatialVideoAspectProbeTarget.DEFAULT,
-    val pendingPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
     val appliedTarget: SpatialVideoAspectProbeTarget = SpatialVideoAspectProbeTarget.DEFAULT,
-    val appliedPlan: SpatialVideoAspectProbePlan = SpatialVideoAspectProbePlan.PANEL_RESHAPE,
 )
 
 internal object SpatialVideoAspectProbeReducer {
@@ -38,11 +31,6 @@ internal object SpatialVideoAspectProbeReducer {
       target: SpatialVideoAspectProbeTarget,
   ): SpatialVideoAspectProbeState = state.copy(pendingTarget = target)
 
-  fun selectPlan(
-      state: SpatialVideoAspectProbeState,
-      plan: SpatialVideoAspectProbePlan,
-  ): SpatialVideoAspectProbeState = state.copy(pendingPlan = plan)
-
   fun apply(state: SpatialVideoAspectProbeState): SpatialVideoAspectProbeState =
-      state.copy(appliedTarget = state.pendingTarget, appliedPlan = state.pendingPlan)
+      state.copy(appliedTarget = state.pendingTarget)
 }

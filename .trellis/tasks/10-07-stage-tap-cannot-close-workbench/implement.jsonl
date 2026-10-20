@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-07-stage-tap-cannot-close-workbench/prd.md", "reason": "本任务需求：五处设计叠加的根因、选项 A 的三处必改点、k82 不变量、验收 A1-A8"}
+{"file": "docs/research/workbench-dismiss-hit-layer.md", "reason": "k82 根因链与**不变量**（松手一击不得被当成点工作台外部）；本次改动最大的回归风险来源"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "唯一状态源与 owner 约定；toggle 语义不得引入第二状态源"}
+{"file": ".trellis/spec/frontend/quest-spatial-panel-debugging.md", "reason": "面板命中/几何判定与 Visible 退出命中测试等既有坑位"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "质量门槛与验证命令"}
+{"file": "docs/ui-structure-and-terminology.md", "reason": "§4.2 画布状态机、§5.3 收起归属（中心面板空白仅在 WORKBENCH_EMPTY 可收起）；改动后需同步"}
+{"file": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/prd.md", "reason": "上位任务的 Phase 2 会改可见性 owner（D2）；本任务不得越界改动该语义"}

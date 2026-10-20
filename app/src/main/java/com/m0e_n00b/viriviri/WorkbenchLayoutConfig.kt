@@ -48,15 +48,39 @@ data class WorkbenchLayoutConfig(
     val navLocalY: Float = 0.72f,
     /** Nav bar forward offset (local Z); negative = toward the user. */
     val navLocalZ: Float = -0.52f,
-    /** Nav bar downward tilt in degrees (pitch) so it faces the user. */
-    val navPitchDegrees: Float = 8f,
+    /**
+     * Nav bar pitch in degrees, applied as `Quaternion(pitch, 0f, 0f)` on the panel's LOCAL pose.
+     *
+     * SIGN CONVENTION — read this before changing the number (it cost one dev cycle to establish):
+     * the panel's normal is **-Z** (toward the user) in the stage-local frame, and a rotation of **+θ
+     * about +X lifts that normal UP**, i.e. tips the bar BACK over the user's head. A **negative** angle
+     * tips it DOWN, so its face looks at someone standing in front of the workbench.
+     *
+     * `Quaternion(x, y, z)` takes DEGREES — it does `Math.toRadians(x * 0.5)` internally — so 8f really
+     * is 8 degrees; the old value was not a radians/degrees mistake, it was the wrong sign.
+     *
+     * The previous `+8f` ("faces the user" per the old comment) therefore produced the exact opposite:
+     * the bar leaned back with its normal pointing at the ceiling, and the Search button on it could not
+     * be aimed at (reported on device 2026-10-20).
+     *
+     * The value is fixed, and the panel is rigidly parented, so the optimal angle depends on where the
+     * user raised the stage to. At the default authored stage height this is "aim the normal at the
+     * eyes": panel world ≈ (0, 2.86, 1.48), eyes ≈ (0, 1.6, 0) → atan(1.26 / 1.48) ≈ 40° down.
+     * Raising the stage makes the ideal steeper (≈ -55° at stage Y 3.0); that is a known limitation, not
+     * something a constant can solve.
+     */
+    val navPitchDegrees: Float = -40f,
 
     // ---- Transport controls (local frame) ----
     /** Transport vertical offset (local Y); negative = below center. */
     val transportLocalY: Float = -0.78f,
     /** Transport forward offset (local Z); sits slightly in front of the center panel. */
     val transportLocalZ: Float = -0.66f,
-    /** Transport downward tilt in degrees (pitch) for readability. */
+    /**
+     * Transport pitch in degrees. POSITIVE = normal tips UP, which is correct here: this panel sits at
+     * or below eye height, so it must look up at the user. Do not "fix" it to negative by analogy with
+     * [navPitchDegrees] — the correct sign depends on whether the panel is above or below the eyes.
+     */
     val transportPitchDegrees: Float = 20f,
 
     // ---- Application keyboard / input-method panel (local frame) ----
