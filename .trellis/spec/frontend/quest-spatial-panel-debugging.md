@@ -499,3 +499,112 @@ MediaPanelSettings(
 
 This waits for the VR-ready panel lifecycle, makes compositing intent explicit,
 and preserves full-frame sampling without rebuilding the player.
+
+
+### 3.12 Scene geometry used for clipping observations
+
+When authoring a diagnostic background through `mse-agent`, primitive scale is
+not its size in metres. The v16 CLI `readme` specifies a cube base edge of
+0.4 m: scale (4, 2.5, 0.05) yields (1.6, 1.0, 0.02) m before parent transforms.
+Check the exported geometry and headset view before calling that background a
+valid clipping control. A foreground scene mesh can occlude video; its dark
+silhouette alone does not identify the original aperture defect.
+
+The independent geometry experiment uses an editor-authored `MediaRoom` node
+from the demo/product room asset at identity transform. Its Activity applies
+`Mesh.defaultShaderOverride = SceneMaterial.UNLIT_SHADER`, matching the product
+room visibility setup without changing media panel configuration. Asset export
+and a passing build do not establish that video and scene cutout match visually.
+
+
+### 3.13 Independent geometry slider submissions
+
+The debug experiment's native SeekBars submit an `ExperimentGeometry` in integer
+centimetres: width 100..240, curved radius 80..300 or null for flat, height derived
+as width * 9/16. Width never changes radius. Radius input on flat is a no-op.
+The existing preset buttons reset both slider values without synthesizing user
+input; flat disables radius adjustment.
+
+`ExperimentGeometryUpdates` keeps one latest complete request. The Activity
+schedules a single 100 ms main-thread callback; subsequent drag events replace
+its payload without restarting the timer. Release flushes the final value.
+Preset replacement and shutdown increment an epoch and cancel pending work;
+callbacks must check that epoch even when cancellation was requested. Do not let
+an old callback consume a newer drag request. Apply identical successful geometry
+as a no-op, but retain explicit retry after creation/cleanup failure.
+
+The debug path recreates the panel using final shape parameters, retaining the
+existing detach-by-identity before destroy policy and the same player/media.
+It does not establish reshape behavior or continuous-update visual correctness.
+Test coalescing, late callback invalidation, release and close with a controlled
+scheduler; verify ray dragging and any recreation flicker separately on headset.
+
+
+### 3.14 Independent pseudo overlays and centre-depth correction
+
+The debug geometry experiment adds UI-only `ExperimentLayer.DANMAKU` and
+`ExperimentLayer.SUBTITLE` alongside VIDEO. All three consume the same final
+`ExperimentGeometry`. Derive each carrier local Z as `baseLocalZ - radius`
+(flat: `baseLocalZ`), using the pinned SDK coordinate audit in
+`docs/spatial-coordinates.md`. Base depths are 0, -0.01, -0.02 m; zIndex is
+0, 1, 2 respectively, with the existing input controls at 3. Recompute from
+base after each slider change; never accumulate radius deltas.
+
+The two overlays use `PanelSceneObject(scene, spatialContext, ent, config, getView)`
+with transparent native Views, ALPHA_BLEND, no glass and NoCollision. Pass the
+Activity's `spatialContext` to this constructor; the Android Activity itself is
+not a SpatialContext (it remains valid as the native View's Android Context). Their UI
+Surfaces remain SDK-owned, with no media consumer. Their physical width, height
+and radius match video. Do not pass media PixelDisplayOptions to UI settings;
+use DpDisplayOptions(1280, 720, 160). The Activity's ExperimentRetainedOverlays owns
+two UI carriers independently of video generation. Record ownership before SDK
+initialization and retain entries after partial failure. Normal geometry updates
+call reshape and change ECS Z without replacing Entity, View, UI Display or Surface.
+Assert Surface/Display identity after reshape and keep texture dimensions fixed;
+do not resize or detach the UI. Shutdown closes all UI independently of the video
+consumer and retains failed cleanup entries for retry.
+
+Pseudo content reads the existing player's position. It must not prepare, seek,
+attach another media Surface, or reset its animation timeline on geometry change.
+The overlay clock must not depend on transient video generation or disappear
+while video replacement runs. Update failure hides both overlays and retains UI
+for retry; successful replacement must not hide them or restart their animation.
+Verify identity reuse, partial-update retry, closed ownership, centre-depth algebra
+and timeline boundaries in JVM tests. Reshape internally rebuilds shape/layer, so
+resource retention alone does not prove zero visual interruption; verify on headset.
+
+
+### 3.15 Switchable overlay scene-mask candidates (debug only)
+
+`ExperimentMaskMode` selects ORIGINAL, ALIGNED or HIDDEN for the two retained
+UI overlays, with ORIGINAL as baseline. No video configuration, Spatial panel
+registration, extra aperture Entity or UI Surface is added. Mode-only changes
+invalidate the retained role cache, replay at last committed geometry and assert
+video generation/Surface are unchanged. Keep the selected mode on failure, show
+an error and hide partial overlays; do not silently fall back.
+
+ALIGNED installs createExperimentMaskSceneMesh after calling settings.init(),
+which selects the SDK alpha-punch material policy before the custom factory can
+short-circuit default initialization. Explicit vertices use the API axis origin:
+(x,y,z) = (r*sin(arcX/r), y, r*cos(arcX/r)), flat z=0, inward normals, full [0,1]
+UVs and single triangle winding with a double-sided material. It consumes the
+existing live UI texture and final PanelShapeConfig width/height/radius. Existing
+carrier base-r compensation is applied exactly once. Do not import production
+geometry update/compensation helpers or infer visual correctness from CPU math.
+
+HIDDEN retains SDK mesh geometry for bounds and compositor association, but
+calls setColorWrite(0) and setDepthWrite(DISABLE) on only overlay scene materials
+after every creation/reshape. Zero disables RGBA, including alpha. It does not
+hide the Entity, stop animation, detach Display or change the video aperture.
+Original/ALIGNED switching regenerates fresh mesh materials to restore writes.
+
+Test analytic mesh extent, arc/radius, centre depth, UVs, winding/index bounds,
+and retained-cache invalidation without reallocating UI. Log mode, geometry and
+stable View/Surface identities. Both candidates require headset evaluation for
+text visibility, silhouette, curvature, clipping and flicker; no promised repair.
+
+
+The user accepted B visually on 2026-10-22, while reporting cross-mode influence.
+Keep the accepted use case (text inside video) distinct from unverified mode
+isolation, B-only cold startup, outside-video text and foreground occlusion.
+See docs/geometry-overlay-poc.md before replacing production rendering.

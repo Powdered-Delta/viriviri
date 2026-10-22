@@ -29,7 +29,8 @@
 
 ## 1. 宿主层
 
-应用由三个 Activity 宿主与一个 SDK 场景组成，同一个 `ExoPlayer` 贯穿全部输出。
+产品入口由三个 Activity 宿主与一个 SDK 场景组成，同一个 `ExoPlayer` 贯穿产品输出。
+DEBUG 独立实验使用 `GeometryExperimentActivity`，运行在独立进程并拥有独立播放器。
 
 ```text
 ViriViriApplication
@@ -277,7 +278,51 @@ app/scenes/Composition/Main.scene
 
 ---
 
+### 2.4 独立 debug 几何实验实体树
+
+[实现，app DEBUG] `GeometryExperimentActivity` 是独立启动入口，场景由
+`app/geometry-experiment-scene/Main.metaspatial` 经 Spatial Editor 导出。
+
+```text
+GeometryExperimentActivity（独立进程，拥有按钮切换与生命周期）
+└── 实验 GLXF 根
+    ├── GeometryExperimentControls → geometry_experiment_controls
+    │   固定 (0, 0.65, 2.0)，1.5 × 0.7 m；普通 UI，无视频 Surface
+    ├── GeometryExperimentAnchor
+    │   固定 (0, 1.6, 2.5)，identity、单位缩放
+    │   ├── 动态视频实体 → PanelSceneObject（最多一个）
+    │   │   local Z=-r（平面 0），zIndex=0；仅此 Surface 借给播放器
+    │   ├── ExperimentLayer.DANMAKU → PanelSceneObject + ExperimentOverlayView
+    │   │   local Z=-0.01-r（平面 -0.01），zIndex=1；透明伪弹幕，UI 资源持续保留
+    │   └── ExperimentLayer.SUBTITLE → PanelSceneObject + ExperimentOverlayView
+    │       local Z=-0.02-r（平面 -0.02），zIndex=2；透明伪字幕，UI 资源持续保留
+    └── MediaRoom
+        demo / 正式版房间资源，根节点 identity、单位缩放；显示使用 UNLIT_SHADER
+```
+
+控制面板、锚点与 `MediaRoom` 均由 mse-agent 编排在独立场景中。控制面板始终可见并独占按钮和滑条输入（zIndex=3）；视频与两层覆盖面板
+实体使用 `NoCollision`。控制面板位于视频锚点前方 0.5 m 且下方 0.95 m，
+没有外部收起几何、舞台点击或后备触摸处理。`ExperimentGeometry.carrierLocalZ` 从每层
+base Z 减去最终半径，固定三层中央表面深度，不累计位移；平面无半径项。
+两层覆盖面板由 Activity 的 `ExperimentRetainedOverlays` 持续拥有，独立于视频 generation；
+父级都是实验视频锚点，宽高/半径与视频相同，更新只 reshape 形状和设置 ECS Z；
+`ExperimentMaskMode` 只选择这两个面板内部的场景遮罩路径，不新增开孔实体或 Surface；
+仅包含 UI，SDK 自己拥有其 UI Surface，没有媒体输出消费者。`MediaRoom` 由实验 composition 拥有，父级为实验根，复用 demo / 正式版
+房间资源与 `SceneMaterial.UNLIT_SHADER`；它是环绕环境，深度由房间原始几何决定，
+不拥有视频 Surface 或按钮回调，不参与视频几何更新。已移除蓝色观察块。
+完整预设与待实机判定项记录在实验任务中。
+
 ## 3. 面板注册与内容映射
+
+### 3.0 独立实验注册
+
+[实现，app DEBUG] `geometry_experiment_controls` 仅由 `GeometryExperimentActivity`
+使用 `ViewPanelRegistration` 注册，1500 × 700 像素，三个原生按钮与两条原生 `SeekBar`。
+视频、伪弹幕、伪字幕均不注册 `Panel` 组件；首次选预设直接创建三个 `PanelSceneObject`
+并登记到 `SceneObjectSystem`。后续仅视频重建，覆盖层保留 Entity、View、UI Display 和 Surface。两层覆盖面板使用 SDK 的 View 构造函数，1280 × 720 dp @160，
+`ALPHA_BLEND`、透明背景且无玻璃，不新增资源 ID 注册项。A 模式使用
+`createExperimentMaskSceneMesh` 提供显式轴原点三角网格；原始/B 使用 SDK 网格，B 在每次
+更新后关闭该网格的颜色/深度写入。文字合成层保留。它们不使用 `PanelSlot` 或产品几何更新链。
 
 `PlaybackStageAperture` 是普通动态 `SceneObject`，不是 Panel，不新增注册项或 `PanelSlot`。
 
@@ -344,6 +389,27 @@ PLAYBACK_CONFIG      -> (无实体)                 -> SYSTEM_TOOLBAR   [未接�
 
 三者关系：`PlaybackCanvas` 的可见槽位经 `ImmersiveWorkbenchHost.applyCanvasSlots()`
 适配为 `WorkbenchEvent`，驱动 `ImmersiveWorkbenchState`。
+
+### 4.0 独立 DEBUG 遮罩模式
+
+[实现，app DEBUG] `ExperimentMaskMode` 是独立实验的局部渲染选择，不接入产品路由。
+控制板单一所有者允许任意两模式直接切换：
+
+```text
+ORIGINAL ↔ ALIGNED ↔ HIDDEN ↔ ORIGINAL
+```
+
+| 代码模式 | 控制按钮 | 行为 |
+| --- | --- | --- |
+| `ORIGINAL` | 原始：SDK 遮罩 | 当前 SDK 网格与 retained UI 对照，初始模式 |
+| `ALIGNED` | A：显式曲面遮罩 | 使用相同参数生成显式曲面遮罩候选 |
+| `HIDDEN` | B：关闭遮罩绘制 | 仅关闭覆盖层场景网格颜色/深度写入 |
+
+切换使 `ExperimentRetainedOverlays.invalidate` 作废两层缓存，在最后已提交几何上重放，
+不触发视频重建或 prepare。随后到达的滑条请求继续使用当前模式。
+失败时显示错误并隐藏覆盖层，不自动回退其他模式。用户已确认 B 符合当前预期；
+同时报告模式间存在影响，完全独立性与冷启动直接进入 B 尚未验证。方案区别与迁移边界见
+[geometry-overlay-poc.md](geometry-overlay-poc.md)。
 
 ### 4.1 `ImmersiveWorkbenchState`
 
@@ -507,6 +573,40 @@ StageInput → StageCoordinator → StageFrame → StageRenderer（接口）
 [playback-stage-core/README.md](../playback-stage-core/README.md)。
 
 ## 5. 面板内容结构
+
+### 5.0 独立实验控制面板
+
+[实现，app DEBUG] `geometry_experiment_controls` 显示固定锚点、三个预设的宽高和半径，
+尺寸/曲率滑条，以及请求参数、当前 generation、prepare 次数、实际形状/显示配置、三层载体 Z、覆盖层 UI Surface 身份与失败信息。
+
+```text
+geometry_experiment_controls（Android LinearLayout）
+├── 固定中央表面、Z 修正与视频重建 / 文字层保留说明
+├── 平面 / 曲面 / 放大曲面（各自显示实际参数）
+├── 原始 / A：显式曲面遮罩 / B：关闭遮罩绘制（选中标记与说明）
+├── 尺寸 SeekBar：宽 1.00–2.40 m，保持 16:9
+├── 曲率 SeekBar：半径 0.80–3.00 m，越小越弯；平面禁用
+└── 请求与实际创建结果、Surface 交接计数依据与持久失败信息
+```
+
+`ExperimentGeometry` 使用整数厘米存宽度/半径；`ExperimentGeometryUpdates` 合并拖动请求。
+控制面板是唯一输入所有者。选预设后同时显示视频、伪弹幕和伪字幕；选择预设前滑条禁用。
+拖动标签立即变化，Activity 每 100 ms 消费最新完整参数，松手立即提交最终值；
+预设重置两条滑条并作废旧请求，关闭后迟到回调无效。相同参数不重建。
+切换由 Activity 单一所有者同步执行：旧 Surface 解绑 → 旧面板销毁 →
+最终参数新建 → 新视频 Surface 绑定 → 两层覆盖面板 reshape 与 ECS Z 更新。
+覆盖层使用相同的透明配置与固定像素预算；不 resize、不重新挂载 UI，检查 reshape 后
+Surface 与 UI Display 身份不变。相同的覆盖层参数不重复 reshape。
+更新失败时隐藏覆盖层，保留已分配 UI 供重试，并清理候选视频；下一次完整成功才重新显示。
+正常更新不隐藏或停止覆盖层，关闭时独立清理 UI，即使视频消费端释放失败也停止 UI 动画。
+`ExperimentOverlayTimeline` 只读播放器位置驱动上方三行滚动伪弹幕和底部每 4 秒轮换的伪字幕；
+`ExperimentOverlayView` 挂载时启动绘制，脱离时取消回调，最终关闭时永久停止。
+其时钟不再依赖视频 generation。没有新增播放器、媒体加载或 prepare 调用。
+保留 UI 资源版已获不闪烁反馈，但出现漂浮黑色轮廓；本轮通过三模式对照验证候选。
+A 模式先初始化 SDK 的 alpha-punch 配置再安装自定义网格工厂；
+`experimentMaskMesh` 显式计算轴原点顶点与完整 UV。B 模式关闭所有颜色通道（含 alpha）
+及深度写入，不关闭面板 Visible 或文字合成层。用户已确认当前 B 表现通过；
+越界文字、视频隐藏与复杂前景遮挡仍需独立验证，不能把模式切换视为完全隔离的实验。
 
 ### 5.1 `mr_panel` — 全局导航 GlobalNavigation
 
@@ -807,6 +907,8 @@ PancakeActivity → PancakeScreen（MaterialTheme）
 
 | 术语 | 代码 | 状态 |
 | --- | --- | --- |
+| 调试遮罩候选模式 | `ExperimentMaskMode` | [实现] app DEBUG，见 §4.0 |
+| 显式曲面遮罩候选网格 | `experimentMaskMesh` / `createExperimentMaskSceneMesh` | [实现] app DEBUG，仅面板内部网格 |
 | 工作台锚点 | `workbenchRootEntity`（`Entity.create`，运行时持有；`R.id.workbench_root` 已声明但未被引用） | 实现 |
 | 媒体舞台 / MediaStage | `R.id.spatialized_video_panel` | 实现 |
 | 视频表面 / video surface | `videoSurfaceEntity`（`Entity.create`，运行时持有；媒体面板与其 `IsdkPanelDimensions`、`Hittable` 都绑在它上面） | 实现 |

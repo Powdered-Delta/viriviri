@@ -144,6 +144,10 @@ spatial {
         projectPath.set(sceneDirectory.file("Main.metaspatial"))
         outputPath.set(projectDir.dir("src/main/assets/scenes"))
       }
+      item {
+        projectPath.set(projectDir.file("geometry-experiment-scene/Main.metaspatial"))
+        outputPath.set(projectDir.dir("src/debug/assets/geometry-experiment"))
+      }
     }
     hotReload {
       appPackage.set("com.m0e_n00b.viriviri")

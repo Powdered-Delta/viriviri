@@ -1,0 +1,72 @@
+entities:
+  com.meta.models.Scene:
+  - components:
+      com.meta.components.Name: {}
+      com.meta.components.Scene:
+        nodes:
+        - ref:GeometryExperimentControls
+        - ref:GeometryExperimentAnchor
+        - ref:MediaRoom
+    tag: Scene
+  com.meta.models.SceneNode:
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.Name:
+        name: GeometryExperimentControls
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 1.5
+        - 0.699999988079071
+        - 1
+        translation:
+        - 0
+        - 0.64999997615814209
+        - 2
+        componentVersion: 1
+      com.meta.components.Visibility:
+        visible: true
+      com.meta.spatial.toolkit.Panel:
+        panel: '@id/geometry_experiment_controls'
+      com.meta.spatial.toolkit.PanelDimensions: {}
+    tag: GeometryExperimentControls
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.Name:
+        name: GeometryExperimentAnchor
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 1
+        - 1
+        - 1
+        translation:
+        - 0
+        - 1.6000000238418579
+        - 2.5
+        componentVersion: 1
+      com.meta.components.Visibility:
+        visible: true
+    tag: GeometryExperimentAnchor
+  - components:
+      com.meta.components.Animatable: {}
+      com.meta.components.DocumentReference:
+        transformType: None
+        documentReference: projref:MediaRoom/Main.metaspatialobj
+      com.meta.components.Name:
+        name: MediaRoom
+      com.meta.components.PointerNodeInverseComponent: {}
+      com.meta.components.SceneNode:
+        rotation.format: Euler
+        scale:
+        - 1
+        - 1
+        - 1
+        componentVersion: 1
+      com.meta.components.Visibility:
+        visible: true
+    tag: MediaRoom
+metadata:
+  version: 1.35
