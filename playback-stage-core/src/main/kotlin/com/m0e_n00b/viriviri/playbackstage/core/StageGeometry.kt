@@ -21,8 +21,9 @@ sealed interface StageCurvature {
   data class Cylinder(val radiusMeters: Float) : StageCurvature
 
   companion object {
+    /** Raw cylinder radii include 8 metres; only larger values resolve to Flat. */
     fun fromRawRadius(radius: Float?): StageCurvature =
-        if (radius == null || !radius.isFinite() || radius <= 0f || radius >= 8f) Flat
+        if (radius == null || !radius.isFinite() || radius <= 0f || radius > 8f) Flat
         else Cylinder(radius.coerceAtLeast(1.5f))
   }
 }

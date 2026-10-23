@@ -30,7 +30,7 @@
 ## 1. 宿主层
 
 产品入口由三个 Activity 宿主与一个 SDK 场景组成，同一个 `ExoPlayer` 贯穿产品输出。
-DEBUG 独立实验使用 `GeometryExperimentActivity`，运行在独立进程并拥有独立播放器。
+原理验证只保存在 codex/geometry-overlay-poc 分支；当前包仅保留正式入口。
 
 ```text
 ViriViriApplication
@@ -86,8 +86,7 @@ graph TD
     Root --> GrabBar["grab_bar_panel<br/>可见抓手条（不可抓取/不可命中）"]
     Root --> Stage["spatialized_video_panel<br/>MEDIA_STAGE · 视频输出"]
 
-    Stage --> Surface["videoSurfaceEntity<br/>compositor 视频轴载体 · 场景颜色/深度不写入"]
-    Stage --> ApertureSurface["PlaybackStageAperture<br/>动态表面开孔 · 中心 Z=0"]
+    Stage --> Surface["videoSurfaceEntity<br/>SDK 视频面板 · 默认网格与合成层"]
     Stage --> LeftRail["video_selector_panel<br/>左 Detail rail · yaw -45°"]
     Stage --> RightRail["mode_panel<br/>右 Context rail · yaw +45°"]
     Stage --> Transport["controls_id<br/>TRANSPORT · pitch 20°"]
@@ -104,84 +103,41 @@ graph TD
 
 ### 2.2 深度与姿态（stage-local 坐标，单位：米）
 
-最新用户验收：4:3／竖屏纹理比例通过，视频开孔漂移仍未解决。
-整组缩放实现与后续验收见[播放舞台规格](playback-stage-rendering-spec.md)；本节继续记录当前实现。
-参数核对更新：[实现] `PlaybackStageController` 将同一倍率烘入宽高、有效半径和层间距；
-载体 local Z 等于缩放后的层间距减有效半径，原生 scale 为 1。控制和保存使用未缩放半径。
-[组件／参数图](diagrams/playback-stage-components.html)同步记录派生链；视觉漂移仍待实机验收。
-
-
-深度顺序自视频面向用户递进为：`video (0) → nav/center → transport → keyboard`，
-local Z 越负越靠近用户；左右 rail 使用固定 yaw 形成弧形侧翼。数值集中定义在
-`WorkbenchLayoutConfig`（`app/src/main/java/.../WorkbenchLayoutConfig.kt`）。
-
-媒体面板**不**直接绑在 `spatialized_video_panel` 上，而是绑在运行时创建的子实体
-`videoSurfaceEntity` 上。[实现] `applyPlaybackStageParameters()` 把一次 emission 的比例、缩放、曲率
-交给 `PlaybackStageController`；视频尺寸回调只提交源尺寸。控制器持有唯一一份 `PlaybackStageLayout`，
-由 `PlaybackStageGeometrySystem` 在视频、压暗层、弹幕面板全部就绪后，交给 `PlaybackStagePanelRenderer`
-一次同步提交。未就绪时保留最新请求，不把部分层标记为已完成；面板实例替换后自动重放最新整组布局。
-视频使用 `videoContent`，幕布压暗与弹幕使用完整 16:9 的 `viewport`，不随视频比例缩窄（方案 A）。
-`videoShape` 直接取 `videoContent`，开孔与视频使用同一最终物理 shape。
-`videoTextureCrop` 固定为 SDK 的 `Crop.NONE`：完整解码帧映射到该物理 shape。
-1920×1080 是面板的像素配置，不保证解码帧先被填黑边为 16:9。此前按 source/output 比例推算
-FIT 黑边并二次裁切的逻辑已删除；4:3 视频不再被额外裁去左右各 12.5%。
-`videoPanelConfig()` 在创建和整组 reshape 时复用 `videoShapeOptions()`。
-曲率补偿用 `entityLocalZForSurface(baseLocalZ)` 从 authored base **绝对重算**。
-视频轴载体使用 base-radius；独立 `PlaybackStageAperture` 使用表面原点，仅写 scaled base，不做半径平移。
-renderer 从同一次舞台采样提交这两种 carrier。
+[实现] 正式入口只有一套显示路径。`PlaybackStageController` 消费已有状态与视频尺寸，
+持有完整 `PlaybackStageLayout`；`PlaybackStageGeometrySystem` 仅请求主线程帧。
+`requestProductionStageFrame` 合并 33 ms 内的更新，取最新完整参数；所有面板就绪后，
+`PlaybackStagePanelRenderer` 在主线程提交几何。失败保留请求且不提供已应用输入目标。
 
 ```text
-app state + video size -> PlaybackStageController -> PlaybackStageLayout
-                              | latest pending; wait for all panel identities
-PlaybackStageGeometrySystem --+-> PlaybackStagePanelRenderer
-                                  | reshape + unit scale + full-frame UV
-                                  + fresh local poses -> one stage-world pose -> all native poses
+app state / video size -> PlaybackStageController -> complete latest layout
+PlaybackStageGeometrySystem -> main Handler (33 ms coalescing)
+                            -> PlaybackStagePanelRenderer
+                               ├─ replaceProductionVideo: detach -> destroy -> create -> attach
+                               ├─ retained UI reshape: same View / Display / Surface
+                               ├─ danmaku material: RGBA write=0, depth write=DISABLE
+                               └─ ECS local Transform -> existing TransformParent chain
 ```
 
-API 局部圆柱中央点在 +radius，carrier 的 base-radius 保持中央点不动；API 到原生有 Z 反射，
-详见[坐标与圆柱原点](spatial-coordinates.md)，不能混用原生 -Z 与项目 API +Z forward。
-视频配置先调用 SDK 初始化，再设置 `sceneMeshCreator`。回调读取最终宽高／有效半径，
-同时更新 `PlaybackStageAperture` 的表面中心开孔和视频载体的轴原点 bounds。
-`createPlaybackStageLayerCarrierMesh` 关闭颜色、深度写入；真正开孔由
-`createPlaybackStageApertureMesh` 生成，中心 Z=0，边缘 r*(cos(theta)-1)，沿 local -Z。
-开孔是动态 sibling 实体，不是额外 Panel；不持有视频 Surface，不创建阴影或独立输入。
-backdrop/danmaku 的 `baseLocalZ`（+0.01 / 约 -0.01）
-只保留其设计层间距，曲率补偿完全相同。
-[实现] renderer 先更新舞台与抓取条间距，再采样一次舞台世界姿态；视频/UI 轴载体使用该姿态和
-`PlaybackStageLayerGeometry.localPose()` / `worldPose()`；表面开孔使用 `playbackStageApertureLocalPose()`。子层局部旋转统一归零，不沿用重挂父级时的
-旧旋转。初始化、reset、调试 Z 和 render policy 切换都提交/失效同一控制器，没有独立补偿旁路。
-[实现] `videoSurfaceEntity` 无碰撞；舞台输入由既有宿主处理，开孔网格不独立拥有输入或视频 Surface。
-`LayerConfig.zIndex` 只排序 compositor layers：视频 1、压暗层 2、其他 UI 3，不改变曲率或位置。
-`spatialized_video_panel` 仍是舞台根；只移动 surface/overlay carrier，不会带动 rail / transport / navigation /
-中心内容 / 键盘。
+视频使用 `videoContent`，弹幕/压暗层使用完整 `viewport`；保留完整帧采样，不通过 UV
+缩放代替物理尺寸。视频形状变化时从最终宽高和半径直接创建新的 `PanelSceneObject`，
+保留 ECS entity、既有可见性和输入策略；按 Surface 身份解绑后销毁旧对象，再登记与绑定新对象。
+不 reload、seek 或 prepare。相同最终视频几何不更换资源。视频采用 SDK 默认网格和开孔，
+没有额外开孔实体、custom mesh 或后端切换。成功提交确认新视频身份，避免下一帧重复更新文字层。
+视频 reshape 候选已因实机缩放不同步、曲面消失而撤回；暂停逐帧问题仍未解决。
 
-[实现] 上面的父子关系负责变换，**不等于离屏合成组**。环境模型与天空背景先进入主场景 eye buffer；
-视频、压暗层、弹幕和工作台 panel 各自提交 compositor layer。SDK 的 hole-punch 在主场景缓冲中写透明区域，
-让对应 layer 可见，不会裁切或修改环境模型。视频使用完整矩形的 OPAQUE 开孔；透明 UI 统一使用
-ALPHA_BLEND，避免默认 MASKED 将弹幕字形当二值开孔并写深度。视频是否有弹幕不能决定视频是否可见。
+UI 面板只 reshape，不重挂 Compose 或 resize Display；像素预算固定 1280×720 dp @160。
+弹幕使用 ALPHA_BLEND、透明根、无玻璃、zIndex=2（视频为 1；工作台为 3），每次 reshape 后
+关闭场景材质 RGBA 与深度写入并检查 Surface/Display 身份。首次应用 B 前隐藏，成功后显示。
+压暗层沿用既有可见性策略；B 不应用到菜单、房间或视频材质。
+正式版暂无字幕数据或字幕面板；原理验证伪字幕不打入当前包。
 
-```mermaid
-flowchart LR
-    Env["环境模型 / 天空背景"] --> Eye["主场景 eye buffer"]
-    Params["原生输入 → appState emission"] --> Geometry["PlaybackStageGeometry<br/>共享 scale / curvature"]
-    Geometry --> Shape["videoShape = videoContent<br/>同一最终物理尺寸"]
-    Geometry --> Clip["videoTextureCrop = Crop.NONE<br/>完整解码帧，不推算 FIT 黑边"]
-    Geometry --> Viewport["完整 viewport · 16:9<br/>弹幕方案 A / 压暗层"]
-    Shape --> Aperture["显式视频开孔网格 · HOLE_PUNCH"]
-    Shape --> Video["视频 compositor layer · zIndex 1"]
-    Clip --> Video
-    Aperture --> Eye
-    Viewport --> UI["压暗层 2 / 弹幕与工作台 3<br/>ALPHA_BLEND · 各自可见性"]
-    UI --> Composite["最终 compositor 合成"]
-    Eye --> Composite
-    Video --> Composite
-```
-
-[实现] 视频持续显示；压暗层只在工作台打开时显示；弹幕跟随其内容及既有可见性状态；工作台面板由
-`SpatialPanelVisibilityController` 通过 layer alpha 与 `Visible` 控制。字幕目前没有独立运行时 layer，
-不能把字幕契约计入已实现的 compositor 组。实现目标与后续组化方案分别见
-[目标架构](immersive-ui-low-code-architecture.md)、[工作台原型](prototypes/workbench/README.md)
-和[空间坐标](spatial-coordinates.md)。
+倍率一次烘入尺寸、有效半径和层间距；每层 carrier local Z 从 scaled base 减有效半径，
+平面仅 scaled base。原生 scale 保持 1；只写 ECS Transform，不重复写 native world pose。
+初始与当前应用布局由单一控制器拥有，舞台输入使用 `appliedLayout`，不是尚在排队的参数。
+坐标含义见[spatial-coordinates.md](spatial-coordinates.md)，迁移与验收边界见
+[production-stage-rendering.md](production-stage-rendering.md)。
+目标结构另见[immersive-ui-low-code-architecture.md](immersive-ui-low-code-architecture.md)
+与[工作台原型](prototypes/workbench/README.md)。
 
 | 实体 | 术语 | 本地位置（x, y, z） | 旋转 | 父节点 |
 | --- | --- | --- | --- | --- |
@@ -189,7 +145,6 @@ flowchart LR
 | `grab_bar_panel` | 抓手条 `grab_bar` | (0, 0, 0) | — | `workbenchRoot` |
 | `spatialized_video_panel` | 媒体舞台 `MediaStage` | (0, `currentStageAnchorOffsetY()`, 0) | — | `workbenchRoot` |
 | `videoSurfaceEntity` | [实现] compositor 视频轴载体；bounds 网格不写颜色/深度 | (0, 0, `entityLocalZForSurface(videoSurfaceBaseLocalZ)`) | — | MediaStage |
-| `PlaybackStageAperture` | [实现] 动态表面开孔；中心 Z=0，无输入/Surface | (0, 0, scaled video base) | 恒等 | MediaStage |
 | `video_selector_panel` | 左侧 Detail rail | (-`railX`, 0, `railLocalZ`) ≈ (-1.05, 0, -1.05) | yaw `-45°` | MediaStage |
 | `mode_panel` | 右侧 Context rail | (+`railX`, 0, `railLocalZ`) ≈ (+1.05, 0, -1.05) | yaw `+45°` | MediaStage |
 | `controls_id` | 播放控制 `Transport` | (0, -0.78, -0.66) | pitch `20°` | MediaStage |
@@ -221,9 +176,6 @@ STAGE_WORLD_Z = 2.00 m   STAGE_DEFAULT_WORLD_Y = 2.14 m
 [实现] 全部构建的 `videoSurfaceEntity` 保持 NoCollision、原生点击按钮为零，不注册视频点击回调。
 舞台主操作只由 `AnalogMediaStageTuningSystem` 的扳机按下沿处理；松开不再次切换工作台。
 MR/VR 切换也不重新发布视频 ISDK 面板尺寸。曾启用 LineTest 的诊断探针已撤回。
-
-[实现] `PlaybackStageAperture` 的可见性跟随 `videoSurfaceEntity`，没有额外显示开关；
-宽高与曲率在视频 mesh creator 中更新，姿态由既有 renderer 提交，Activity 销毁时注销并释放。
 
 ### 2.3 场景（Meta Spatial Editor）授权部分
 
@@ -278,53 +230,9 @@ app/scenes/Composition/Main.scene
 
 ---
 
-### 2.4 独立 debug 几何实验实体树
-
-[实现，app DEBUG] `GeometryExperimentActivity` 是独立启动入口，场景由
-`app/geometry-experiment-scene/Main.metaspatial` 经 Spatial Editor 导出。
-
-```text
-GeometryExperimentActivity（独立进程，拥有按钮切换与生命周期）
-└── 实验 GLXF 根
-    ├── GeometryExperimentControls → geometry_experiment_controls
-    │   固定 (0, 0.65, 2.0)，1.5 × 0.7 m；普通 UI，无视频 Surface
-    ├── GeometryExperimentAnchor
-    │   固定 (0, 1.6, 2.5)，identity、单位缩放
-    │   ├── 动态视频实体 → PanelSceneObject（最多一个）
-    │   │   local Z=-r（平面 0），zIndex=0；仅此 Surface 借给播放器
-    │   ├── ExperimentLayer.DANMAKU → PanelSceneObject + ExperimentOverlayView
-    │   │   local Z=-0.01-r（平面 -0.01），zIndex=1；透明伪弹幕，UI 资源持续保留
-    │   └── ExperimentLayer.SUBTITLE → PanelSceneObject + ExperimentOverlayView
-    │       local Z=-0.02-r（平面 -0.02），zIndex=2；透明伪字幕，UI 资源持续保留
-    └── MediaRoom
-        demo / 正式版房间资源，根节点 identity、单位缩放；显示使用 UNLIT_SHADER
-```
-
-控制面板、锚点与 `MediaRoom` 均由 mse-agent 编排在独立场景中。控制面板始终可见并独占按钮和滑条输入（zIndex=3）；视频与两层覆盖面板
-实体使用 `NoCollision`。控制面板位于视频锚点前方 0.5 m 且下方 0.95 m，
-没有外部收起几何、舞台点击或后备触摸处理。`ExperimentGeometry.carrierLocalZ` 从每层
-base Z 减去最终半径，固定三层中央表面深度，不累计位移；平面无半径项。
-两层覆盖面板由 Activity 的 `ExperimentRetainedOverlays` 持续拥有，独立于视频 generation；
-父级都是实验视频锚点，宽高/半径与视频相同，更新只 reshape 形状和设置 ECS Z；
-`ExperimentMaskMode` 只选择这两个面板内部的场景遮罩路径，不新增开孔实体或 Surface；
-仅包含 UI，SDK 自己拥有其 UI Surface，没有媒体输出消费者。`MediaRoom` 由实验 composition 拥有，父级为实验根，复用 demo / 正式版
-房间资源与 `SceneMaterial.UNLIT_SHADER`；它是环绕环境，深度由房间原始几何决定，
-不拥有视频 Surface 或按钮回调，不参与视频几何更新。已移除蓝色观察块。
-完整预设与待实机判定项记录在实验任务中。
-
 ## 3. 面板注册与内容映射
 
-### 3.0 独立实验注册
-
-[实现，app DEBUG] `geometry_experiment_controls` 仅由 `GeometryExperimentActivity`
-使用 `ViewPanelRegistration` 注册，1500 × 700 像素，三个原生按钮与两条原生 `SeekBar`。
-视频、伪弹幕、伪字幕均不注册 `Panel` 组件；首次选预设直接创建三个 `PanelSceneObject`
-并登记到 `SceneObjectSystem`。后续仅视频重建，覆盖层保留 Entity、View、UI Display 和 Surface。两层覆盖面板使用 SDK 的 View 构造函数，1280 × 720 dp @160，
-`ALPHA_BLEND`、透明背景且无玻璃，不新增资源 ID 注册项。A 模式使用
-`createExperimentMaskSceneMesh` 提供显式轴原点三角网格；原始/B 使用 SDK 网格，B 在每次
-更新后关闭该网格的颜色/深度写入。文字合成层保留。它们不使用 `PanelSlot` 或产品几何更新链。
-
-`PlaybackStageAperture` 是普通动态 `SceneObject`，不是 Panel，不新增注册项或 `PanelSlot`。
+视频 `PanelSceneObject` 由 Activity 直接登记到 `SceneObjectSystem`，不新增视频 `PanelSlot` 或独立开孔。
 
 ### 3.1 注册表（`registerPanels()`）
 
@@ -332,12 +240,12 @@ base Z 减去最终半径，固定三层中央表面深度，不累计位移；�
 | --- | --- | --- | --- | --- | --- |
 | `controls_id` | Transport | `LayoutXMLPanelRegistration`(`layout/controls.xml`) | Android View 层 | 1.32 × 0.38 | 460 × 132 @600 |
 | `video_selector_panel` | Left Detail rail | `ActivityPanelRegistration`(`MoviePanel`) | `ImmersiveLeftPanel` | 0.70 × 0.90 | 361 × 464 @800 |
-| `mode_panel` | Right Context rail | `LayoutXMLPanelRegistration`(`layout/mode_panel.xml`) | Android View 层 | 0.70 × 0.90 | 280 × 464 @600 |
+| `mode_panel` | Right Context rail | `ComposeViewPanelRegistration` | `ImmersiveRightPanel` | 0.70 × 0.90 | 361 × 464 @800 |
 | `mr_panel` | System toolbar / Global nav | `IntentPanelRegistration`(`MRPanel`) | `GlobalNavigation` | 1.24 × 0.30 | 520 × 128 @600 |
 | `center_content_panel` | Center workspace | `ComposeViewPanelRegistration` | `ImmersiveCenterContentPanel` | `centerWidth` × `centerHeight` | 768 × 615 @512 |
 | `input_method_panel` | Input console | `ComposeViewPanelRegistration` | `ImmersiveInputMethodPanel` | 1.62 × 0.68 | 832 × 348 @512 |
-| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | `PlaybackStageGeometry.viewport`，完整舞台宽高 × 共享 scale | 固定 1280×720 dp @800，与物理 16:9 匹配 |
-| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | `PlaybackStageGeometry.viewport`，方案 A，不跟视频比例变化 | 固定 1280×720 dp @800，不挤压字体 |
+| `stage_backdrop_panel` | Stage backdrop | `ComposeViewPanelRegistration` | `StageBackdrop` | `PlaybackStageGeometry.viewport`，完整舞台宽高 × 共享 scale | 固定 1280×720 dp @160，与物理 16:9 匹配 |
+| `danmaku_overlay_panel` | Danmaku overlay | `ComposeViewPanelRegistration` | `DanmakuOverlay` | `PlaybackStageGeometry.viewport`，完整 viewport，不跟视频比例变化 | 固定 1280×720 dp @160，保留 UI 资源 |
 | `grab_bar_panel` | Grab bar | `LayoutXMLPanelRegistration`(`layout/grab_bar.xml`) | 图标 + 文案 | `GRAB_BAR_WIDTH_METERS` × `GRAB_BAR_HEIGHT_METERS` | 512 × 56 @600 |
 | `wrist_debug_panel` | Wrist debug（仅 DEBUG） | `LayoutXMLPanelRegistration` | 版本号文本 | `WRIST_DEBUG_PANEL_*` | 224 × 80 @1600 |
 
@@ -354,7 +262,7 @@ NAVIGATION           -> mr_panel                 -> SYSTEM_TOOLBAR   GlobalNavig
 TRANSPORT            -> controls_id              -> TRANSPORT        controls.xml
 SHORTS_ACTIONS       -> controls_id              -> TRANSPORT        (SHORTS 呈现，未实现)
 DETAIL_RAIL          -> video_selector_panel     -> CONTEXT          ImmersiveLeftPanel
-VIDEO_CONTEXT        -> mode_panel               -> CONTEXT          mode_panel.xml
+VIDEO_CONTEXT        -> mode_panel               -> CONTEXT          ImmersiveRightPanel
 CENTER_CONTENT       -> center_content_panel     -> BROWSE           ImmersiveCenterContentPanel
 PLAYBACK_CONFIG      -> (无实体)                 -> SYSTEM_TOOLBAR   [未接线]
 (舞台压暗)            -> stage_backdrop_panel     -> MEDIA_STAGE      StageBackdrop
@@ -389,27 +297,6 @@ PLAYBACK_CONFIG      -> (无实体)                 -> SYSTEM_TOOLBAR   [未接�
 
 三者关系：`PlaybackCanvas` 的可见槽位经 `ImmersiveWorkbenchHost.applyCanvasSlots()`
 适配为 `WorkbenchEvent`，驱动 `ImmersiveWorkbenchState`。
-
-### 4.0 独立 DEBUG 遮罩模式
-
-[实现，app DEBUG] `ExperimentMaskMode` 是独立实验的局部渲染选择，不接入产品路由。
-控制板单一所有者允许任意两模式直接切换：
-
-```text
-ORIGINAL ↔ ALIGNED ↔ HIDDEN ↔ ORIGINAL
-```
-
-| 代码模式 | 控制按钮 | 行为 |
-| --- | --- | --- |
-| `ORIGINAL` | 原始：SDK 遮罩 | 当前 SDK 网格与 retained UI 对照，初始模式 |
-| `ALIGNED` | A：显式曲面遮罩 | 使用相同参数生成显式曲面遮罩候选 |
-| `HIDDEN` | B：关闭遮罩绘制 | 仅关闭覆盖层场景网格颜色/深度写入 |
-
-切换使 `ExperimentRetainedOverlays.invalidate` 作废两层缓存，在最后已提交几何上重放，
-不触发视频重建或 prepare。随后到达的滑条请求继续使用当前模式。
-失败时显示错误并隐藏覆盖层，不自动回退其他模式。用户已确认 B 符合当前预期；
-同时报告模式间存在影响，完全独立性与冷启动直接进入 B 尚未验证。方案区别与迁移边界见
-[geometry-overlay-poc.md](geometry-overlay-poc.md)。
 
 ### 4.1 `ImmersiveWorkbenchState`
 
@@ -567,46 +454,12 @@ StageInput → StageCoordinator → StageFrame → StageRenderer（接口）
                  └──── StageApplyResult ─────────┘
 ```
 
-[未接线，app] `PlaybackStageHost` 提供宿主状态映射和提交入口，但沉浸 Activity 尚未实例化它。
-当前画面仍由 `PlaybackStageController` / `PlaybackStagePanelRenderer` 驱动；没有新增 SDK 后端、
-面板注册、场景实体或视频 Surface。模块边界与验证说明见
-[playback-stage-core/README.md](../playback-stage-core/README.md)。
+[契约] core 的协调器接口保持独立，不负责正式原生渲染。
+[实现，app] 正式画面由 `PlaybackStageController` / `PlaybackStagePanelRenderer` 驱动，
+采用 §2.2 的视频直接创建与弹幕 B 策略。没有 runtime 后端选择器。
+模块边界见[playback-stage-core/README.md](../playback-stage-core/README.md)。
 
 ## 5. 面板内容结构
-
-### 5.0 独立实验控制面板
-
-[实现，app DEBUG] `geometry_experiment_controls` 显示固定锚点、三个预设的宽高和半径，
-尺寸/曲率滑条，以及请求参数、当前 generation、prepare 次数、实际形状/显示配置、三层载体 Z、覆盖层 UI Surface 身份与失败信息。
-
-```text
-geometry_experiment_controls（Android LinearLayout）
-├── 固定中央表面、Z 修正与视频重建 / 文字层保留说明
-├── 平面 / 曲面 / 放大曲面（各自显示实际参数）
-├── 原始 / A：显式曲面遮罩 / B：关闭遮罩绘制（选中标记与说明）
-├── 尺寸 SeekBar：宽 1.00–2.40 m，保持 16:9
-├── 曲率 SeekBar：半径 0.80–3.00 m，越小越弯；平面禁用
-└── 请求与实际创建结果、Surface 交接计数依据与持久失败信息
-```
-
-`ExperimentGeometry` 使用整数厘米存宽度/半径；`ExperimentGeometryUpdates` 合并拖动请求。
-控制面板是唯一输入所有者。选预设后同时显示视频、伪弹幕和伪字幕；选择预设前滑条禁用。
-拖动标签立即变化，Activity 每 100 ms 消费最新完整参数，松手立即提交最终值；
-预设重置两条滑条并作废旧请求，关闭后迟到回调无效。相同参数不重建。
-切换由 Activity 单一所有者同步执行：旧 Surface 解绑 → 旧面板销毁 →
-最终参数新建 → 新视频 Surface 绑定 → 两层覆盖面板 reshape 与 ECS Z 更新。
-覆盖层使用相同的透明配置与固定像素预算；不 resize、不重新挂载 UI，检查 reshape 后
-Surface 与 UI Display 身份不变。相同的覆盖层参数不重复 reshape。
-更新失败时隐藏覆盖层，保留已分配 UI 供重试，并清理候选视频；下一次完整成功才重新显示。
-正常更新不隐藏或停止覆盖层，关闭时独立清理 UI，即使视频消费端释放失败也停止 UI 动画。
-`ExperimentOverlayTimeline` 只读播放器位置驱动上方三行滚动伪弹幕和底部每 4 秒轮换的伪字幕；
-`ExperimentOverlayView` 挂载时启动绘制，脱离时取消回调，最终关闭时永久停止。
-其时钟不再依赖视频 generation。没有新增播放器、媒体加载或 prepare 调用。
-保留 UI 资源版已获不闪烁反馈，但出现漂浮黑色轮廓；本轮通过三模式对照验证候选。
-A 模式先初始化 SDK 的 alpha-punch 配置再安装自定义网格工厂；
-`experimentMaskMesh` 显式计算轴原点顶点与完整 UV。B 模式关闭所有颜色通道（含 alpha）
-及深度写入，不关闭面板 Visible 或文字合成层。用户已确认当前 B 表现通过；
-越界文字、视频隐藏与复杂前景遮挡仍需独立验证，不能把模式切换视为完全隔离的实验。
 
 ### 5.1 `mr_panel` — 全局导航 GlobalNavigation
 
@@ -725,32 +578,38 @@ RecommendationCard              RecommendationRow
 └── 播放量 · 点赞数
 ```
 
-### 5.4 `mode_panel` — 右 Context rail（当前为媒体状态 + 调试）
+### 5.4 `mode_panel` — 右 Context rail
+
+[实现] owner 为 `ViriViriAppState`，`ImmersiveRightPanel` 只展示状态并发出选择／重试回调。
+复用原舞台根、静态位置、父子关系和 `PanelSlot.CONTEXT` 可见性／输入策略；相对深度未改变。
+不创建新实体，不拥有视频 Surface。使用 Compose 注册，画布361×464 dp @800，匹配左 rail 比例。
 
 ```text
-mode_panel.xml（ScrollView）
-└── LinearLayout [20dp 内边距, 居中]
-    ├── current_media_title        标题（immersiveMediaStatus().title，截断 42）
-    ├── current_media_detail       副标题（加载中 / 错误 / UP 主，截断 56）
-    ├── retry_media_button         重试（仅观看页失败时可见）
-    ├── display_ratio_button       "显示比例: {PlaybackDisplayRatio.label}"
-    ├── canvas_size_button         "画布大小: {PlaybackCanvasSize.label}"
-    ├── Divider
-    ├── stage_y_text               "Stage Y: %.2f m"
-    ├── danmaku_status             "danmaku: …"
-    ├── scale_text / scale_bar     "Scale: %.2f" + 舞台缩放滑杆
-    ├── reset_stage_y_button       "Reset Y (stage height)"
-    ├── Divider
-    ├── curvature_text             共享曲率（全部层同一值）+ 弹幕基准 Z
-    ├── reset_curve_button         "Reset curve (all layers flat)" · 逃生通道
-    ├── danmaku_z_button           "Danmaku Z (cycle)" · 切换弹幕层基准 Z（当前值见 curvature_text）
-    ├── debug_build_label          DEV <git sha>（仅 DEBUG）
-    ├── debug_aspect_*             aspect 探针（仅 DEBUG：detail/target/plan/apply）
-    └── open_2d_button             "打开 2D 窗口"
+ImmersiveRightPanel -> WorkbenchPanelShell
+├── TabRow（固定40dp）：合集 / 相关视频
+└── LazyColumn（无 footer）
+    ├── 视频加载／播放失败状态、重试
+    ├── 合集 tab：分P + 当前视频的合集分组
+    │   ├── ContextVideoRow：分P缩略图 + 标题 + 时长，选中项高亮
+    │   └── ContextRecommendationRow：合集集数／分组 + 完整视频卡片，当前播放项高亮
+    └── 相关视频 tab：当前BV的相关推荐，包含加载／错误重试／空态
+        └── ContextRecommendationRow：16:9封面／时长 + 两行标题 + UP主 + 播放量／弹幕数
+
+ViriViriAppState
+├── videoContext -> VideoContextState（详情与相关推荐分别加载、分别失败）
+├── selectContextPart -> Recommendation.contentId -> createMediaSource / danmakuContentId
+└── selectContextVideo -> 新BV详情与相关推荐，保留中心浏览来源和滚动位置
 ```
 
-> 契约里 `PanelSlot.CONTEXT` 的目标内容是「选集 / 相关 / 详情」，当前 `mode_panel`
-> 只是占位；见 `.trellis/tasks/09-02-context-rail-right-panel/prd.md`。
+`VideoContextDetails` 来自稿件详情中的分P及UGC合集，不把首页推荐列表伪装成相关推荐。
+当前“合集”包含分P和UGC合集，不包含用户自建跨UP媒体列表；没有增加自动连播或队列接管。
+请求使用代次检查，旧BV／旧重试结果不能覆盖新选择。切分P时同时更新视频及弹幕cid；
+`DanmakuOverlayProps.selectedContentId` 参与运行时重建，避免同BV切P仍显示P1弹幕。
+
+原显示比例、画布预设、重置高度／平面和2D入口移至 Transport 的设置菜单；
+弹幕Z、合成顺序及遮挡保护移至现有手腕调试入口。原500ms遥测轮询随旧宿主移除。
+右 rail 不再承载调试占位，旧XML资源没有运行时注册。
+设计依据及范围见 [right-context-rail.md](right-context-rail.md)。
 
 ### 5.5 `controls_id` — Transport
 
@@ -764,7 +623,8 @@ controls.xml（LinearLayout, toolbar_bg）
 │   ├── Space(12dp)
 │   ├── volume_button      音量（点击弹出音量菜单，文本为紧凑标签）
 │   ├── quality_button     清晰度（弹出清晰度菜单）
-│   └── speed_button       倍速（弹出倍速菜单）
+│   ├── speed_button       倍速（弹出倍速菜单）
+│   └── stage_settings_button  显示设置（比例／画布预设／重置／2D）
 └── Row 2 [高 32dp]
     ├── elapsed_time  当前时间
     ├── seek_bar      进度拖动
@@ -825,20 +685,28 @@ stage_backdrop_panel（StageBackdrop）
 
 danmaku_overlay_panel（DanmakuOverlay）
 └── Canvas → DanmakuCanvasRuntime.advance(playerPosition)
-    ├── SCROLLING    12 条泳道，6s 从右向左
-    ├── TOP_FIXED     3 条泳道，4s 居中固定于上方 24% 区域
-    └── BOTTOM_FIXED  3 条泳道，4s 居中固定于下方 24% 区域
+    ├── 上部 85% 可绘区域（clipRect + danmakuBaseline，38px 基础字体 / 4px 描边）
+    │   ├── SCROLLING    12 条泳道，6s 从右向左
+    │   ├── TOP_FIXED     3 条泳道，4s 居中固定于可绘区域上方 24%
+    │   └── BOTTOM_FIXED  3 条泳道，4s 居中固定于可绘区域下方 24%
+    └── 底部 15% 透明留白，预留字幕；当前没有字幕 layer
 ```
 
 两条覆盖层都是 `MeshCollision.NoCollision`，只渲染、不吃射线；
-压暗层默认 `Visible(false)`，弹幕层默认 `Visible(true)`。
+压暗层默认 `Visible(false)`，弹幕层初始隐藏，首个完整 B 几何提交后显示。
+`DanmakuRenderConfig.showArea` 默认 0.85，作用于全部弹幕类型；固定底部弹幕上移到可绘区域内。
+`danmakuBaseline` 计入字形上下边界和半描边宽，Canvas 再裁剪保证大字号不侵入预留区。
+字体与测量缓存共同使用 `DANMAKU_TEXT_SIZE_PX` / `DANMAKU_OUTLINE_WIDTH_PX`，
+只调整文字像素和排布，不改变面板 shape、Surface、曲率、B 策略或视频更新频率。
 
-### 5.7.1 `PlaybackStageAperture` — 表面开孔
+### 5.7.1 `videoSurfaceEntity` — 视频显示资源
 
-[实现] owner 为 `PlaybackStagePanelRenderer` / Activity 生命周期；parent 为舞台根。
-可见性跟随视频；输入为 NoCollision，无监听；相对深度使用 scaled video base。
-只有 mesh 与材质，不持有视频 Surface／播放器；半径变化不改变其载体 Z。
-视频轴载体仍存在，但关闭颜色／深度写入，不生成第二个开孔。
+[实现] owner 为 Activity 的 `replaceProductionVideo` / 主线程帧；parent 为舞台根。
+Visible 沿用既有播放画布；输入为 NoCollision、零 clickButtons，无视频原生点击监听。
+相对深度为 scaled video base 减有效半径，平面仅 scaled base。
+它拥有唯一 SDK 视频 Surface，播放器仅借用。变更形状时按身份解绑、销毁、创建与重绑，
+没有单独的开孔 sibling。Activity 终止状态阻断新帧后，由 `disposeProductionVideo` 解绑、注销并销毁持有面板，
+再销毁动态视频 entity；注册 UI 沿用 SDK 清理。
 
 ### 5.8 `grab_bar_panel` — 抓手条
 
@@ -907,8 +775,6 @@ PancakeActivity → PancakeScreen（MaterialTheme）
 
 | 术语 | 代码 | 状态 |
 | --- | --- | --- |
-| 调试遮罩候选模式 | `ExperimentMaskMode` | [实现] app DEBUG，见 §4.0 |
-| 显式曲面遮罩候选网格 | `experimentMaskMesh` / `createExperimentMaskSceneMesh` | [实现] app DEBUG，仅面板内部网格 |
 | 工作台锚点 | `workbenchRootEntity`（`Entity.create`，运行时持有；`R.id.workbench_root` 已声明但未被引用） | 实现 |
 | 媒体舞台 / MediaStage | `R.id.spatialized_video_panel` | 实现 |
 | 视频表面 / video surface | `videoSurfaceEntity`（`Entity.create`，运行时持有；媒体面板与其 `IsdkPanelDimensions`、`Hittable` 都绑在它上面） | 实现 |
@@ -1005,7 +871,6 @@ SHORTS_COMMENTS  [契约]
 | 曲率编辑器 | `AnalogMediaStageTuningSystem` | 右摇杆更新 `ViriViriUiState.playbackCurvature`，宿主通过 `applyPlaybackStageParameters` 把完整参数提交给 `PlaybackStageController`；`PlaybackStageGeometrySystem` 等待全部面板就绪，再由 `PlaybackStagePanelRenderer` 同步提交 shape、完整帧 UV、单位 scale 和绝对半径补偿。视频/开孔同 shape，弹幕和压暗层为完整 viewport。原覆盖层重试和视频一次性重放已删除；持久化键不变 |
 | 媒体状态 | `ImmersiveMediaStatus` / `immersiveMediaStatus()` | 标题 + 副标题 |
 | 播放呈现契约 | `StageInput` / `StageLayout` / `StageCoordinator` / `StageRenderer` | [契约，playback-stage-core] 参数与资源提交协调；未接管实际画面，见 4.4 |
-| 播放呈现宿主适配 | `PlaybackStageHost` | [未接线，app] 已有状态到新契约的映射；与现有 `PlaybackStageController` 区分 |
 
 ### 6.8 视觉与主题
 
@@ -1057,8 +922,9 @@ SHORTS_COMMENTS  [契约]
    `WorkbenchPresentation.SHORTS`、`WorkbenchContent.FOCUS` 均无对应实体或行为。
 6. **未使用的资源**
    `res/layout/window_2d.xml`、`res/layout/debug.xml`、`res/values/ids.xml` 中的
-   `debug_panel` 与 `workbench_root` 均无引用（2D 窗口已改为 Compose，调试遥测已并入
-   `mode_panel.xml`，锚点实体只由 `workbenchRootEntity` 持有）。
+   `debug_panel` 与 `workbench_root` 均无引用。2D 窗口已改为 Compose；
+   `mode_panel.xml` 也已无运行时注册，右 rail 改为 Compose，部分调试动作迁到现有手腕入口。
+   锚点实体只由 `workbenchRootEntity` 持有。
 7. **`PanelSlot.FOCUS` / `PanelSlot.SHORTS_DETAILS` / `PanelSlot.SHORTS_COMMENTS`**
    仅被 `CinemaTheme.create()` 的 fixture 引用，未映射到任何实体。
 8. **`ImmersiveLayoutMode` 与 `WorkbenchPresentation` 描述同一维度**

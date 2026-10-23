@@ -27,7 +27,7 @@ class StageGeometryTest {
 
   @Test fun scalingAndRawCurvatureMatrixHasFixedBottomAnchorWithoutAxisKnowledge() {
     for (scale in listOf(0.7f, 1f, 2f)) {
-      for (rawRadius in listOf(null, 1.5f, 2.7f, 7.9f)) {
+      for (rawRadius in listOf(null, 1.5f, 2.7f, 7.9f, 8f)) {
         val curvature = rawRadius?.let { StageCurvature.Cylinder(it) } ?: StageCurvature.Flat
         val layout = solveStageLayout(StageInput(StageParameters(scale, curvature = curvature)))
         near(1.6f * scale, layout.viewport.width)
@@ -42,6 +42,7 @@ class StageGeometryTest {
       }
     }
     near(15.8f, solveStageLayout(StageInput(StageParameters(2f, curvature = StageCurvature.Cylinder(7.9f)))).video.effectiveRadiusMeters!!)
+    near(16f, solveStageLayout(StageInput(StageParameters(2f, curvature = StageCurvature.Cylinder(8f)))).video.effectiveRadiusMeters!!)
     near(1.05f, solveStageLayout(StageInput(StageParameters(0.7f, curvature = StageCurvature.Cylinder(1.5f)))).video.effectiveRadiusMeters!!)
   }
 
@@ -55,7 +56,7 @@ class StageGeometryTest {
     }
     near(1.12f, solveStageLayout(StageInput(StageParameters(-1f))).viewport.width)
     near(3.2f, solveStageLayout(StageInput(StageParameters(99f))).viewport.width)
-    for (radius in listOf(Float.NaN, Float.POSITIVE_INFINITY, -1f, 0f, 8f, 99f)) {
+    for (radius in listOf(Float.NaN, Float.POSITIVE_INFINITY, -1f, 0f, 8.001f, 99f)) {
       assertNull(solveStageLayout(StageInput(StageParameters(curvature = StageCurvature.Cylinder(radius)))).video.effectiveRadiusMeters)
     }
     near(1.5f, solveStageLayout(StageInput(StageParameters(curvature = StageCurvature.Cylinder(0.2f)))).video.effectiveRadiusMeters!!)
@@ -63,6 +64,18 @@ class StageGeometryTest {
       near(1.2f, solveStageLayout(StageInput(StageParameters(targetAspect = aspect), StageVideoMetrics(4, 3))).video.size.width)
     }
     assertEquals(StageSize(1.6f, 0.9f), solveStageLayout(StageInput(video = StageVideoMetrics(-1, 0))).video.size)
+  }
+
+  @Test fun rawCurvatureIncludesBothBoundsAndRejectsOnlyAboveMaximum() {
+    assertEquals(StageCurvature.Cylinder(1.5f), StageCurvature.fromRawRadius(1.5f))
+    assertEquals(StageCurvature.Cylinder(1.5f), StageCurvature.fromRawRadius(0.5f))
+    assertEquals(StageCurvature.Cylinder(8f), StageCurvature.fromRawRadius(8f))
+    assertEquals(StageCurvature.Flat, StageCurvature.fromRawRadius(8.001f))
+    assertEquals(StageCurvature.Flat, StageCurvature.fromRawRadius(null))
+    val parameters = StageParameters(2f, curvature = StageCurvature.Cylinder(8f))
+    assertEquals(parameters, parameters.normalized())
+    val layout = solveStageLayout(StageInput(parameters))
+    for (role in StageRole.entries) near(16f, layout.layer(role).effectiveRadiusMeters!!)
   }
 
   @Test fun repeatedRoundTripsAreAbsoluteAndDoNotAccumulate() {

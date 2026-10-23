@@ -194,3 +194,52 @@ classes, protocol adapters, or `Surface` ownership.
 
 **Fix**: Keep platform behavior in the Activity or `PlayerSession`, then pass
 neutral state and callbacks into shared composables.
+
+
+### Danmaku pixel typography and subtitle reservation
+
+The retained overlay raster is 1280x720 dp at 160 dpi. Raw Paint sizes are pixels,
+not dp: default base 38px/outline4px is shared by rendering and measured metrics
+in prepareDanmaku/DanmakuStreamSource. Changing only drawn text breaks collision
+width and centered placement. Reuse Paint.FontMetrics rather than allocate it
+per item per frame. Provider fontScale applies to both measurement and drawing.
+
+DanmakuRenderConfig.showArea defaults to .85 and bounds all families, including
+BOTTOM_FIXED. danmakuBaseline uses the usable height plus font top/bottom and
+half outline; clip the Canvas to the same usable height for oversized text.
+The remaining bottom15% stays transparent for future subtitles. Do not shrink,
+translate or crop the spatial panel to reserve pixels, and do not create a new
+subtitle panel or media output as part of this typography change.
+
+All comment families use the scrolling baseline grid: drawable height divided
+by scrollingLaneCount+1. Top-fixed occupies its first fixedLaneCount slots;
+bottom-fixed occupies its last slots. Do not give fixed comments a separate
+font-bounds-plus-gap spacing: user acceptance requires the regular visual pitch.
+Retain font/outline boundary clamps and subtitle reservation for every family.
+Lane admission and scrolling motion stay independent of vertical placement.
+
+### Right Context rail and multipart identity
+
+ImmersiveRightPanel renders parts/UGC collection and current-BV related videos
+from ViriViriAppState.videoContext. Provider network calls stay outside Compose.
+Details and related have independent loading/errors; generation + selected-BV
+checks reject stale completions. Context selection preserves browse origin.
+Recommendation.contentId must survive source creation, retry, quality changes
+and danmaku resolution. Key overlay runtime by BV and cid, not BV alone.
+Reuse mode_panel and its parent/visibility/input owner; no media Surface.
+Match the left361x464 raster for the same0.70x0.90m shape. Product display
+settings belong in Transport; debug actions use the existing wrist entry.
+
+Treat Penpot as a layout reference. ContextRecommendationRow must expose uploader,
+views and danmaku count, with two-line titles and a 16:9 duration-badged cover.
+Reuse Recommendation fields and formatMetric; do not fetch per-row metadata.
+Keep unknown counters distinct from zero and keep multipart rows compact.
+
+Collection and related tabs own separate LazyListState instances and lazy
+composition identities. Preserve each on tab switch; reset per BV. Context
+rows request missing thumbnails on entry/publication eviction. Cache hits must
+republish to the UI snapshot; inflight deduplication must not be evicted by the
+completed-result LRU. Failed images retry explicitly, not on recomposition.
+Limit downloads to four and decode one bounded HTTP response per image.
+Collection arc.author/owner and stat populate the same video card contract;
+never substitute the current BV cover for another episode with missing art.

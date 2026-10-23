@@ -64,6 +64,8 @@ internal class PlaybackStageController<T : Any>(
 
   @Volatile var layout: PlaybackStageLayout = buildLayout()
     private set
+  @Volatile var appliedLayout: PlaybackStageLayout? = null
+    private set
 
   val diagnostic: SpatialVideoAspectDiagnostic
     get() = synchronized(this) { spatialVideoAspectDiagnostic(
@@ -102,19 +104,28 @@ internal class PlaybackStageController<T : Any>(
   @Synchronized fun flush() {
     if (closed) return
     val panels = linkedMapOf<PlaybackStageLayer, T>()
-    for (role in PlaybackStageLayer.entries) panels[role] = resolve(role) ?: return
-    if (appliedRevision == revision && panels.all { (role, panel) -> appliedPanels[role] === panel }) return
+    for (role in PlaybackStageLayer.entries) {
+      val panel = resolve(role) ?: run { appliedLayout = null; return }
+      panels[role] = panel
+    }
+    if (appliedLayout != null && appliedRevision == revision &&
+        panels.all { (role, panel) -> appliedPanels[role] === panel }) return
     val pendingRevision = revision
     val pendingLayout = layout
-    if (commit(pendingLayout, panels)) {
+    appliedLayout = null // A failed/partial update must not remain an input target.
+    if (commit(pendingLayout, panels) && !closed) {
       appliedRevision = pendingRevision
-      appliedPanels = panels
+      // The video may have been replaced as part of this exact successful transaction.
+      // Acknowledge its new identity so the next frame doesn't reshape retained UI again.
+      appliedPanels = panels.mapValues { (role, panel) -> resolve(role) ?: panel }
+      appliedLayout = pendingLayout
     }
   }
 
   @Synchronized fun close() {
     closed = true
     appliedPanels = emptyMap()
+    appliedLayout = null
   }
 
   private fun rebuild() {

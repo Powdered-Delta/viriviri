@@ -39,15 +39,15 @@ sealed interface PlaybackStageCurvature {
    * Steps this curvature by [curveDelta] metres of radius. A positive delta curves the layer
    * tighter (smaller radius), a negative delta flattens it back out.
    *
-   * [Flat] has no radius, so the first tightening step starts from [MAX_RADIUS_METERS]; and any step
-   * that reaches or passes [MAX_RADIUS_METERS] collapses back to [Flat]. That keeps "flat" reachable
-   * from either direction, which is what the thumbstick control needs.
+   * [Flat] has no radius, so its first positive step enters [MAX_RADIUS_METERS] exactly without
+   * consuming the delta. Subsequent steps adjust the cylinder radius. Exactly [MAX_RADIUS_METERS]
+   * remains curved; only a larger radius becomes [Flat]. Loosening [Flat] keeps it flat.
    */
   fun adjustedBy(curveDelta: Float): PlaybackStageCurvature {
     if (curveDelta == 0f || !curveDelta.isFinite()) return this
-    val currentRadiusMeters = radiusOrNull() ?: MAX_RADIUS_METERS
-    val nextRadiusMeters = currentRadiusMeters - curveDelta
-    if (nextRadiusMeters >= MAX_RADIUS_METERS) return Flat
+    if (this == Flat) return if (curveDelta > 0f) Cylinder(MAX_RADIUS_METERS) else Flat
+    val nextRadiusMeters = (this as Cylinder).radiusMeters - curveDelta
+    if (nextRadiusMeters > MAX_RADIUS_METERS) return Flat
     return Cylinder(nextRadiusMeters.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS))
   }
 
@@ -76,13 +76,8 @@ sealed interface PlaybackStageCurvature {
     const val MIN_RADIUS_METERS: Float = 1.5f
 
     /**
-     * Largest allowed cylinder radius; beyond this it is treated as flat.
-     *
-     * Deliberately close to [MIN_RADIUS_METERS]. The visible edge offset of a curved stage is
-     * The visible edge offset of a curved stage is `halfWidth^2 / (2R)`, so the top of the range is
-     * always its least legible part: about 6 cm at 8 m for the 2 m wide stage, against 33 cm at the
-     * 1.5 m minimum. Expect the first thumbstick step out of [Flat] to look almost flat — tighten
-     * further before judging a curvature.
+     * Inclusive maximum raw control/persistence radius. Larger raw radii become [Flat].
+     * Effective render radii derived by [scaledBy] may exceed this boundary.
      */
     const val MAX_RADIUS_METERS: Float = 8f
 
@@ -99,18 +94,13 @@ sealed interface PlaybackStageCurvature {
     /**
      * Rehydrates a persisted radius.
      *
-     * Null, non-finite, or non-positive values resolve to [Flat] — and so does any radius at or beyond
-     * [MAX_RADIUS_METERS], the same threshold [adjustedBy] uses to collapse back to [Flat].
-     *
-     * Clamping those to `Cylinder(MAX_RADIUS_METERS)` instead produced a state the control cannot
-     * reach. Once the flatmost radius dropped from 20 m to 6 m, every stale preference landed on
-     * exactly `Cylinder(6.0)`: not flat, but a barely-curved cylinder — and one that carried a full
-     * 6 m surface offset plus a `CylinderShapeOptions` instead of a quad. Remaining positive values
-     * are clamped up to [MIN_RADIUS_METERS].
+     * Null, non-finite, non-positive, or greater than [MAX_RADIUS_METERS] values resolve to [Flat].
+     * The maximum remains a cylinder and positive values below [MIN_RADIUS_METERS] clamp upward.
+     * This raw boundary must not be applied to effective render radii derived by [scaledBy].
      */
     fun fromRadius(radiusMeters: Float?): PlaybackStageCurvature {
       if (radiusMeters == null || !radiusMeters.isFinite() || radiusMeters <= 0f) return Flat
-      if (radiusMeters >= MAX_RADIUS_METERS) return Flat
+      if (radiusMeters > MAX_RADIUS_METERS) return Flat
       return Cylinder(radiusMeters.coerceIn(MIN_RADIUS_METERS, MAX_RADIUS_METERS))
     }
   }

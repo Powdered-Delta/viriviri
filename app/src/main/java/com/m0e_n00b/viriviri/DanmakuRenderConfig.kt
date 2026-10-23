@@ -28,8 +28,8 @@ data class DanmakuRenderConfig(
      * legacy "always place" behavior (packs every event into the least-busy lane).
      */
     val rejectWhenNoFreeLane: Boolean = true,
-    /** Fraction (0..1) of canvas height usable by scrolling comments (rest stays clear). */
-    val showArea: Float = 1f,
+    /** Fraction (0..1) of canvas height usable by all comment families; bottom stays clear for subtitles. */
+    val showArea: Float = 0.85f,
 ) {
   init {
     require(scrollingLaneCount > 0) { "scrollingLaneCount must be positive" }

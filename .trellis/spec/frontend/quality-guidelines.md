@@ -49,3 +49,9 @@ Questions to answer:
 <!-- What reviewers should check -->
 
 (To be filled by the team)
+
+
+## APK artifact naming
+
+Preserve the Windows build script output name app-debug.apk. Do not rename or
+create additional named APK copies unless the user explicitly requests it.

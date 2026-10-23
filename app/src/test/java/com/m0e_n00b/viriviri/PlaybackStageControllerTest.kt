@@ -223,4 +223,86 @@ class PlaybackStageControllerTest {
     controller.flush()
     assertEquals(2, layouts.size)
   }
+
+  @Test fun videoReplacedDuringSuccessfulCommitDoesNotReplayRetainedUi() {
+    val panels = PlaybackStageLayer.entries.associateWith { Panel() }.toMutableMap()
+    val retainedDanmaku = panels.getValue(PlaybackStageLayer.DANMAKU)
+    var commits = 0
+    val controller = PlaybackStageController(1.6f, 0.9f, { panels[it] }) { _, _ ->
+      commits++
+      panels[PlaybackStageLayer.VIDEO] = Panel()
+      true
+    }
+    assertNull(controller.appliedLayout)
+    controller.flush()
+    assertEquals(controller.layout, controller.appliedLayout)
+    repeat(8) { controller.flush() }
+    assertEquals(1, commits)
+    assertSame(retainedDanmaku, panels[PlaybackStageLayer.DANMAKU])
+    controller.setParameters(PlaybackStageParameters(scale = 1.5f))
+    controller.setParameters(PlaybackStageParameters(scale = 2f))
+    controller.flush()
+    controller.flush()
+    assertEquals(2, commits)
+    assertEquals(3.2f, controller.appliedLayout!!.geometry.viewport.widthMeters, 0.0001f)
+  }
+
+  @Test fun failedReplacementHasNoInputTargetAndRetriesTheLatestCompleteLayout() {
+    val panels = PlaybackStageLayer.entries.associateWith { Panel() }.toMutableMap()
+    var fail = false
+    var commits = 0
+    val controller = PlaybackStageController(1.6f, 0.9f, { panels[it] }) { _, _ ->
+      commits++
+      panels[PlaybackStageLayer.VIDEO] = Panel()
+      if (fail) error("SDK bind failed after resource creation")
+      true
+    }
+    controller.flush()
+    fail = true
+    controller.setParameters(PlaybackStageParameters(scale = 1.5f))
+    assertThrows(IllegalStateException::class.java) { controller.flush() }
+    assertNull(controller.appliedLayout)
+    controller.setParameters(PlaybackStageParameters(scale = 2f))
+    fail = false
+    controller.flush()
+    controller.flush()
+    assertEquals(3, commits)
+    assertEquals(3.2f, controller.appliedLayout!!.geometry.viewport.widthMeters, 0.0001f)
+    controller.close()
+    assertNull(controller.appliedLayout)
+    controller.invalidate()
+    controller.flush()
+    assertEquals(3, commits)
+  }
+
+  @Test fun closeInsideCommitCannotRestoreAnAppliedInputTarget() {
+    val panel = Panel()
+    lateinit var controller: PlaybackStageController<Panel>
+    var commits = 0
+    controller = PlaybackStageController(1.6f, 0.9f, { panel }) { _, _ ->
+      commits++
+      controller.close()
+      true
+    }
+    controller.flush()
+    controller.flush()
+    assertEquals(1, commits)
+    assertNull(controller.appliedLayout)
+  }
+
+  @Test fun temporaryMissingPanelRestoresInputWhenTheSameResourceReturns() {
+    val host = Host()
+    host.readyAll()
+    host.controller.flush()
+    assertNotNull(host.controller.appliedLayout)
+    val retained = host.ready.remove(PlaybackStageLayer.DANMAKU)!!
+    host.controller.flush()
+    assertNull(host.controller.appliedLayout)
+    host.ready[PlaybackStageLayer.DANMAKU] = retained
+    host.controller.flush()
+    assertNotNull(host.controller.appliedLayout)
+    assertEquals(2, host.commits.size)
+    host.controller.flush()
+    assertEquals(2, host.commits.size)
+  }
 }

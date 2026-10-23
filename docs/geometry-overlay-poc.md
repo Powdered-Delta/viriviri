@@ -63,3 +63,7 @@ Activity 为 `com.m0e_n00b.viriviri.geometryexperiment.GeometryExperimentActivit
 app 241 项、core 24 项，共 265 项测试全部通过；APK CRC、实验类与 Cozy 资源检查通过。
 独立构建日志保存在本地 `temp/geometry-poc-isolated-build.log`。
 CPU 测试和构建不替代头显视觉验收。
+
+
+正式入口的完整替换实现与验收边界见 [production-stage-rendering.md](production-stage-rendering.md)。
+本文件继续记录原理验证分支的历史现场，三模式切换不进入正式入口。

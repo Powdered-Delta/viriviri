@@ -133,3 +133,45 @@ Button(onClick = { appState.selectRecommendation(video) }) { /* ... */ }
 
 `ViriViriAppState` delegates parsing to the provider and updates the shared
 viewer state while the active host manages only its output Surface.
+
+## Multipart playback and right Context rail (2026-10-23)
+
+### 1. Scope / Trigger
+Context parts/UGC collection/current-BV related videos. No automatic queue takeover.
+
+### 2. Signatures
+BilibiliPlaybackProvider.createMediaSource(videoId, quality, contentId: Long? = null)
+BilibiliPlaybackProvider.danmakuContentId(videoId, contentId: Long? = null)
+Internal loadVideoContext(videoId), loadRelatedVideos(videoId).
+AppState.selectContextPart(contentId), selectContextVideo(video), retryVideoContext().
+
+### 3. Contracts
+view.data.pages -> VideoPart(cid, page, part, duration); invalid cid skipped.
+view.data.ugc_season.sections[].episodes -> ordered collection sections/videos.
+archive/related?bvid -> related list; skip current BV and deduplicate BV.
+Explicit positive cid bypasses first-page cid resolution for media and danmaku.
+Selection retains cid across quality/retry. DanmakuOverlay runtime keys on BV+cid.
+Context state is separate from center browse state. Part/context selection must
+preserve browse return target and scroll. Separate detail/related jobs and errors;
+request generation + currently selected BV gate completion after cancellation.
+
+### 4. Validation / Error Matrix
+Empty/single-P -> empty collection UI, not fake items. Missing BV/cid -> skip row.
+Detail failure -> retryable details error; related result remains usable and vice versa.
+Late A result after B selection or A/B/A -> ignore stale generation even if BV matches.
+User selects P2 -> video and danmaku use P2 cid, not merely highlighted title.
+
+### 5. Good / Base / Bad Cases
+Good: explicit P2 selection changes immutable cid, source and overlay runtime.
+Base: HTTP412 shown as a detail error, not successful empty data.
+Bad: all parts call createMediaSource(BV) with no cid or reuse P1 overlay runtime.
+
+### 6. Tests Required
+VideoContextTest covers part order/dedup/invalid cid, section order and episode
+cid, immutable part selection metadata/URL and first-part highlighting/empty data.
+Headset checks still required for source content, input, scrolling, thumbnail and menus.
+
+### 7. Wrong vs Correct
+Wrong: select a P2 row but resolveContentId(BV) unconditionally chooses P1.
+Correct: retain Recommendation.contentId, pass to media/danmaku provider methods,
+and include it in the overlay remember key. Do not create a second player.

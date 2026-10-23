@@ -12,6 +12,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.m0e_n00b.spatialworkbench.core.DanmakuLaneFamily
@@ -51,6 +52,8 @@ internal data class DanmakuOverlayProps(
     val playerPositionMs: () -> Long,
     /** Whether playback is running, which selects the frame cadence. */
     val isPlaying: () -> Boolean,
+    /** Parts of the same BV need separate runtimes and cid-backed sources. */
+    val selectedContentId: Long? = null,
 )
 
 @Composable
@@ -69,7 +72,7 @@ internal fun DanmakuOverlay(props: DanmakuOverlayProps) {
     }
   }
   val selectedVideoId = props.selectedVideoId
-  val runtime = remember(selectedVideoId) {
+  val runtime = remember(selectedVideoId, props.selectedContentId) {
     val videoId = selectedVideoId ?: return@remember null
     DanmakuCanvasRuntime(props.streamSourceFor(videoId))
   }
@@ -82,6 +85,7 @@ internal fun DanmakuOverlay(props: DanmakuOverlayProps) {
       color = android.graphics.Color.BLACK
     }
   }
+  val fontMetrics = remember { Paint.FontMetrics() }
   Canvas(modifier = Modifier.fillMaxSize()) {
     val activeRuntime = runtime ?: return@Canvas
     activeRuntime.advance(frameTick)
@@ -89,31 +93,30 @@ internal fun DanmakuOverlay(props: DanmakuOverlayProps) {
     // overlay-local copies, so the renderer cannot drift from the scheduler that placed these
     // items into their lanes.
     val config = activeRuntime.config
-    drawIntoCanvas { canvas ->
-      for (item in activeRuntime.active) {
-        val duration =
-            if (item.family == DanmakuLaneFamily.SCROLLING) config.scrollingDurationMs
-            else config.fixedDurationMs
-        val metrics = item.metrics
-        fillPaint.textSize = DANMAKU_TEXT_SIZE_PX * metrics.fontScale
-        outlinePaint.textSize = DANMAKU_TEXT_SIZE_PX * metrics.fontScale
-        outlinePaint.strokeWidth = metrics.outlineWidthPx
-        fillPaint.color = metrics.textColorArgb
-        val y = (item.lane + 1) * size.height / (config.scrollingLaneCount + 1)
-        val elapsed = (frameTick - item.startTickMs).coerceIn(0L, duration).toFloat() / duration
-        val x = when (item.family) {
-          DanmakuLaneFamily.SCROLLING -> size.width - elapsed * (size.width + metrics.textWidthPx)
-          DanmakuLaneFamily.TOP_FIXED, DanmakuLaneFamily.BOTTOM_FIXED -> (size.width - metrics.textWidthPx) / 2f
+    val drawableHeight = size.height * config.showArea
+    if (drawableHeight <= 0f) return@Canvas
+    clipRect(bottom = drawableHeight) {
+      drawIntoCanvas { canvas ->
+        for (item in activeRuntime.active) {
+          val duration =
+              if (item.family == DanmakuLaneFamily.SCROLLING) config.scrollingDurationMs
+              else config.fixedDurationMs
+          val metrics = item.metrics
+          fillPaint.textSize = DANMAKU_TEXT_SIZE_PX * metrics.fontScale
+          outlinePaint.textSize = DANMAKU_TEXT_SIZE_PX * metrics.fontScale
+          outlinePaint.strokeWidth = metrics.outlineWidthPx
+          fillPaint.color = metrics.textColorArgb
+          val elapsed = (frameTick - item.startTickMs).coerceIn(0L, duration).toFloat() / duration
+          val x = when (item.family) {
+            DanmakuLaneFamily.SCROLLING -> size.width - elapsed * (size.width + metrics.textWidthPx)
+            DanmakuLaneFamily.TOP_FIXED, DanmakuLaneFamily.BOTTOM_FIXED -> (size.width - metrics.textWidthPx) / 2f
+          }
+          fillPaint.getFontMetrics(fontMetrics)
+          val baseline = danmakuBaseline(item.family, item.lane, config, size.height,
+              fontMetrics.top, fontMetrics.bottom, metrics.outlineWidthPx)
+          canvas.nativeCanvas.drawText(item.event.text, x, baseline, outlinePaint)
+          canvas.nativeCanvas.drawText(item.event.text, x, baseline, fillPaint)
         }
-        val fixedY = when (item.family) {
-          DanmakuLaneFamily.TOP_FIXED ->
-              (item.lane + 1) * size.height * 0.24f / (config.fixedLaneCount + 1)
-          DanmakuLaneFamily.BOTTOM_FIXED ->
-              size.height * (0.76f + (item.lane + 1) * 0.24f / (config.fixedLaneCount + 1))
-          DanmakuLaneFamily.SCROLLING -> y
-        }
-        canvas.nativeCanvas.drawText(item.event.text, x, fixedY, outlinePaint)
-        canvas.nativeCanvas.drawText(item.event.text, x, fixedY, fillPaint)
       }
     }
   }

@@ -35,6 +35,9 @@ data class Recommendation(
     val publishedAtEpochSeconds: Long? = null,
     val danmakuCount: Long? = null,
     val favoriteCount: Long? = null,
+    val contentId: Long? = null,
+    val partNumber: Int? = null,
+    val partTitle: String? = null,
 )
 
 internal fun recommendationAccess(
@@ -287,8 +290,32 @@ class BilibiliPlaybackProvider(
     return mapVideoSearchResults(response)
   }
 
-  fun createMediaSource(videoId: String, quality: PlaybackQuality = PlaybackQuality.AUTO): MediaSource {
-    val cid = resolveContentId(videoId)
+  internal fun loadVideoContext(videoId: String): VideoContextDetails {
+    val response = getJson("$apiBaseUrl/x/web-interface/view?bvid=${encode(videoId)}")
+    requireSuccess(response)
+    val data = response.optJSONObject("data")
+        ?: throw PlaybackProviderException("Video details are unavailable")
+    return parseVideoContext(data)
+  }
+
+  internal fun loadRelatedVideos(videoId: String): List<Recommendation> {
+    val response = getJson("$apiBaseUrl/x/web-interface/archive/related?bvid=${encode(videoId)}")
+    requireSuccess(response)
+    val data = response.optJSONArray("data") ?: return emptyList()
+    return buildList {
+      for (i in 0 until data.length()) {
+        val item = data.optJSONObject(i) ?: continue
+        mapRecommendationItem(item)?.takeIf { it.videoId != videoId }?.let { add(it) }
+      }
+    }.distinctBy { it.videoId }
+  }
+
+  fun createMediaSource(
+      videoId: String,
+      quality: PlaybackQuality = PlaybackQuality.AUTO,
+      contentId: Long? = null,
+  ): MediaSource {
+    val cid = contentId?.takeIf { it > 0 } ?: resolveContentId(videoId)
     val nav = getJson("$apiBaseUrl/x/web-interface/nav")
     // Anonymous nav responses use code -101 but still expose the public WBI key material.
     val wbi = nav.optJSONObject("data")?.optJSONObject("wbi_img")
@@ -339,7 +366,8 @@ class BilibiliPlaybackProvider(
       parseBilibiliDanmakuXml(getText("$apiBaseUrl/x/v1/dm/list.so?oid=${resolveContentId(videoId)}"))
 
   /** Resolves the danmaku content id (cid) used by both the legacy and segmented danmaku APIs. */
-  fun danmakuContentId(videoId: String): Long = resolveContentId(videoId)
+  fun danmakuContentId(videoId: String, contentId: Long? = null): Long =
+      contentId?.takeIf { it > 0 } ?: resolveContentId(videoId)
 
   /**
    * Fetches one 6-minute danmaku segment as protobuf (seg.so) and decodes it. Segments are

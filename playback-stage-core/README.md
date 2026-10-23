@@ -4,11 +4,12 @@ Pure Kotlin/JVM contracts, geometry and frame coordination for the presentation 
 Only the Kotlin standard library is used at runtime; tests use JUnit. There are no Android,
 Meta SDK, Media3, Compose, app or workbench dependencies.
 
-This is **contract-only groundwork**. `PlaybackStageHost` in the app maps existing app state,
-video metrics and explicit layer presentation to an injected `StageCoordinator`. It is exercised
-by app JVM tests, but the immersive Activity does not instantiate it. The current production
-controller, panel renderer, decoder Surface, aperture, texture sampling and input paths are unchanged.
-There is no SDK backend or build selector yet. M2/M3 and headset gates remain pending.
+This module contains SDK-independent contracts. The app no longer contains the
+old Host adapter or an opt-in SDK backend. Production rendering is owned by
+PlaybackStageController and PlaybackStagePanelRenderer in the app, using direct
+video replacement and retained danmaku with scene writes disabled. These core
+contracts are not a second runtime rendering path or a fallback implementation.
+See [production rendering](../docs/production-stage-rendering.md).
 
 ## Geometry
 
@@ -54,10 +55,9 @@ On Windows with JDK 17:
 
 ```powershell
 .\gradlew.bat :playback-stage-core:test
-.\gradlew.bat :app:testDebugUnitTest --tests '*PlaybackStageHostTest'
 .\scripts\build-windows-debug.ps1
 ```
 
 The Windows script includes the core test task before app tests and APK assembly.
-Build/test success is resource-contract evidence only. No new backend has been submitted to
-native resources, and no visual acceptance or device action is claimed.
+Build/test success is resource-contract evidence only; it does not establish production
+headset visual acceptance. The debug POC B acceptance is recorded separately.

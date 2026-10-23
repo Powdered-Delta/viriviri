@@ -9,8 +9,8 @@ data class DanmakuLaneAssignment(
     val fixedLane: Int,
 )
 
-internal const val DANMAKU_TEXT_SIZE_PX = 152f
-internal const val DANMAKU_OUTLINE_WIDTH_PX = 16f
+internal const val DANMAKU_TEXT_SIZE_PX = 38f
+internal const val DANMAKU_OUTLINE_WIDTH_PX = 4f
 
 internal data class PreparedDanmaku(
     val events: List<DanmakuEvent>,

@@ -56,9 +56,6 @@ android {
         (project.findProperty("viriviri.inputInjection") as String?)?.toBooleanStrictOrNull() ?: false
     buildConfigField("boolean", "INPUT_INJECTION_ENABLED", inputInjectionEnabled.toString())
 
-    // Video axis carrier keeps bounds but writes no scene color/depth. PlaybackStageAperture owns
-    // the surface-centered opening; both derive scaled dimensions/radius from the same shape.
-
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
     // Update the ndkVersion to the right version for your app
@@ -95,6 +92,7 @@ dependencies {
   implementation(project(":playback-stage-core"))
   implementation(libs.androidx.core.ktx)
   testImplementation(libs.junit)
+  testImplementation("org.json:json:20240303")
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.espresso.core)
 
@@ -143,10 +141,6 @@ spatial {
       item {
         projectPath.set(sceneDirectory.file("Main.metaspatial"))
         outputPath.set(projectDir.dir("src/main/assets/scenes"))
-      }
-      item {
-        projectPath.set(projectDir.file("geometry-experiment-scene/Main.metaspatial"))
-        outputPath.set(projectDir.dir("src/debug/assets/geometry-experiment"))
       }
     }
     hotReload {

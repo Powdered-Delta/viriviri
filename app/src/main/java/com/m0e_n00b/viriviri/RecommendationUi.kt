@@ -722,7 +722,7 @@ private fun RecommendationCard(
   }
 }
 
-private fun formatMetric(value: Long?, label: String): String =
+internal fun formatMetric(value: Long?, label: String): String =
     when {
       value == null -> "$label --"
       value >= 100_000_000L -> "$label %.1f亿".format(value / 100_000_000f)

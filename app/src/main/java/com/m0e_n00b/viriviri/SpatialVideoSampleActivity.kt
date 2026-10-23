@@ -145,6 +145,41 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private var transportTimelineUpdatesStarted = false
   private var seekDragPositionMs: Long? = null
   private var spatialVideoPanelSceneObject: PanelSceneObject? = null
+  @Volatile private var stageClosed = false
+  private var productionVideoGeometry: PlaybackStageLayerGeometry? = null
+  private var productionVideoGeneration = 0L
+  private var productionVideoRegistered = false
+  private val productionFrameQueued = java.util.concurrent.atomic.AtomicBoolean(false)
+  private val productionFrame = Runnable {
+    productionFrameQueued.set(false)
+    if (!stageClosed && videoSurfaceEntity != null) {
+      try {
+        if (spatialVideoPanelSceneObject == null) replaceProductionVideo(playbackStageController.layout)
+        playbackStageController.flush()
+      } catch (error: Exception) {
+        danmakuOverlayEntity?.setComponent(Visible(false))
+        Log.e("ViriViriStage", "production geometry failed; latest layout retained for retry", error)
+      }
+    }
+  }
+
+  private fun requestProductionStageFrame() {
+    synchronized(productionFrameQueued) {
+      if (!stageClosed && productionFrameQueued.compareAndSet(false, true)) {
+        canvasHandler.postDelayed(productionFrame, PRODUCTION_GEOMETRY_INTERVAL_MS)
+      }
+    }
+  }
+
+  /** Release consumes the latest complete request without waiting for the next interval. */
+  private fun flushProductionStageFrame() {
+    synchronized(productionFrameQueued) {
+      if (stageClosed) return
+      canvasHandler.removeCallbacks(productionFrame)
+      productionFrameQueued.set(true)
+      canvasHandler.post(productionFrame)
+    }
+  }
   /** Set once the restored (persisted) curvatures have been logged, so the log is readable. */
   private var loggedRestoredCurvature = false
   /**
@@ -182,7 +217,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * entity moves; the root never does.
    */
   private var videoSurfaceEntity: Entity? = null
-  private var stageAperture: PlaybackStageAperture? = null
   private var spatialVideoAspectProbeState = SpatialVideoAspectProbeState()
   private var wristDebugPanelEntity: Entity? = null
   private var danmakuOverlayEntity: Entity? = null
@@ -229,15 +263,13 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                   layer.content.widthMeters, layer.content.heightMeters, layer.curvature,
                   isBackdrop = layer.role == PlaybackStageLayer.BACKDROP,
               ).toPanelConfigOptions().apply {
-                applyBackdropOrderCandidate(this, if (layer.role == PlaybackStageLayer.BACKDROP)
-                    BackdropOrderLayer.BACKDROP else BackdropOrderLayer.UI_PANEL)
+                if (layer.role == PlaybackStageLayer.DANMAKU) configureDanmakuLayer(this)
+                else applyBackdropOrderCandidate(this, BackdropOrderLayer.BACKDROP)
               }
         },
         prepareStage = { updateGrabBarPose(it.viewport.halfHeight) },
         stageWorldPose = { worldPoseOf(Entity(R.id.spatialized_video_panel)) },
-        commitAperturePose = { layer, stage ->
-          checkNotNull(stageAperture).applyPose(layer.baseLocalZ, stage)
-        },
+        replaceVideo = ::replaceProductionVideo,
     )
   }
   private val playbackStageController by lazy {
@@ -253,15 +285,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   var seekBar: CompletableFuture<SeekBar> = CompletableFuture<SeekBar>()
   var elapsedTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
   var durationTime: CompletableFuture<TextView> = CompletableFuture<TextView>()
-  var currentMediaTitle: CompletableFuture<TextView> = CompletableFuture<TextView>()
-  var currentMediaDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
-  var retryMediaButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var qualityButton: CompletableFuture<Button> = CompletableFuture<Button>()
-  var displayRatioButton: CompletableFuture<Button> = CompletableFuture<Button>()
-  var canvasSizeButton: CompletableFuture<Button> = CompletableFuture<Button>()
-  var debugAspectDetail: CompletableFuture<TextView> = CompletableFuture<TextView>()
-  var debugAspectTargetButton: CompletableFuture<Button> = CompletableFuture<Button>()
-  var debugAspectApplyButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var volumeButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var speedButton: CompletableFuture<Button> = CompletableFuture<Button>()
   var playPauseButton: CompletableFuture<Button> = CompletableFuture<Button>()
@@ -403,20 +427,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 applyWorkbenchModules(ImmersiveWorkbenchReducer.modules(immersiveWorkbenchHost.state))
               }
             }
-            updateImmersiveMediaStatus(
-                selected = appState.selected,
-                error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
-                isResolvingPlayback = appState.isResolvingPlayback,
-            )
-            updateImmersiveRetryAvailability(
-                destination = appState.destination,
-                selected = appState.selected,
-                error = appState.error,
-                isResolvingPlayback = appState.isResolvingPlayback,
-            )
             syncPlaybackQualityLabel(appState.playbackQuality)
-            syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
-            syncPlaybackCanvasSizeLabel(appState.playbackCanvasSize)
             applyPlaybackStageParameters(
                 appState.playbackDisplayRatio, appState.playbackStageScale, appState.playbackCurvature
             )
@@ -582,7 +593,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             // DEBUG switch for the panel-occlusion guard; see the class KDoc on the tuning system.
             stagePrimaryActionOcclusionGuardEnabled = { stagePrimaryActionOcclusionGuardEnabled },
             // Only used if the stage pose cannot be read; keeps the stage controllable either way.
-            fallbackStageEntity = { videoSurfaceEntity ?: Entity(R.id.spatialized_video_panel) },
+            fallbackStageEntity = { videoSurfaceEntity.takeIf { playbackStageController.appliedLayout != null } },
             onScaleDelta = ViriViriApplication.appState::adjustPlaybackStageScale,
             onCurvatureDelta = ViriViriApplication.appState::adjustPlaybackCurvature,
             onStageAction = ::onStagePrimaryAction,
@@ -591,7 +602,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
               ::immersiveWorkbenchHost.isInitialized && immersiveWorkbenchHost.state.visible
             },
             onStageVoidTap = ::onStageVoidTap,
-            onInteractionFinished = {},
+            onInteractionFinished = ::flushProductionStageFrame,
         )
     )
     // Escape hatch: the stage is the only other way into the workbench, and its hit geometry moves with
@@ -603,8 +614,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     }
     // One frame owner commits the latest layout only after the full panel group is ready.
     systemManager.registerSystem(PlaybackStageGeometrySystem {
-      playbackStageController.flush()
-      stageAperture?.syncVisibility(videoSurfaceEntity)
+      requestProductionStageFrame()
     })
 
     // Scheme A: the ANCHOR is the grabbable entity; the stage hangs under it, so the SDK moves
@@ -770,21 +780,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun scaledStageHeight(): Float = currentPlaybackStageGeometry().viewport.heightMeters
 
-  /**
-   * Video layer shape: quad while the shared stage curvature is [PlaybackStageCurvature.Flat], a
-   * compositor cylinder while it is [PlaybackStageCurvature.Cylinder]. The supplied width and height
-   * are the final physical dimensions shared by the aperture and layer. UV clipping only selects pixels.
-   *
-   * The compositor owns the video pixels: `MediaPanelRenderOptions.applyTo` installs the `LayerConfig`,
-   * and this shape is the source for its radius/extent. The carrier entity's one-radius position
-   * correction is applied separately by [PlaybackStagePanelRenderer]; it must be recomputed on
-   * every radius change. The explicit aperture creator reads the final PanelShapeConfig dimensions
-   * and radius after SDK initialization. The opening uses its own stable surface-origin carrier;
-   * the video axis mesh retains bounds but writes neither scene color nor depth.
-   *
-   * The SHAPE owns size and curvature; a reshape skipped here freezes both axes regardless of the
-   * thumbstick state.
-   */
+  /** SDK shape uses final physical dimensions; the default native mask belongs to that same panel. */
   private fun videoShapeOptions(
       width: Float,
       height: Float,
@@ -995,17 +991,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         .toPanelConfigOptions()
         .apply {
           applyVideoLayerDepth(this)
-          // Preserve SDK layer initialization before installing the explicit aperture generator.
-          init()
-          sceneMeshCreator = { texture ->
-            val apertureCurvature = if (panelShapeType == com.meta.spatial.runtime.PanelShapeType.CYLINDER)
-                PlaybackStageCurvature.Cylinder(radiusForCylinderOrSphere) else PlaybackStageCurvature.Flat
-            val opening = stageAperture ?: PlaybackStageAperture(
-                scene, systemManager.findSystem<SceneObjectSystem>(), Entity(R.id.spatialized_video_panel),
-            ).also { stageAperture = it }
-            opening.reshape(texture, width, height, apertureCurvature)
-            createPlaybackStageLayerCarrierMesh(texture, width, height, apertureCurvature)
-          }
+
         }
   }
 
@@ -1260,14 +1246,17 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   // Video Panel
   @androidx.annotation.OptIn(UnstableApi::class)
   private fun createVideoPanel() {
-    val videoSurface = ensureVideoSurfaceEntity(Entity(R.id.spatialized_video_panel))
-    val geometry = currentPlaybackStageGeometry()
-    val panelSceneObject = PanelSceneObject(
-        scene,
-        videoSurface,
-        videoPanelConfig(geometry),
-    )
-        .apply {
+    if (stageClosed) return
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      canvasHandler.post { createVideoPanel() }
+      return
+    }
+    runCatching { replaceProductionVideo(playbackStageController.layout) }.onFailure {
+      Log.e("ViriViriStage", "initial video creation failed; main frame will retry", it)
+      requestProductionStageFrame()
+    }
+    player.videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+    run {
           player.repeatMode = Player.REPEAT_MODE_ONE
           player.setSeekParameters(SeekParameters.CLOSEST_SYNC)
           seekBar.thenAccept { it ->
@@ -1310,42 +1299,60 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
         }
 
-    spatialVideoPanelSceneObject = panelSceneObject
-    attachImmersiveOutput(panelSceneObject)
-
-    systemManager
-        .findSystem<SceneObjectSystem>()
-        .addSceneObject(
-            videoSurface,
-            CompletableFuture<SceneObject>().apply { complete(panelSceneObject) },
-        )
-    // The video surface is a RENDER CARRIER: the SDK aperture must not become a hit target.
-    // NoCollision is asserted
-    // explicitly rather than merely dropping Hittable, because dropping it alone did NOT stop the
-    // interception on device. The stage's own tap is geometric now
-    // (AnalogMediaStageTuningSystem + StageRayTargeting) and needs no hit geometry.
-    videoSurface.setComponent(Hittable(MeshCollision.NoCollision))
-    // Do NOT add a `Panel(...)` component here to try to switch the mesh's collision off. An entity with
-    // no panel registration crashes the app on launch that way (measured: build 904A4B03). Since
-    // `PanelSceneObject` and `PanelConfigOptions` expose no collision switch, this layer offers no way to
-    // make the panel mesh unhittable — see the mutual-exclusion note in Stage 3i of
-    // docs/research/stage-video-mesh-curvature.md.
-
-    // No IsdkPanelDimensions on the moving surface either. It exists so ISDK can size a panel that was
-    // built by hand instead of by a Panel component, and it is the other hit source on this entity:
-    // dropping Hittable above did not stop the ray from being intercepted, which is what points here.
-    // The stage is deliberately not an ISDK-interactive object, so the dimensions have no consumer.
-    // Scheme A: the grab BAR is the single grab target (movable_group bound to the bar handle).
-    // The stage itself is intentionally NOT grabbable — removing IsdkGrabbable/IsdkPanelGrabHandle
-    // stops the stage edges from competing with the bar for the grab ray, and (per ISDK docs)
-    // restores onClick on the stage so "tap video to reveal transport" works again.
-    // The panel's own ISDK dimensions are no longer published either: see above, the moving surface has
-    // no hit geometry.
-
     // The shared player may already have decoded dimensions before this Activity subscribes.
     val size = player.videoSize
     playbackStageController.setVideoSize(size.width, size.height, size.pixelWidthHeightRatio)
     requestStageGeometry()
+  }
+
+  /** Detach old media output before destroying its SDK Surface. Do not reshape video. */
+  private fun replaceProductionVideo(layout: PlaybackStageLayout): PanelSceneObject {
+    check(Looper.myLooper() == Looper.getMainLooper())
+    check(!stageClosed)
+    val geometry = layout.layers.first { it.role == PlaybackStageLayer.VIDEO }
+    val entity = ensureVideoSurfaceEntity(Entity(R.id.spatialized_video_panel))
+    val old = spatialVideoPanelSceneObject
+    if (old != null && productionVideoGeometry == geometry) return old
+    val replacementStartedAt = android.os.SystemClock.elapsedRealtimeNanos()
+    productionVideoGeometry = null
+    val objects = systemManager.findSystem<SceneObjectSystem>()
+    disposeProductionVideo()
+    entity.setComponent(Transform(geometry.localPose()))
+    val next = PanelSceneObject(scene, entity, videoPanelConfig(layout.geometry))
+    // Own the candidate before registration/bind can fail; retry cleans it up before replacing.
+    spatialVideoPanelSceneObject = next
+    objects.addSceneObject(entity, CompletableFuture.completedFuture<SceneObject>(next))
+    productionVideoRegistered = true
+    entity.setComponent(Hittable(MeshCollision.NoCollision))
+    check(next.surface.isValid) { "Invalid production video Surface" }
+    attachImmersiveOutput(next)
+    productionVideoGeometry = geometry
+    productionVideoGeneration++
+    Log.i("ViriViriStage", "video created generation=$productionVideoGeneration " +
+        "size=${geometry.content.widthMeters}x${geometry.content.heightMeters} " +
+        "radius=${geometry.curvature.radiusOrNull()} carrierZ=${geometry.localPose().t.z} " +
+        "surface=${System.identityHashCode(next.surface)} " +
+        "replaceMs=${(android.os.SystemClock.elapsedRealtimeNanos() - replacementStartedAt) / 1_000_000.0}")
+    return next
+  }
+
+  /** Failed candidates are owned too, including those not yet registered with the scene system. */
+  private fun disposeProductionVideo() {
+    val old = spatialVideoPanelSceneObject ?: return
+    ViriViriApplication.appState.playerSession.detachSurface(old.surface)
+    if (productionVideoRegistered) {
+      systemManager.findSystem<SceneObjectSystem>().removeSceneObject(checkNotNull(videoSurfaceEntity))
+      productionVideoRegistered = false
+    }
+    old.destroy()
+    spatialVideoPanelSceneObject = null
+    productionVideoGeometry = null
+  }
+
+  private fun configureDanmakuLayer(config: PanelConfigOptions) {
+    config.enableTransparent = true
+    config.includeGlass = false
+    checkNotNull(config.layerConfig).zIndex = VIDEO_LAYER_Z_INDEX + 1
   }
 
   // Movies Controller panel
@@ -1394,6 +1401,9 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
           syncPlaybackSpeedLabel()
           speedButtonLocal.setOnClickListener { showPlaybackSpeedMenu(speedButtonLocal) }
           setupHoverAndTouchListeners(speedButtonLocal)
+          val stageSettingsButton = rootView.findViewById<Button>(R.id.stage_settings_button)
+          stageSettingsButton.setOnClickListener { showStageSettingsMenu(stageSettingsButton) }
+          setupHoverAndTouchListeners(stageSettingsButton)
           val playPauseButtonLocal = rootView.findViewById<Button>(R.id.play_pause_button)!!
           playPauseButton.complete(playPauseButtonLocal)
           syncPlaybackControls()
@@ -1493,6 +1503,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 DanmakuOverlay(
                     DanmakuOverlayProps(
                         selectedVideoId = uiState.selected?.videoId,
+                        selectedContentId = uiState.selected?.contentId,
                         streamSourceFor = ViriViriApplication.appState::danmakuStreamSource,
                         playerPositionMs = {
                           ViriViriApplication.appState.playerSession.player.currentPosition
@@ -1508,7 +1519,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
             val content = geometry.danmakuContent
             stageOverlayPanelSettings(content.widthMeters, content.heightMeters, geometry.curvature)
           },
-      )
+      ).config { configureDanmakuLayer(this) }
 
   /**
    * Visual grab bar under the video stage. It is a NON-grabbable, non-interactive indicator
@@ -1542,11 +1553,11 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       curvature: PlaybackStageCurvature,
       isBackdrop: Boolean = false,
   ): UIPanelSettings {
-    val displaySize = spatialPanelDisplaySizeForAspect(width / height)
     return UIPanelSettings(
           shape = overlayShapeOptions(width, height, curvature),
-          display = DpDisplayOptions(width = displaySize.widthDp, height = displaySize.heightDp, dpi = 800),
-          rendering = uiPanelRenderOptions(isBackdrop = isBackdrop),
+          display = DpDisplayOptions(width = 1280f, height = 720f, dpi = 160),
+          rendering = if (isBackdrop) uiPanelRenderOptions(isBackdrop = true)
+              else UIPanelRenderOptions(PanelRenderMode.Layer(layerBlendType = PanelShapeLayerBlendType.ALPHA_BLEND)),
           input = PanelInputOptions(0),
           style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
       )
@@ -1607,7 +1618,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
                 R.id.danmaku_overlay_panel,
                 Transform(Pose(Vector3(0f, 0f, stageDanmakuBaseLocalZ))),
                 TransformParent(Entity(R.id.spatialized_video_panel)),
-                Visible(true),
+                Visible(false), // First shown by the geometry owner after B is applied.
             )
             // The overlay must render but never block the stage's controller/hand raycasts.
             .also { it.setComponent(Panel(R.id.danmaku_overlay_panel, MeshCollision.NoCollision)) }
@@ -1642,7 +1653,10 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         layoutIdCreator = { R.layout.wrist_debug_panel },
         settingsCreator = { wristDebugPanelSettings() },
         panelSetupWithRootView = { rootView, _, _ ->
-          rootView.findViewById<TextView>(R.id.wrist_debug_label).text = "DEV ${BuildConfig.GIT_SHA}"
+          rootView.findViewById<TextView>(R.id.wrist_debug_label).apply {
+            text = "DEV ${BuildConfig.GIT_SHA} · 调试设置"
+            setOnClickListener { showStageSettingsMenu(this, includeDebug = true) }
+          }
         },
     )
   }
@@ -1660,178 +1674,23 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   private fun modePanelSettings(): UIPanelSettings =
       UIPanelSettings(
-          // UX: the right rail hosts the merged debug/media-status content in a scroll
-          // container, so its height now matches the left rail for visual symmetry.
+          // W3: match left rail raster aspect; old 280x464 stretched the same 0.70x0.90m quad.
           shape = QuadShapeOptions(width = layout.railWidth, height = layout.leftRailHeight),
-          display = DpDisplayOptions(width = 280f, height = 464f, dpi = 600),
+          display = DpDisplayOptions(width = 361f, height = 464f, dpi = 800),
           rendering = uiPanelRenderOptions(),
           style = PanelStyleOptions(themeResourceId = R.style.PanelAppThemeTransparent),
       )
 
-  private fun modePanelRegistration(): PanelRegistration {
-    return LayoutXMLPanelRegistration(
-        R.id.mode_panel,
-        layoutIdCreator = { R.layout.mode_panel },
-        settingsCreator = { modePanelSettings() },
-        panelSetupWithRootView = { rootView, _, _ ->
-          currentMediaTitle.complete(rootView.findViewById(R.id.current_media_title))
-          currentMediaDetail.complete(rootView.findViewById(R.id.current_media_detail))
-          val retryMediaButtonLocal = rootView.findViewById<Button>(R.id.retry_media_button)
-          retryMediaButton.complete(retryMediaButtonLocal)
-          retryMediaButtonLocal.setOnClickListener { ViriViriApplication.appState.retrySelectedVideo() }
-          val appState = ViriViriApplication.appState.state.value
-          updateImmersiveMediaStatus(
-              selected = appState.selected,
-              error = appState.error.takeIf { appState.destination == ViriViriDestination.VIEWER },
-              isResolvingPlayback = appState.isResolvingPlayback,
-          )
-          updateImmersiveRetryAvailability(
-              destination = appState.destination,
-              selected = appState.selected,
-              error = appState.error,
-              isResolvingPlayback = appState.isResolvingPlayback,
-          )
-          val displayRatioButtonLocal = rootView.findViewById<Button>(R.id.display_ratio_button)
-          displayRatioButton.complete(displayRatioButtonLocal)
-          syncPlaybackDisplayRatioLabel(appState.playbackDisplayRatio)
-          displayRatioButtonLocal.setOnClickListener { showPlaybackDisplayRatioMenu(displayRatioButtonLocal) }
-          setupHoverAndTouchListeners(displayRatioButtonLocal)
-          val canvasSizeButtonLocal = rootView.findViewById<Button>(R.id.canvas_size_button)
-          canvasSizeButton.complete(canvasSizeButtonLocal)
-          syncPlaybackCanvasSizeLabel(appState.playbackCanvasSize)
-          canvasSizeButtonLocal.setOnClickListener { showPlaybackCanvasSizeMenu(canvasSizeButtonLocal) }
-          setupHoverAndTouchListeners(canvasSizeButtonLocal)
-          val debugBuildLabel = rootView.findViewById<TextView>(R.id.debug_build_label)
-          if (BuildConfig.DEBUG) {
-            debugBuildLabel.text = "DEV ${BuildConfig.GIT_SHA}"
-            debugBuildLabel.visibility = View.VISIBLE
-          }
-          val debugAspectDetailLocal = rootView.findViewById<TextView>(R.id.debug_aspect_detail)
-          val debugAspectTargetButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_target_button)
-          val debugAspectApplyButtonLocal = rootView.findViewById<Button>(R.id.debug_aspect_apply_button)
-          debugAspectDetail.complete(debugAspectDetailLocal)
-          debugAspectTargetButton.complete(debugAspectTargetButtonLocal)
-          debugAspectApplyButton.complete(debugAspectApplyButtonLocal)
-          if (BuildConfig.DEBUG) {
-            debugAspectDetailLocal.visibility = View.VISIBLE
-            debugAspectTargetButtonLocal.visibility = View.VISIBLE
-            debugAspectApplyButtonLocal.visibility = View.VISIBLE
-            syncSpatialVideoAspectProbeUi()
-            debugAspectTargetButtonLocal.setOnClickListener {
-              showSpatialVideoAspectTargetMenu(debugAspectTargetButtonLocal)
+  private fun modePanelRegistration(): PanelRegistration =
+      ComposeViewPanelRegistration(
+          R.id.mode_panel,
+          composeViewCreator = { _, context ->
+            ComposeView(context).apply {
+              setContent { ImmersiveRightPanel(appState = ViriViriApplication.appState) }
             }
-            debugAspectApplyButtonLocal.setOnClickListener { applySpatialVideoAspectProbe() }
-          }
-          rootView.findViewById<Button>(R.id.open_2d_button).setOnClickListener {
-            ViriViriApplication.appState.playerSession.beginOutputHandoff()
-            launchPanelModeInHome()
-          }
-          // Merged debug telemetry (was the standalone debug panel): live danmaku stream + stage scale.
-          val scaleText = rootView.findViewById<TextView>(R.id.scale_text)
-          val scaleBar = rootView.findViewById<SeekBar>(R.id.scale_bar)
-          val stageYText = rootView.findViewById<TextView>(R.id.stage_y_text)
-          val danmakuStatus = rootView.findViewById<TextView>(R.id.danmaku_status)
-          val curvatureText = rootView.findViewById<TextView>(R.id.curvature_text)
-          val danmakuHandler = android.os.Handler(android.os.Looper.getMainLooper())
-          val scaleMax = scaleBar?.max ?: 1
-          val pollDanmaku =
-              object : Runnable {
-                override fun run() {
-                  val appUiState = ViriViriApplication.appState.state.value
-                  // Live stage world Y so the user can read the current height while tuning it.
-                  val stageY =
-                      Entity(R.id.spatialized_video_panel)
-                          .tryGetComponent<Transform>()
-                          ?.transform
-                          ?.t
-                          ?.y
-                  stageYText?.text = stageY?.let { "Stage Y: %.2f m".format(it) } ?: "Stage Y: --"
-                  // Keep the scale readout and bar in sync with the real state (thumbstick,
-                  // presets and restores all mutate appState; only the bar drag mutates it here).
-                  val currentScale = appUiState.playbackStageScale
-                  scaleText?.text = "Scale: %.2f".format(currentScale)
-                  val barProgress =
-                      if (currentScale <= PlaybackCanvasSize.MIN_STAGE_SCALE) 0
-                      else {
-                        val clamped =
-                            currentScale.coerceIn(
-                                PlaybackCanvasSize.MIN_STAGE_SCALE,
-                                PlaybackCanvasSize.MAX_STAGE_SCALE,
-                            )
-                        (((clamped - PlaybackCanvasSize.MIN_STAGE_SCALE) /
-                            (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)) *
-                            scaleMax)
-                            .toInt()
-                            .coerceIn(0, scaleMax)
-                      }
-                  if (scaleBar != null && scaleBar.progress != barProgress) {
-                    scaleBar.progress = barProgress
-                  }
-                  val videoId = appUiState.selected?.videoId
-                  val summary =
-                      videoId?.let { ViriViriApplication.appState.danmakuStreamSourceOrNull(it)?.debugSummary() }
-                  danmakuStatus?.text =
-                      if (summary != null) summary
-                      else if (appUiState.isLoadingDanmaku) "danmaku: loading..."
-                      else "danmaku: idle"
-                  curvatureText?.text =
-                      "Curve (all layers): ${curvatureLabel(appUiState.playbackCurvature)}\n" +
-                          "  danmaku z: ${"%.2f".format(stageDanmakuBaseLocalZ)}"
-                  danmakuHandler.postDelayed(this, 500L)
-                }
-              }
-          danmakuHandler.post(pollDanmaku)
-          scaleBar?.setOnSeekBarChangeListener(
-              object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
-                  if (fromUser) {
-                    val normalized = progress.toFloat() / scaleMax.coerceAtLeast(1)
-                    val newScale =
-                        PlaybackCanvasSize.MIN_STAGE_SCALE +
-                            normalized * (PlaybackCanvasSize.MAX_STAGE_SCALE - PlaybackCanvasSize.MIN_STAGE_SCALE)
-                    scaleText?.text = "Scale: %.2f".format(newScale)
-                    ViriViriApplication.appState.setPlaybackStageScale(newScale)
-                  }
-                }
-
-                override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
-
-                override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
-              }
-          )
-          rootView.findViewById<Button>(R.id.reset_stage_y_button).setOnClickListener {
-            resetStageYToDefault()
-          }
-          rootView.findViewById<Button>(R.id.reset_curve_button).setOnClickListener {
-            resetPlaybackCurvatureToFlat()
-          }
-          rootView.findViewById<Button>(R.id.danmaku_z_button).setOnClickListener {
-            danmakuBaseLocalZIndex =
-                (danmakuBaseLocalZIndex + 1) % DANMAKU_BASE_LOCAL_Z_CANDIDATES.size
-            playbackStageController.setDanmakuDepth(stageDanmakuBaseLocalZ)
-            Log.i("ViriViriCurve", "danmaku base z -> ${"%.2f".format(stageDanmakuBaseLocalZ)}")
-          }
-          // Debug rail: backdrop-order candidates (default 0 BASELINE, so the shipped behaviour is
-          // unchanged) and the stage-trigger panel-occlusion guard switch. Both are DEBUG-only, so
-          // release keeps them hidden and inert (see [uiPanelRenderOptions] / [toggleStagePrimaryActionOcclusionGuard]).
-          val backdropOrderStatusLocal = rootView.findViewById<TextView>(R.id.backdrop_order_status)
-          val backdropOrderButtonLocal = rootView.findViewById<Button>(R.id.backdrop_order_button)
-          val stageTapGuardButtonLocal = rootView.findViewById<Button>(R.id.stage_tap_guard_button)
-          if (BuildConfig.DEBUG) {
-            backdropOrderStatus = backdropOrderStatusLocal
-            backdropOrderStatusLocal.visibility = View.VISIBLE
-            backdropOrderButtonLocal.visibility = View.VISIBLE
-            backdropOrderButtonLocal.setOnClickListener { cycleBackdropOrderCandidate() }
-            stageTapGuardButton = stageTapGuardButtonLocal
-            stageTapGuardButtonLocal.visibility = View.VISIBLE
-            stageTapGuardButtonLocal.setOnClickListener { toggleStagePrimaryActionOcclusionGuard() }
-          }
-          syncBackdropOrderUi()
-          syncStageTapGuardUi()
-          setupHoverAndTouchListeners(rootView)
-        },
-    )
-  }
+          },
+          settingsCreator = { modePanelSettings() },
+      )
 
   private fun launchPanelModeInHome() {
     val panelIntent =
@@ -1863,21 +1722,21 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
 
   override fun onResume() {
     super.onResume()
-    val panel =
-        videoSurfaceEntity?.let { surface ->
-          systemManager.findSystem<SceneObjectSystem>().getSceneObject(surface)?.getNow(null)
-        } as? PanelSceneObject
-    panel?.let {
-      spatialVideoPanelSceneObject = it
-      attachImmersiveOutput(it)
-    }
+    if (stageClosed) return
+    if (productionVideoGeometry != null) spatialVideoPanelSceneObject?.let(::attachImmersiveOutput)
+    else requestProductionStageFrame()
     if (::immersivePlaybackCanvasHost.isInitialized) immersivePlaybackCanvasHost.applyCurrentState()
   }
 
   override fun onDestroy() {
+    stageClosed = true
     playbackStageController.close()
-    stageAperture?.close()
-    stageAperture = null
+    productionVideoGeometry = null
+    runCatching {
+      disposeProductionVideo()
+      videoSurfaceEntity?.destroy()
+      videoSurfaceEntity = null
+    }.onFailure { Log.e("ViriViriStage", "production video cleanup failed", it) }
     player.removeListener(immersiveStagePlayerListener)
     player.removeListener(immersiveControlsPlayerListener)
     browseSelectionObserver?.cancel()
@@ -1894,6 +1753,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   private fun attachImmersiveOutput(panel: PanelSceneObject) {
+    if (stageClosed) return
     if (shouldReattachImmersiveOutput) {
       immersiveMediaStageHost.attachOutputAfterHandoff(panel.surface)
       shouldReattachImmersiveOutput = false
@@ -2057,6 +1917,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    * origin (s < 0).
    */
   private fun currentStageFrame(): StageRayTargeting.Frame? {
+    val applied = playbackStageController.appliedLayout ?: return null
     val pose = worldPoseOf(Entity(R.id.spatialized_video_panel)) ?: return null
     val centre = pose.t
     fun axis(x: Float, y: Float, z: Float): StageRayTargeting.Vec3 {
@@ -2068,8 +1929,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         normal = axis(0f, 0f, 1f),
         right = axis(1f, 0f, 0f),
         up = axis(0f, 1f, 0f),
-        halfWidth = scaledStageWidth() / 2f,
-        halfHeight = scaledStageHeight() / 2f,
+        halfWidth = applied.geometry.viewport.halfWidth,
+        halfHeight = applied.geometry.viewport.halfHeight,
     )
   }
 
@@ -2276,31 +2137,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     player.pause()
   }
 
-  private fun updateImmersiveMediaStatus(
-      selected: Recommendation?,
-      error: String?,
-      isResolvingPlayback: Boolean,
-  ) {
-    val status = immersiveMediaStatus(selected, error, isResolvingPlayback)
-    currentMediaTitle.thenAccept { it.text = status.title }
-    currentMediaDetail.thenAccept { it.text = status.detail }
-  }
-
-  private fun updateImmersiveRetryAvailability(
-      destination: ViriViriDestination,
-      selected: Recommendation?,
-      error: String?,
-      isResolvingPlayback: Boolean,
-  ) {
-    retryMediaButton.thenAccept { button ->
-      val isViewerAttempt = destination == ViriViriDestination.VIEWER && selected != null && isResolvingPlayback
-      val canRetry = canRetryImmersiveMedia(destination, selected, error, isResolvingPlayback)
-      button.visibility = if (isViewerAttempt || canRetry) View.VISIBLE else View.GONE
-      button.isEnabled = canRetry
-      button.text = if (isViewerAttempt) "Retrying..." else "Retry"
-    }
-  }
-
   private fun syncPlaybackSpeedLabel() {
     speedButton.thenAccept { it.text = PlaybackSpeedControl.label(player.playbackParameters.speed) }
   }
@@ -2313,26 +2149,18 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     qualityButton.thenAccept { it.text = quality.label }
   }
 
-  private fun syncPlaybackDisplayRatioLabel(displayRatio: PlaybackDisplayRatio) {
-    displayRatioButton.thenAccept { it.text = "Display ratio: ${displayRatio.label}" }
-  }
-
-  private fun syncPlaybackCanvasSizeLabel(canvasSize: PlaybackCanvasSize) {
-    canvasSizeButton.thenAccept { it.text = "Canvas size: ${canvasSize.label}" }
-  }
-
   /** The existing native/app-state emission is the only owner of stage tuning parameters. */
   private fun applyPlaybackStageParameters(
       displayRatio: PlaybackDisplayRatio,
       stageScale: Float,
       curvature: PlaybackStageCurvature,
   ) {
+    if (stageClosed) return
     val target = SpatialVideoAspectProbeTarget.from(displayRatio)
     if (spatialVideoAspectProbeState.appliedTarget != target) {
       spatialVideoAspectProbeState = spatialVideoAspectProbeState.copy(pendingTarget = target, appliedTarget = target)
     }
     playbackStageController.setParameters(PlaybackStageParameters(stageScale, target.displayAspectRatio, curvature))
-    syncSpatialVideoAspectProbeUi()
   }
 
   /**
@@ -2363,6 +2191,55 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
    */
   private fun darkPopupMenu(anchor: View): PopupMenu =
       PopupMenu(ContextThemeWrapper(this, R.style.Theme_ViriViri_DarkPopup), anchor)
+
+  /** Product settings moved off Context; debug actions stay behind the existing wrist entry. */
+  private fun showStageSettingsMenu(anchor: View, includeDebug: Boolean = false) {
+    val appState = ViriViriApplication.appState
+    val current = appState.state.value
+    darkPopupMenu(anchor).apply {
+      val ratios = menu.addSubMenu("显示比例")
+      PlaybackDisplayRatio.entries.forEachIndexed { index, ratio ->
+        ratios.add(1, 100 + index, index, ratio.label).isChecked = ratio == current.playbackDisplayRatio
+      }
+      ratios.setGroupCheckable(1, true, true)
+      val sizes = menu.addSubMenu("画布大小")
+      PlaybackCanvasSize.entries.forEachIndexed { index, size ->
+        sizes.add(2, 200 + index, index, size.label).isChecked = size == current.playbackCanvasSize
+      }
+      sizes.setGroupCheckable(2, true, true)
+      menu.add(0, 300, 0, "重置舞台高度")
+      menu.add(0, 301, 1, "恢复平面")
+      menu.add(0, 302, 2, "打开 2D 窗口")
+      if (includeDebug && BuildConfig.DEBUG) {
+        menu.add(0, 303, 3, "弹幕 Z：${stageDanmakuBaseLocalZ}")
+        menu.add(0, 304, 4, "合成顺序：${cycleBackdropOrderCandidateLabel()}")
+        menu.add(0, 305, 5, "舞台遮挡保护：$stagePrimaryActionOcclusionGuardEnabled")
+      }
+      setOnMenuItemClickListener { item ->
+        when {
+          item.itemId in 100 until 100 + PlaybackDisplayRatio.entries.size ->
+              appState.selectPlaybackDisplayRatio(PlaybackDisplayRatio.entries[item.itemId - 100])
+          item.itemId in 200 until 200 + PlaybackCanvasSize.entries.size ->
+              appState.selectPlaybackCanvasSize(PlaybackCanvasSize.entries[item.itemId - 200])
+          item.itemId == 300 -> resetStageYToDefault()
+          item.itemId == 301 -> resetPlaybackCurvatureToFlat()
+          item.itemId == 302 -> {
+            appState.playerSession.beginOutputHandoff()
+            launchPanelModeInHome()
+          }
+          item.itemId == 303 -> {
+            danmakuBaseLocalZIndex = (danmakuBaseLocalZIndex + 1) % DANMAKU_BASE_LOCAL_Z_CANDIDATES.size
+            playbackStageController.setDanmakuDepth(stageDanmakuBaseLocalZ)
+          }
+          item.itemId == 304 -> cycleBackdropOrderCandidate()
+          item.itemId == 305 -> toggleStagePrimaryActionOcclusionGuard()
+          else -> return@setOnMenuItemClickListener false
+        }
+        true
+      }
+      show()
+    }
+  }
 
   private fun showPlaybackDisplayRatioMenu(anchor: View) {
     darkPopupMenu(anchor).apply {
@@ -2442,8 +2319,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
         val target = SpatialVideoAspectProbeTarget.entries.getOrNull(item.itemId)
             ?: return@setOnMenuItemClickListener false
         spatialVideoAspectProbeState = SpatialVideoAspectProbeReducer.selectTarget(spatialVideoAspectProbeState, target)
-        syncSpatialVideoAspectProbeUi()
-        true
+            true
       }
       show()
     }
@@ -2453,18 +2329,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
     ViriViriApplication.appState.selectPlaybackDisplayRatio(
         spatialVideoAspectProbeState.pendingTarget.displayRatio
     )
-  }
-
-  private fun syncSpatialVideoAspectProbeUi() {
-    val state = spatialVideoAspectProbeState
-    debugAspectTargetButton.thenAccept { it.text = "Target: ${state.pendingTarget.label}" }
-    debugAspectApplyButton.thenAccept { it.text = "Apply" }
-    val diagnostic = playbackStageController.diagnostic
-    debugAspectDetail.thenAccept { detail ->
-      detail.text =
-          "src=${diagnostic.displayAspectRatio} target=${playbackStageController.parameters.targetAspect ?: diagnostic.displayAspectRatio} " +
-              "quad=${currentPlaybackStageGeometry().videoContent.widthMeters}x${currentPlaybackStageGeometry().videoContent.heightMeters}"
-    }
   }
 
   private fun currentPlaybackStageGeometry(): PlaybackStageGeometry = playbackStageController.layout.geometry
@@ -2488,7 +2352,6 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
       pixelWidthHeightRatio: Float,
   ) {
     playbackStageController.setVideoSize(videoWidth, videoHeight, pixelWidthHeightRatio)
-    syncSpatialVideoAspectProbeUi()
   }
 
   private fun startTransportTimelineUpdates() {
@@ -2622,6 +2485,7 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   }
 
   companion object {
+    private const val PRODUCTION_GEOMETRY_INTERVAL_MS = 33L
     const val TAG = "SpatialVideoSampleActivity"
     const val WORKBENCH_TRACE_TAG = "ViriViriWorkbench"
 

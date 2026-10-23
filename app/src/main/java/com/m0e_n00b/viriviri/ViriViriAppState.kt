@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import com.m0e_n00b.spatialworkbench.core.DanmakuEvent
 import com.m0e_n00b.spatialworkbench.core.TransientMessage
 import com.m0e_n00b.spatialworkbench.core.TransientMessageEvent
@@ -249,10 +251,11 @@ class ViriViriAppState(
     danmakuStream?.let { return it }
     return synchronized(this) {
       danmakuStream ?: run {
+        val contentId = mutableState.value.selected?.takeIf { it.videoId == videoId }?.contentId
         // cid resolution and segment fetches run lazily on the source's background thread
         // (they both do network I/O); nothing here touches the network on the calling thread.
         DanmakuStreamSource(
-            resolveContentId = { runCatching { provider.danmakuContentId(videoId) }.getOrElse { -1L } },
+            resolveContentId = { runCatching { provider.danmakuContentId(videoId, contentId) }.getOrElse { -1L } },
             fetchSegment = { cid, index ->
               if (cid > 0) provider.loadDanmakuSegment(cid, index) else emptyList()
             },
@@ -274,7 +277,13 @@ class ViriViriAppState(
   private var nextPageJob: Job? = null
   private val searchRequestTracker = SearchRequestTracker()
   private val thumbnails = ThumbnailRepository()
+  private val thumbnailDownloads = Semaphore(4)
   private val mutableThumbnailStates = MutableStateFlow<Map<String, ThumbnailState>>(emptyMap())
+  private val mutableVideoContext = MutableStateFlow(VideoContextState())
+  internal val videoContext: StateFlow<VideoContextState> = mutableVideoContext.asStateFlow()
+  private val contextRequests = SearchRequestTracker()
+  private var contextDetailsJob: Job? = null
+  private var contextRelatedJob: Job? = null
   val state: StateFlow<ViriViriUiState> = mutableState.asStateFlow()
   internal val thumbnailStates: StateFlow<Map<String, ThumbnailState>> = mutableThumbnailStates.asStateFlow()
   internal val immersiveBrowseCommands: SharedFlow<ImmersiveBrowseCommand> =
@@ -718,21 +727,32 @@ class ViriViriAppState(
   }
 
   private fun requestThumbnails(recommendations: List<Recommendation>) {
-    recommendations.mapNotNull { normalizedThumbnailUrl(it.coverUrl) }.distinct().forEach { url ->
-      if (!thumbnails.markLoading(url)) return@forEach
-      publishThumbnailState(url, ThumbnailState.Loading)
-      scope.launch {
-        val bitmap = withContext(Dispatchers.IO) { thumbnails.download(url) }
-        thumbnails.store(url, bitmap)
-        if (mutableState.value.recommendations.any { normalizedThumbnailUrl(it.coverUrl) == url }) {
-          publishThumbnailState(url)
-        }
+    recommendations.mapNotNull { normalizedThumbnailUrl(it.coverUrl) }.distinct().forEach {
+      requestThumbnail(it)
+    }
+  }
+
+  /** Called when a lazy row enters composition, including after publication/cache eviction. */
+  internal fun requestThumbnail(coverUrl: String?, retryFailed: Boolean = false) {
+    val url = normalizedThumbnailUrl(coverUrl) ?: return
+    if (!thumbnails.markLoading(url, retryFailed)) {
+      // A repository hit may have been evicted from the separately bounded UI snapshot.
+      publishThumbnailState(url)
+      return
+    }
+    publishThumbnailState(url, ThumbnailState.Loading)
+    scope.launch {
+      val bitmap = thumbnailDownloads.withPermit {
+        withContext(Dispatchers.IO) { thumbnails.download(url) }
       }
+      thumbnails.store(url, bitmap)
+      publishThumbnailState(url)
     }
   }
 
   private fun publishThumbnailState(url: String, state: ThumbnailState? = null) {
-    val next = (mutableThumbnailStates.value + (url to (state ?: thumbnails.state(url) ?: ThumbnailState.Failed)))
+    val next = ((mutableThumbnailStates.value - url) +
+        (url to (state ?: thumbnails.state(url) ?: ThumbnailState.Failed)))
     mutableThumbnailStates.value =
         if (next.size <= THUMBNAIL_CACHE_SIZE) {
           next
@@ -785,6 +805,76 @@ class ViriViriAppState(
           )
         }
     startPlaybackResolution(recommendation)
+    loadVideoContext(recommendation.videoId)
+  }
+
+  /** Context selection preserves the center browse return target and scroll position. */
+  internal fun selectContextVideo(video: Recommendation) {
+    val current = mutableState.value
+    if (current.selected?.videoId == video.videoId &&
+        (video.contentId == null || current.selected.contentId == video.contentId)) return
+    mutableState.value = current.copy(selected = video, destination = ViriViriDestination.VIEWER)
+    startPlaybackResolution(video)
+    loadVideoContext(video.videoId)
+  }
+
+  internal fun selectContextPart(contentId: Long) {
+    val current = mutableState.value
+    val selected = current.selected ?: return
+    val context = mutableVideoContext.value.takeIf { it.videoId == selected.videoId } ?: return
+    val part = context.details.parts.firstOrNull { it.contentId == contentId } ?: return
+    if (selected.matchesPart(part)) return
+    val next = selected.withPart(part)
+    mutableState.value = current.copy(selected = next)
+    startPlaybackResolution(next)
+  }
+
+  internal fun retryVideoContext() {
+    mutableState.value.selected?.videoId?.let { loadVideoContext(it, force = true) }
+  }
+
+  private fun loadVideoContext(videoId: String, force: Boolean = false) {
+    if (!force && mutableVideoContext.value.videoId == videoId) return
+    contextDetailsJob?.cancel()
+    contextRelatedJob?.cancel()
+    val requestId = contextRequests.beginRequest()
+    val previous = mutableVideoContext.value
+    mutableVideoContext.value =
+        (previous.takeIf { it.videoId == videoId } ?: VideoContextState(videoId)).copy(
+            loadingDetails = true, loadingRelated = true, detailsError = null, relatedError = null)
+    fun isCurrent() = contextRequests.isCurrent(requestId) && mutableState.value.selected?.videoId == videoId
+    contextDetailsJob = scope.launch {
+      try {
+        val details = withTimeout(PLAYBACK_RESOLUTION_TIMEOUT_MS) {
+          withContext(Dispatchers.IO) { provider.loadVideoContext(videoId) }
+        }
+        if (isCurrent()) {
+          mutableVideoContext.value = mutableVideoContext.value.copy(details = details, loadingDetails = false)
+        }
+      } catch (_: CancellationException) {
+        if (isCurrent()) mutableVideoContext.value = mutableVideoContext.value.copy(
+            loadingDetails = false, detailsError = "选集加载超时，请重试")
+      } catch (error: Exception) {
+        if (isCurrent()) mutableVideoContext.value = mutableVideoContext.value.copy(
+            loadingDetails = false, detailsError = error.message ?: "选集加载失败")
+      }
+    }
+    contextRelatedJob = scope.launch {
+      try {
+        val related = withTimeout(PLAYBACK_RESOLUTION_TIMEOUT_MS) {
+          withContext(Dispatchers.IO) { provider.loadRelatedVideos(videoId) }
+        }
+        if (isCurrent()) {
+          mutableVideoContext.value = mutableVideoContext.value.copy(related = related, loadingRelated = false)
+        }
+      } catch (_: CancellationException) {
+        if (isCurrent()) mutableVideoContext.value = mutableVideoContext.value.copy(
+            loadingRelated = false, relatedError = "相关推荐加载超时，请重试")
+      } catch (error: Exception) {
+        if (isCurrent()) mutableVideoContext.value = mutableVideoContext.value.copy(
+            loadingRelated = false, relatedError = error.message ?: "相关推荐加载失败")
+      }
+    }
   }
 
   fun retrySelectedVideo() {
@@ -909,7 +999,7 @@ class ViriViriAppState(
             val source =
                 withTimeout(PLAYBACK_RESOLUTION_TIMEOUT_MS) {
                   withContext(Dispatchers.IO) {
-                    provider.createMediaSource(recommendation.videoId, quality)
+                    provider.createMediaSource(recommendation.videoId, quality, recommendation.contentId)
                   }
                 }
             if (requestId == playbackRequestId) {

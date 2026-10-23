@@ -5,14 +5,16 @@ import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Vector3
 import com.meta.spatial.runtime.PanelConfigOptions
 import com.meta.spatial.runtime.PanelSceneObject
+import com.meta.spatial.runtime.DepthWrite
 import com.meta.spatial.toolkit.Transform
+import com.meta.spatial.toolkit.Visible
 
-/** The only writer of live stage panel shapes and carrier poses. Never owns player or Surface. */
+/** One complete production geometry commit: replace video, retain UI, suppress its scene mask. */
 internal class PlaybackStagePanelRenderer(
     private val config: (PlaybackStageLayout, PlaybackStageLayerGeometry) -> PanelConfigOptions,
     private val prepareStage: (PlaybackStageGeometry) -> Unit,
     private val stageWorldPose: () -> Pose?,
-    private val commitAperturePose: (PlaybackStageLayerGeometry, Pose) -> Unit,
+    private val replaceVideo: (PlaybackStageLayout) -> PanelSceneObject,
 ) {
   fun apply(layout: PlaybackStageLayout, panels: Map<PlaybackStageLayer, PanelSceneObject>): Boolean {
     // No partial acknowledgement if the ECS hierarchy has not been initialized yet.
@@ -22,34 +24,38 @@ internal class PlaybackStagePanelRenderer(
       entity
     }
     if (stageWorldPose() == null) return false
-    val configs = layout.layers.associate { it.role to config(layout, it) }
     prepareStage(layout.geometry)
-    // Sample the parent once AFTER adjusting the stage/bar offset. Every child uses this same pose.
-    val stage = stageWorldPose() ?: return false
+    if (stageWorldPose() == null) return false
+    val currentPanels = panels.toMutableMap()
+    currentPanels[PlaybackStageLayer.VIDEO] = replaceVideo(layout)
     for (layer in layout.layers) {
-      val panel = panels.getValue(layer.role)
-      panel.reshape(configs.getValue(layer.role))
-      // SDK setCrop(Crop.NONE) restores both unit footprint and full-frame layer UVs.
-      // The direct decoder Surface is not a PlayerView FIT canvas with inferred black bars.
-      if (layer.role == PlaybackStageLayer.VIDEO) panel.setCrop(layout.geometry.videoTextureCrop)
-      else panel.clearCrop()
+      if (layer.role == PlaybackStageLayer.VIDEO) continue // Never reshape video: device regression.
+      val panel = currentPanels.getValue(layer.role)
+      val uiSurface = panel.surface
+      val uiDisplay = panel.display
+      panel.reshape(config(layout, layer))
+      check(panel.surface === uiSurface && panel.display === uiDisplay) { "Stage UI output changed during reshape" }
+      panel.clearCrop()
       panel.setScale(Vector3(1f, 1f, 1f))
+      if (layer.role == PlaybackStageLayer.DANMAKU) {
+        val materials = checkNotNull(panel.materials) { "Danmaku scene material unavailable" }
+        check(materials.isNotEmpty())
+        materials.forEach {
+          it.setColorWrite(0) // RGBA, including alpha. Keep the compositor text layer alive.
+          it.setDepthWrite(DepthWrite.DISABLE)
+        }
+      }
     }
     for (layer in layout.layers) {
-      val panel = panels.getValue(layer.role)
       // Fresh absolute local pose: never retain a world rotation propagated during reparenting.
       entities.getValue(layer.role).setComponent(Transform(layer.localPose()))
-      val world = layer.worldPose(stage)
-      panel.setPosition(world.t)
-      panel.setRotationQuat(world.q)
       if (BuildConfig.DEBUG) {
         Log.i("ViriViriStage", "batch ${layer.role} content=${layer.content.widthMeters}x${layer.content.heightMeters} " +
             "scale=${layout.scale} radius=${layer.curvature.radiusOrNull()} baseZ=${layer.baseLocalZ} " +
-            "carrierZ=${layer.localPose().t.z} submittedWorldZ=${world.t.z} " +
-            "apertureLocalBounds=${panel.mesh?.computeCombinedBounds()}")
+            "carrierZ=${layer.localPose().t.z} uiMaskWrites=${layer.role != PlaybackStageLayer.DANMAKU}")
       }
     }
-    commitAperturePose(layout.layers.first { it.role == PlaybackStageLayer.VIDEO }, stage)
+    entities.getValue(PlaybackStageLayer.DANMAKU).setComponent(Visible(true))
     return true
   }
 }

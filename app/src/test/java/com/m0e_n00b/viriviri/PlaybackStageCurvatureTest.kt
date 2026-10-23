@@ -33,13 +33,9 @@ class PlaybackStageCurvatureTest {
   }
 
   @Test
-  fun fromRadiusResolvesFlatAtOrBeyondTheFlatmostRadius() {
-    // Same threshold adjustedBy() uses: anything this flat IS flat, not "a very large cylinder".
-    // Clamping these to Cylinder(MAX) resurrected stale 20 m-era preferences as Cylinder(6.0) after
-    // the range narrowed — a state the thumbstick cannot produce, which then applied a full-radius
-    // surface offset to the danmaku and backdrop layers.
+  fun fromRadiusKeepsTheInclusiveMaximumAndResolvesFlatOnlyAboveIt() {
     assertEquals(
-        PlaybackStageCurvature.Flat,
+        PlaybackStageCurvature.Cylinder(PlaybackStageCurvature.MAX_RADIUS_METERS),
         PlaybackStageCurvature.fromRadius(PlaybackStageCurvature.MAX_RADIUS_METERS),
     )
     assertEquals(
@@ -99,6 +95,9 @@ class PlaybackStageCurvatureTest {
     )
     val cylinder = PlaybackStageCurvature.Cylinder(4.25f)
     assertEquals(cylinder, AppPreferenceCodec.decodeCurvature(AppPreferenceCodec.encodeCurvature(cylinder)))
+    val maximum = PlaybackStageCurvature.Flat.adjustedBy(0.25f)
+    assertEquals(PlaybackStageCurvature.Cylinder(8f), maximum)
+    assertEquals(maximum, AppPreferenceCodec.decodeCurvature(AppPreferenceCodec.encodeCurvature(maximum)))
   }
 
   @Test
@@ -122,7 +121,7 @@ class PlaybackStageCurvatureTest {
   fun adjustedByTightensAndFlattensInsideTheSupportedRange() {
     // A flat layer has no radius, so its first tightening step starts at the flatmost radius.
     assertEquals(
-        PlaybackStageCurvature.Cylinder(PlaybackStageCurvature.MAX_RADIUS_METERS - 2f),
+        PlaybackStageCurvature.Cylinder(PlaybackStageCurvature.MAX_RADIUS_METERS),
         PlaybackStageCurvature.Flat.adjustedBy(2f),
     )
     assertEquals(
@@ -146,7 +145,7 @@ class PlaybackStageCurvatureTest {
   }
 
   @Test
-  fun adjustedByCollapsesToFlatAtOrBeyondTheFlatmostRadius() {
+  fun adjustedByCollapsesToFlatOnlyBeyondTheFlatmostRadius() {
     // Overshooting the flatmost radius must mean "flat", not "a very large cylinder".
     assertEquals(PlaybackStageCurvature.Flat, PlaybackStageCurvature.Flat.adjustedBy(-1f))
     assertEquals(
@@ -160,15 +159,26 @@ class PlaybackStageCurvatureTest {
   }
 
   @Test
+  fun adjustedByTraversesTheInclusiveBoundaryInBothDirections() {
+    val entered = PlaybackStageCurvature.Flat.adjustedBy(2f)
+    assertEquals(PlaybackStageCurvature.Cylinder(8f), entered)
+    val tightened = entered.adjustedBy(0.5f)
+    assertEquals(PlaybackStageCurvature.Cylinder(7.5f), tightened)
+    val maximum = tightened.adjustedBy(-0.5f)
+    assertEquals(PlaybackStageCurvature.Cylinder(8f), maximum)
+    val flat = maximum.adjustedBy(-0.001f)
+    assertEquals(PlaybackStageCurvature.Flat, flat)
+    assertEquals(PlaybackStageCurvature.Flat, flat.adjustedBy(-2f))
+    assertEquals(PlaybackStageCurvature.Cylinder(8f), flat.adjustedBy(Float.MAX_VALUE))
+    assertEquals(PlaybackStageCurvature.Cylinder(1.5f), entered.adjustedBy(Float.MAX_VALUE))
+  }
+
+  @Test
   fun adjustedByIgnoresZeroAndNonFiniteDeltas() {
-    assertEquals(PlaybackStageCurvature.Flat, PlaybackStageCurvature.Flat.adjustedBy(0f))
-    assertEquals(
-        PlaybackStageCurvature.Cylinder(5f),
-        PlaybackStageCurvature.Cylinder(5f).adjustedBy(Float.NaN),
-    )
-    assertEquals(
-        PlaybackStageCurvature.Cylinder(5f),
-        PlaybackStageCurvature.Cylinder(5f).adjustedBy(Float.POSITIVE_INFINITY),
-    )
+    for (curvature in listOf(PlaybackStageCurvature.Flat, PlaybackStageCurvature.Cylinder(8f))) {
+      for (delta in listOf(0f, -0f, Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+        assertEquals(curvature, curvature.adjustedBy(delta))
+      }
+    }
   }
 }

@@ -29,7 +29,14 @@ spatial-workbench-core/
 
 spatial-workbench-compose/
 └── src/main/java/.../compose/    # Compose panel shells and layout primitives
+
+playback-stage-core/
+└── src/main/kotlin/.../core/     # SDK-independent stage geometry and resource coordinator
 ```
+
+Production rendering uses the app's PlaybackStageController and
+PlaybackStagePanelRenderer. The core module keeps SDK-independent contracts;
+there is no alternate app SDK backend or build-time renderer selector.
 
 ---
 

@@ -1,5 +1,21 @@
 # Playback Stage Geometry
 
+## Curvature input boundary (2026-10-21 clarification)
+
+Flat and cylinder shapes switch automatically through curvature input. Raw control
+radius is inclusive from 1.5 to 8 metres: exactly 8 remains a cylinder; only a
+radius above 8 becomes Flat. From Flat, the first finite positive tightening delta
+enters Cylinder(8) exactly, without subtracting that delta. Further tightening
+reduces radius; loosening increases it and crosses into Flat only above 8.
+Zero/non-finite input leaves the state unchanged; loosening Flat stays Flat.
+
+Persistence decoding, app controls and core raw normalization must agree at the
+inclusive maximum. A raw radius of 8 at scale 2 produces an effective radius of
+16, still curved. Never apply the raw threshold to the derived effective radius.
+Cover the actual control-to-codec-to-host-to-layout path as well as boundary
+transitions. This control contract does not validate headset clipping alignment;
+the SDK rebuild Gate A remains failed until visual acceptance succeeds.
+
 ## Whole-group similarity scaling (2026-10-21)
 
 Raw control/persistence curvature stays in PlaybackStageParameters. The controller
@@ -43,15 +59,18 @@ PlaybackStagePanelRenderer.apply(layout, panels): Boolean
   pending. Close prevents further resolution/commit and drops retained identities.
 - Renderer owns all live shape, scale, UV and carrier-pose mutations. Registration
   factories use controller geometry but do not acknowledge application.
-- Video/aperture share final videoContent shape. Danmaku/backdrop use the full
+- SDK video mesh and layer share final videoContent shape. Danmaku/backdrop use the full
   viewport. `videoTextureCrop` is SDK Crop.NONE; renderer passes that same value
   to setCrop, resetting footprint and sampling the full frame. A fixed 1920x1080
   pixel budget does not prove any FIT bars in a direct decoder Surface. Never
   derive UV cropping from source/output aspect or divide physical dimensions by UV.
 - Local child poses are rebuilt with identity rotation and scaled base minus effective radius Z (scaled base for
-  flat). Update stage/bar spacing, sample its world pose once, then compose every
-  child from that same parent. Do not flip the verified coordinate sign.
-- Preserve native panel, Surface and player. No new visibility or hit-test owner.
+  flat). Update stage/bar spacing, sample its world pose once for diagnostics, and let the ECS TransformParent chain
+  propagate the child pose. Do not also call native SceneObject position/rotation APIs for the same carrier.
+- Preserve the player and UI Panel/Surface/Display. Video shape changes replace its Panel and Surface
+  by identity-safe detach-before-destroy, then creation from final parameters. No video reshape.
+  ECS Transform and Visible are the sole live pose and visibility owners;
+  no new visibility or hit-test owner.
   Render-policy/debug depth/reset changes must go through submit/invalidate.
 
 ## 4. Validation / Error Matrix
@@ -94,31 +113,47 @@ controller.setParameters(parameters.copy(curvature = PlaybackStageCurvature.Flat
 // PlaybackStageGeometrySystem.execute(): controller.flush()
 ```
 
-## Separate surface-origin aperture and axis-origin media carrier (2026-10-21)
 
-PlaybackStageAperture owns one dynamic sibling entity under the stage root, no Panel
-registration, player, Surface or input listener. Its visible hole mesh is centered:
-Z=r*(cos(theta)-1), center Z=0 for flat and all radii. Its carrier uses scaled
-baseLocalZ only, never +/-radius. SceneObject visibility mirrors video Visible;
-there is no independent UI visibility state. Activity closes/unregisters the object.
+## Production B migration (2026-10-22)
 
-Video config first initializes SDK settings, then its sceneMeshCreator updates the
-surface opening using the final PanelShapeConfig width/height/effective radius.
-The existing video carrier still uses base-effectiveRadius, and retains axis-origin
-mesh bounds (+r center) for culling. That carrier's material is OPAQUE/unlit with
-color writes zero and depth writes DISABLE: it must never punch a second hole.
-The decoder Surface, compositor shape/crop, zIndex and video compensation stay intact.
-The existing stage renderer commits both origins from one sampled stage-world pose.
+One production rendering path replaces the rejected custom aperture and removes
+SDK_REBUILD/LEGACY runtime selection and SDK diagnostic backend. Core interfaces
+remain contracts only; there is no app adapter or fallback backend.
 
-All builds keep both carriers NoCollision and video clickButtons=0. No native video
-InputListener may call the stage action; geometric Controller.isDown rising-edge
-handling is the sole owner. No video ISDK dimensions publication on MR/VR transitions.
+GeometrySystem schedules one latest-value main-thread frame every 33 ms. Native
+writes, Surface detachment/replacement and Media3 attachment share this owner.
+The video ECS entity/visibility/input remain stable; only PanelSceneObject and
+its owned Surface are replaced when final VIDEO geometry changes. No custom
+mesh, extra opening Entity, UV scaling, player recreation, prepare, reload or seek.
+Own candidates before registration/bind can fail; retries detach and dispose
+owned candidates first. Never destroy a still-bound Surface after detach fails.
 
-PlaybackStageApertureMeshTest checks actual centered opening vertices against world
-surface points under rotated parents, flat/cylinder transitions, scale/aspect and
-both windings. Separately check video axis bounds. Build/JVM success does not prove
-GPU/compositor alignment. User confirmed direction correct but center drift persists
-in the shared-carrier build; this structural correction still requires headset QA.
+Danmaku remains real Compose content and retains its View/Display/Surface.
+Fixed 1280x720 dp at 160 dpi, ALPHA_BLEND, no glass, explicit layer zIndex 2
+(video 1). After creation/reshape disable all RGBA writes (including alpha)
+and depth writes on ONLY its scene material. Show first content only after B.
+Do not hide its compositor layer. Backdrop and workbench retain existing owners.
+No real subtitle layer exists; never ship POC fake text as a production feature.
 
-## Headset rejection of the surface-origin slice
-107bccb also FAILED: user reports video aperture does not respond to curvature, danmaku geometry responds with Z drift, and scale is still wrong. The separate-origin implementation above describes current code, not a validated pattern that must be retained. See docs/playback-stage-handoff-2026-10-21.md before further changes. Prior 292 batches/Inspector snapshots belong to the old shared-carrier APK; do not apply that evidence to the new callback/mesh path.
+Only ECS base-minus-effective-radius local poses are written; TransformParent
+propagates world transforms. Successful resource replacement is acknowledged
+using the new panel identity. appliedLayout exists only after complete success,
+is cleared on failure/missing panel/close and is used for geometric input.
+
+Test replacement during commit without duplicate UI replay, latest request after
+native failure, closed owner and existing scale/aspect/pose/resource contracts.
+Headset acceptance remains necessary for actual content, aspect/portrait,
+foreground occlusion, video hide/restore and 2D/VR route handoff.
+
+## Rejected video reshape candidate (2026-10-23)
+Media3 1.4.1 resets first-frame state on any changed output and may render a frame
+while paused. A retained decoder Surface with SDK video reshape was tried, but
+FAILED headset checks: scale desynchronizes and entering a curve disappears.
+It was withdrawn. Keep final-parameter video recreation until a different path
+passes all three visual gates. Paused stepping remains unresolved; do not infer
+geometry correctness from SDK docs, output identity assertions or JVM tests.
+
+Detailed failure record: [video reshape failure](../../../docs/video-reshape-failure-2026-10-23.md).
+This rejection applies to the retained video PanelSceneObject path, not the
+retained UI overlay reshape path. New candidates must pass scale alignment,
+curved visibility and paused-frame retention together; no docs-only acceptance.
