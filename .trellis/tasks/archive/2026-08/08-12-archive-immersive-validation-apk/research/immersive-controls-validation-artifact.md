@@ -22,10 +22,10 @@ sidecar are both excluded through `app/.gitignore` because they live under
 
 ## Included Milestones
 
-- `3f48373 feat(spatial): integrate immersive media stage`
-- `ccbdfe1 fix(spatial): synchronize playback controls`
-- `1b71d85 feat(spatial): align transport overlay behavior`
-- `069647d chore(task): archive 08-12-immersive-transport-overlay`
+- `0df30dbb0a90361f232834e0b16dad212b5d28cb feat(spatial): integrate immersive media stage`
+- `7d93ad743268914fc4dbf88f5d3cf5d978857cb1 fix(spatial): synchronize playback controls`
+- `11176129890e8fd1557b31de519ce7b96948bc59 feat(spatial): align transport overlay behavior`
+- `c5755006bce8ac0be026865273452e3b92bf2fdd chore(task): archive 08-12-immersive-transport-overlay`
 
 ## Verification Boundary
 

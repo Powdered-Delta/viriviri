@@ -10,7 +10,7 @@
 
 ## 已核实的根因
 
-`08-25-workbench-dismiss-scrim`（提交 `856356a`）依据该卡 PRD 里的一句断言
+`08-25-workbench-dismiss-scrim`（提交 `2b4f6f437c8a6667e03c1be9022d93d5c71a5621`）依据该卡 PRD 里的一句断言
 「`WorkbenchOuterDismiss` 已经是外部区域的唯一 dismiss owner」，把中心面板的
 click-to-dismiss **整条移除**。但那次移除**从未在真机上验证过外层命中层是否真的生效**：
 
@@ -68,7 +68,7 @@ WorkbenchOuterDismiss.gltf 的 PbrMaterial：alphaMode: Opaque + baseColorFactor
   ⇒ 该层从设计上不可能被点中
 ```
 
-### 方案 A 实施（提交 d10d76e）
+### 方案 A 实施（提交 d2ead83f83ba5398b99923f910b5caaf207c8768）
 
 1. **场景**：用 mse-agent `set-property`（非手改 YAML）把 `WorkbenchOuterDismiss` 节点的
    `Visibility.visible` 设为 true。

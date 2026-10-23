@@ -65,5 +65,5 @@
 - Stage 世界 pose 初始：`onVRReady()` L549-616（幕布 y=1.25, z=2; rail y=1.25）
 - rail 世界坐标：`WorkbenchLayoutConfig.kt`（railCenterWorldY=1.25, railWorldZ 由弧推导）
 - 摇杆缩放：`AnalogMediaStageScaleSystem.kt`（只改 Scale，不搬位置）
-- stage scale 持久化：`playbackStageScale`（SharedPreferences, 0bce696/0cb06c2）
+- stage scale 持久化：`playbackStageScale`（SharedPreferences, 703fe7fe45906c9e6c2795533e0a2404f79b7eef/703fe7fe45906c9e6c2795533e0a2404f79b7eef）
 - 文档：docs/research/troubleshoot-z-offset-prompt.md（之前 z 偏移排查）

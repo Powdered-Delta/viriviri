@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "856356a",
+  "commit": "2b4f6f437c8a6667e03c1be9022d93d5c71a5621",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -24,6 +24,6 @@
     "app/src/main/java/com/m0e_n00b/viriviri/RecommendationUi.kt",
     "app/src/main/java/com/m0e_n00b/viriviri/SpatialVideoSampleActivity.kt"
   ],
-  "notes": "Follow-up from the workbench UX batch. DONE 2026-10-02 in 856356a (build-windows-debug.ps1 BUILD SUCCESSFUL, 172 unit tests). Removed the center panel root click-to-dismiss and the whole now-dead onDismissWorkbench callback chain (ImmersiveCenterContentPanel -> RecommendationPanel -> RecommendationContent -> CenterContentWorkspace) plus the Activity call site, so WorkbenchOuterDismiss is the single outside-area dismiss owner -- matching the rule already stated at SpatialVideoSampleActivity.onStagePrimaryAction(). Verified in code rather than assumed: suppressOuterDismissUntilMs is armed only by openSearchCanvas() and its handler only prevents dismissal (no first-click misfire); MediaStage still only reveals transport while the Workbench is visible; dismissWorkbenchFromCenterContent stays referenced by the outer-dismiss listener. STILL OPEN (device): confirm the WorkbenchOuterDismiss hit geometry fully covers the area outside the Workbench and does not block rail/transport/nav/input-method raycasts. That geometry is authored in Composition.glxf and was not touched.",
+  "notes": "Follow-up from the workbench UX batch. DONE 2026-10-02 in 2b4f6f437c8a6667e03c1be9022d93d5c71a5621 (build-windows-debug.ps1 BUILD SUCCESSFUL, 172 unit tests). Removed the center panel root click-to-dismiss and the whole now-dead onDismissWorkbench callback chain (ImmersiveCenterContentPanel -> RecommendationPanel -> RecommendationContent -> CenterContentWorkspace) plus the Activity call site, so WorkbenchOuterDismiss is the single outside-area dismiss owner -- matching the rule already stated at SpatialVideoSampleActivity.onStagePrimaryAction(). Verified in code rather than assumed: suppressOuterDismissUntilMs is armed only by openSearchCanvas() and its handler only prevents dismissal (no first-click misfire); MediaStage still only reveals transport while the Workbench is visible; dismissWorkbenchFromCenterContent stays referenced by the outer-dismiss listener. STILL OPEN (device): confirm the WorkbenchOuterDismiss hit geometry fully covers the area outside the Workbench and does not block rail/transport/nav/input-method raycasts. That geometry is authored in Composition.glxf and was not touched.",
   "meta": {}
 }

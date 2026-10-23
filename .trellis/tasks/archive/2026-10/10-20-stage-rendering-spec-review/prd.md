@@ -11,7 +11,7 @@ User confirms 4:3/portrait texture fix passes on headset, but aperture drift sti
 Waiting for user review of product conventions (aperture extent, full-stage danmaku, center anchoring, scale-versus-radius semantics, layer order) and acceptance criteria. Do not activate implementation before approval.
 
 ## Existing accepted change
-Texture repair is already committed as 8b3fad5; user also explicitly permits that commit. Do not repeat it or mix runtime changes into this documentation work.
+Texture repair is already committed as 0f8115c6e5c4f06f1fe4e7199784fdd3067f051a; user also explicitly permits that commit. Do not repeat it or mix runtime changes into this documentation work.
 
 ## User steering: scale and component identity audit
 User explicitly confirms whole-group scaling: effective radius r0*s, carrier local Z (base-r0)*s. Inspect curvature versus scale delivery, identify the actual black curved window, and create a diagram with diagram-design using the local project design system. Current runtime remains unchanged pending review; investigation and spec/diagram edits are authorized. Actual compiled controller probe confirms width/height scale but radius and local Z do not. User identifies a curved black window revealing video; outside becomes grid-like translucent when workbench opens. Do not prematurely identify that appearance with one mesh.

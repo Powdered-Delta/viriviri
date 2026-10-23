@@ -1,7 +1,7 @@
 # Aperture drift investigation, 2026-10-21
 
 ## Latest headset acceptance
-User rejects a42f117 scaling patch: visible curved black viewport center moves fore/aft with curvature; center also moves vertically with size. User explicitly confirms center movement, not merely curved-edge displacement. Preserve full-frame portrait/4:3 mapping. Whole-group scaling is implemented but does not resolve this visual fault.
+User rejects 222aeb543851da743a96992ffe227ce359ca73dd scaling patch: visible curved black viewport center moves fore/aft with curvature; center also moves vertically with size. User explicitly confirms center movement, not merely curved-edge displacement. Preserve full-frame portrait/4:3 mapping. Whole-group scaling is implemented but does not resolve this visual fault.
 
 ## Actual device evidence
 Read-only Quest 2 192.168.0.234:5555, installed package updated 2026-10-21 02:35:19. User reproduced at 02:44:52..02:45:04. Retained ViriViriStage logs contain 220 complete batches (660 layer lines). Radius and scale reach VIDEO, BACKDROP and DANMAKU; local carrier formula matches baseZ-effectiveRadius within float tolerance. Example effective radius 1.5804589: VIDEO carrierZ -1.5804589, submittedWorldZ 0.41954112; native mesh bounds Z [-1.5804589,-1.3609602]. All roles have matching cylinder footprint. This disproves an input-delivery failure but does not measure final world pose or compositor pixels.
@@ -22,7 +22,7 @@ Only docs, doctor, device list, app info, pid and retained logcat reads performe
 User reports drift remains in ALL_UI_MESH and remains after input stops for 2 seconds. Retained policy log proves candidate 3 writes mesh render mode for UI while video remains Layer, but retained candidate-3 batches are flat; no curved batch is retained after that transition. Record user observation separately from this limited log coverage. It does not prove the video alone is the only possible visible surface. Next slice is a debug opt-in mesh-intersection probe with explicit miss/occlusion results, not another sign correction.
 
 ## Recovery after rejected diagnostic build
-Git history 064219b/3f13a1c used explicit inverse vertex compensation; 130967e replaced it with the SDK mesh. The old curve had the wrong edge direction, so restore inverse compensation with centered r*(cos(theta)-1), not the old outward arc. Use the final SDK shape receiver values on every creation/reshape. This is a concrete recovery implementation, not proof of the whole visual root cause.
+Git history ffc3ea9b0f19c378ca0e25858757e8e225f7fa7f/e9057e80307419827da5700a3706ada5b46b8ebe used explicit inverse vertex compensation; eb6b76895b5566dc155268404b789d2a57217747 replaced it with the SDK mesh. The old curve had the wrong edge direction, so restore inverse compensation with centered r*(cos(theta)-1), not the old outward arc. Use the final SDK shape receiver values on every creation/reshape. This is a concrete recovery implementation, not proof of the whole visual root cause.
 
 Concrete input regression: the video still registered onClick -> onStagePrimaryAction alongside AnalogMediaStageTuningSystem's Controller.isDown rising edge. Probe LineTest made the legacy path reachable. Remove that listener, keep NoCollision and clickButtons=0 in every build. setMrMode also still published video ISDK dimensions despite its retired collider ownership; remove that publication.
 
@@ -35,7 +35,7 @@ Latest read-only device checks: online Quest 2; no running app PID or useful ret
 - Remaining limitation: no settled native samples or headset acceptance of this recovery slice. Previous math-only fixes and submitted logs did not prove visible alignment; do not archive this task or label all visual faults repaired.
 
 ## New headset rejection and narrow native recheck
-The explicit aperture recovery d14f93f also failed: user sees the curved black window behind them on transition from flat. Never describe the +r mesh / -r carrier CPU cancellation as a proven display fix.
+The explicit aperture recovery 5997374d31135c822985cad6a6903f750dc079ac also failed: user sees the curved black window behind them on transition from flat. Never describe the +r mesh / -r carrier CPU cancellation as a proven display fix.
 
 Pinned libMetaSpatialSDK.so JNI registration table locates TriangleMesh.nativeUpdateGeometry at 0x2ebfa44. It calls float-array Vec3 conversion 0x2ea4d00, whose loop 0x2ea4e24..0x2ea4e68 copies XYZ without negation; GraphicsHSR::TriangleMeshUpdateGeometry 0x1617f44..0x1617f6c also copies position XYZ. SceneMesh.fromTriangleMesh passes createBVH, not a coordinate toggle, to nativeCreateWithTriangleMesh. The mesh upload Z reflection remains at 0x18187ec. These paths do not yet reveal a custom-only extra Z reflection. No sign change justified by this review alone.
 

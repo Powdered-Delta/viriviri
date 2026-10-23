@@ -389,7 +389,7 @@ data class DanmakuRenderConfig(
 ) {
 ```
 `DanmakuCanvasRuntime` exposes it as `val config` (`DanmakuRuntime.kt:156`); kanban card **k60**
-("弹幕渲染常量双份定义") was closed on 2026-10-02 with commit `0a9b4a0` and its comment documents exactly
+("弹幕渲染常量双份定义") was closed on 2026-10-02 with commit `16976b37f7bdff699b61ff8bc0d6d77b5d4f06fc` and its comment documents exactly
 this fix (`private val config` → `val config`, delete the overlay duplicates). Two residual notes, both
 from source:
 

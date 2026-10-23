@@ -19,10 +19,10 @@ intentionally untracked under `app/build/`.
 
 ## Included Milestones
 
-- `22dd8e8 feat(spatial): apply playback canvas visibility`
-- `9fca461 feat(spatial): open immersive browse canvas`
-- `41af436 feat(spatial): add playback speed control`
-- `4fb7308 chore(task): archive 08-12-immersive-playback-speed-control`
+- `0660a148b0f3b07f04b55a21b16b641c78326d44 feat(spatial): apply playback canvas visibility`
+- `a49f02d285114df7061b4029cde8015c1aeb53ab feat(spatial): open immersive browse canvas`
+- `3102c46ea893cc98dd4c3c3f9f72fe0bc944d348 feat(spatial): add playback speed control`
+- `998b3cadfef2059cf15433d873b9a2fed38286e1 chore(task): archive 08-12-immersive-playback-speed-control`
 
 Earlier immersive MediaStage, playback-control, transport, and canvas core
 milestones are also included through the code baseline.

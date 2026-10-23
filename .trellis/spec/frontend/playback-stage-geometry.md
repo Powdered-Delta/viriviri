@@ -121,4 +121,4 @@ GPU/compositor alignment. User confirmed direction correct but center drift pers
 in the shared-carrier build; this structural correction still requires headset QA.
 
 ## Headset rejection of the surface-origin slice
-107bccb also FAILED: user reports video aperture does not respond to curvature, danmaku geometry responds with Z drift, and scale is still wrong. The separate-origin implementation above describes current code, not a validated pattern that must be retained. See docs/playback-stage-handoff-2026-10-21.md before further changes. Prior 292 batches/Inspector snapshots belong to the old shared-carrier APK; do not apply that evidence to the new callback/mesh path.
+5997374d31135c822985cad6a6903f750dc079ac also FAILED: user reports video aperture does not respond to curvature, danmaku geometry responds with Z drift, and scale is still wrong. The separate-origin implementation above describes current code, not a validated pattern that must be retained. See docs/playback-stage-handoff-2026-10-21.md before further changes. Prior 292 batches/Inspector snapshots belong to the old shared-carrier APK; do not apply that evidence to the new callback/mesh path.

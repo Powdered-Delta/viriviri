@@ -2,12 +2,12 @@
 
 ## Video visibility regression
 
-The prior `b252fc8` path updated the retained `TriangleMesh` vertices and returned
+The prior `4d62ed8525010c9bdccb0016931d740b2feedc3b` path updated the retained `TriangleMesh` vertices and returned
 `SceneMesh.fromTriangleMesh(...)` from the panel creator. It did not call
 `SceneMesh.updateWithTriangleMesh` after later vertex updates, and the device
 still showed the video image (with the known aspect defect).
 
-The `d8c4bd53` path added a retained `SceneMesh` plus
+The `dab1aa346ce19afd23f8c842e15ea2b2e8b5bfda` path added a retained `SceneMesh` plus
 `updateWithTriangleMesh(mesh, false)` after `TriangleMesh.updateGeometry`. The
 reported Quest result retained the panel's hit testing but showed no video
 image. There is no public SDK evidence in the repository or available search

@@ -29,8 +29,8 @@ actual embedded build independent of APK filename.
 
 ## Included Work
 
-- `041b81c fix(spatial): separate video foreground and backdrop`
-- `c0dabe06 fix(build): resolve debug hash from repository root`
+- `85cce1f51bfb10a1368646656e15f83aa97e37b6 fix(spatial): separate video foreground and backdrop`
+- `85cce1f51bfb10a1368646656e15f83aa97e37b6 fix(build): resolve debug hash from repository root`
 
 The existing SceneMesh now commits contained foreground geometry after
 `VideoSize` using `updateWithTriangleMesh`, while a same-mesh translucent black

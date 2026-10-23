@@ -18,8 +18,8 @@ The named artifact and its sidecar are intentionally ignored.
 
 ## Included Work
 
-- `5b288bd feat(spatial): synchronize transport timeline`
-- `1e94ecb chore(task): archive 08-12-immersive-transport-timeline`
+- `5127bad1839adfc602207414b88c4fbed30a3740 feat(spatial): synchronize transport timeline`
+- `ee7808a8ecb3c2d49111e518d2d2eadf766b3d8e chore(task): archive 08-12-immersive-transport-timeline`
 - All earlier immersive MediaStage, visibility, Browse, speed, and transport
   control milestones from the code baseline.
 

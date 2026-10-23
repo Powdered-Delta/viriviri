@@ -57,6 +57,6 @@
 
 ## 附注
 
-- 编辑 `AGENTS.md` 时发现 `TRELLIS:END` 标记在 `b67a941`（"improve agent execution guidance"）
+- 编辑 `AGENTS.md` 时发现 `TRELLIS:END` 标记在 `703fe7fe45906c9e6c2795533e0a2404f79b7eef`（"improve agent execution guidance"）
   中被误删，导致其后 270 余行项目本地内容落入托管块内、可能被 `trellis update` 覆盖。
   本次已恢复该标记，新增章节位于标记之外。

@@ -19,7 +19,7 @@ installed with `adb install -r` onto authorized Quest 2 device
 
 ## Included Change
 
-`5456f97 fix(media): paginate lists and preserve video aspect`
+`151b8380df83368fcdef644a8c910c57b05de521 fix(media): paginate lists and preserve video aspect`
 
 It adds recommendation/search pagination and de-duplication, bounded
 app-state-owned thumbnail loading, and an aspect-preserving single-player

@@ -3,7 +3,7 @@
 - **任务**：`.trellis/tasks/10-07-workbench-backdrop-layer-order/`
 - **状态**：planning
 - **报告来源**：用户真机实测（2026-10-07），「幕布的暗色 layer 视觉上在视频列表前方」
-- **已确认非回归**：`app/` 在 `af39a78..HEAD` 之间**逐字节相同**，`presentationPolicies` 与
+- **已确认非回归**：`app/` 在 `d2ead83f83ba5398b99923f910b5caaf207c8768..HEAD` 之间**逐字节相同**，`presentationPolicies` 与
   `PlaybackCanvasContracts.kt` 未改动 → 与 `10-07-immersive-ui-theme-runtime-assessment` 的 Phase 1 **无关**。
 
 ## 1. 现象

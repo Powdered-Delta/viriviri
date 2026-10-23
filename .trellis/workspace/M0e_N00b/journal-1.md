@@ -25,7 +25,7 @@ Replaced the disposable Unity template with a Meta Spatial SDK Hybrid Android fo
 
 | Hash | Message |
 |------|---------|
-| `8e8e527` | (see git log) |
+| `a3bbbbebdb6b28a73cba75d836c4b9addb31979a` | (see git log) |
 
 ### Testing
 
@@ -58,7 +58,7 @@ Completed existing cutter/PLAN_1 removal; fixed orphan val compilation failure; 
 
 | Hash | Message |
 |------|---------|
-| `5671cbb` | (see git log) |
+| `e9057e80307419827da5700a3706ada5b46b8ebe` | (see git log) |
 
 ### Testing
 
@@ -91,7 +91,7 @@ SDK 0.13.2 bytecode confirms custom shadow creator skips default aperture setup.
 
 | Hash | Message |
 |------|---------|
-| `130967e` | (see git log) |
+| `eb6b76895b5566dc155268404b789d2a57217747` | (see git log) |
 
 ### Testing
 
@@ -124,7 +124,7 @@ Implemented one app-state parameter commit and PlaybackStageGeometry snapshot fo
 
 | Hash | Message |
 |------|---------|
-| `27f4887` | (see git log) |
+| `7cc589a0f858de2aa1d1a9a23cb739933e3aa4c4` | (see git log) |
 
 ### Testing
 
@@ -157,7 +157,7 @@ Executed pinned SDK Pose/Quaternion; verified native Z reflection and cylinder a
 
 | Hash | Message |
 |------|---------|
-| `47137cf` | (see git log) |
+| `01426d33e407bc4062a6015e6a758097540cd6b4` | (see git log) |
 
 ### Testing
 
@@ -190,7 +190,7 @@ Replaced Activity video/overlay reshape, one-shot replay, pending flags and dire
 
 | Hash | Message |
 |------|---------|
-| `b6627f5` | (see git log) |
+| `e222404ca6c2699882ee413664494487f9d9a874` | (see git log) |
 
 ### Testing
 
@@ -223,7 +223,7 @@ Confirmed Media3 1.4.1 SurfaceView-specific scaling contract and Android MediaCo
 
 | Hash | Message |
 |------|---------|
-| `8b3fad5` | (see git log) |
+| `0f8115c6e5c4f06f1fe4e7199784fdd3067f051a` | (see git log) |
 
 ### Testing
 
@@ -256,7 +256,7 @@ Approved whole-stage similarity correction: effective radius r0*s, carrier local
 
 | Hash | Message |
 |------|---------|
-| `a42f117` | (see git log) |
+| `222aeb543851da743a96992ffe227ce359ca73dd` | (see git log) |
 
 ### Testing
 
@@ -289,7 +289,7 @@ Read live Quest 2 logs after user reproduction: 220 complete group batches show 
 
 | Hash | Message |
 |------|---------|
-| `28a6bb1` | (see git log) |
+| `5997374d31135c822985cad6a6903f750dc079ac` | (see git log) |
 
 ### Testing
 
@@ -322,7 +322,7 @@ Compared historical explicit mesh and input fixes. Removed opt-in LineTest probe
 
 | Hash | Message |
 |------|---------|
-| `d14f93f` | (see git log) |
+| `5997374d31135c822985cad6a6903f750dc079ac` | (see git log) |
 
 ### Testing
 
@@ -355,7 +355,7 @@ User clarified curve direction correct, center still drifts. Read-only installed
 
 | Hash | Message |
 |------|---------|
-| `107bccb` | (see git log) |
+| `5997374d31135c822985cad6a6903f750dc079ac` | (see git log) |
 
 ### Testing
 
@@ -378,7 +378,7 @@ User clarified curve direction correct, center still drifts. Read-only installed
 
 ### Summary
 
-User rejected latest 107bccb build: video opening does not respond to curvature; danmaku geometry does respond with Z drift; scale still incorrect. User requests new-session handoff, no further runtime changes. Added docs/playback-stage-handoff-2026-10-21.md with exact build/evidence identities, current objects and update-path asymmetry, failed approaches and lessons, protected portrait/4:3 and input fixes, expected behavior/acceptance and copyable new-session prompt. Clarified SDK danmaku mesh is rendering integration, not a required business cutter; 292 batches/Inspector belong only to old shared-carrier build. Marked spec/diagram/task latest implementation failed; task stays in_progress. Docs-only; diff checks, source paths and diagram self-check passed; no build/device writes.
+User rejected latest 5997374d31135c822985cad6a6903f750dc079ac build: video opening does not respond to curvature; danmaku geometry does respond with Z drift; scale still incorrect. User requests new-session handoff, no further runtime changes. Added docs/playback-stage-handoff-2026-10-21.md with exact build/evidence identities, current objects and update-path asymmetry, failed approaches and lessons, protected portrait/4:3 and input fixes, expected behavior/acceptance and copyable new-session prompt. Clarified SDK danmaku mesh is rendering integration, not a required business cutter; 292 batches/Inspector belong only to old shared-carrier build. Marked spec/diagram/task latest implementation failed; task stays in_progress. Docs-only; diff checks, source paths and diagram self-check passed; no build/device writes.
 
 ### Main Changes
 
@@ -388,7 +388,7 @@ User rejected latest 107bccb build: video opening does not respond to curvature;
 
 | Hash | Message |
 |------|---------|
-| `8e0dd32` | (see git log) |
+| `5997374d31135c822985cad6a6903f750dc079ac` | (see git log) |
 
 ### Testing
 

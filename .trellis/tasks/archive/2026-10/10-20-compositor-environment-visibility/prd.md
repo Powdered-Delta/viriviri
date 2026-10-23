@@ -5,7 +5,7 @@ The entire video rectangle is visible independently of danmaku glyphs; transpare
 UI blends over video; stage shape and aperture share the SDK cylinder builder.
 
 ## Evidence
-User reports video visible only through danmaku silhouettes after 5671cbb.
+User reports video visible only through danmaku silhouettes after e9057e80307419827da5700a3706ada5b46b8ebe.
 SDK 0.13.2 PanelShapeConfig.generateSceneMeshCreator returns a custom creator
 before configuring layer blend/shader/alpha mode. The shadow-only override
 therefore removes the video's eye-buffer aperture. Default UI Layer is MASKED,

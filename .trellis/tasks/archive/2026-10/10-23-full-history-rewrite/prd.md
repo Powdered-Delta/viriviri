@@ -24,7 +24,7 @@
 - Use Trellis task creation/start records as task-start evidence and explicit user acceptance or completed check/verification records as acceptance evidence.
 - A passing build or archived task alone is not headset/user acceptance when the PRD says visual acceptance is pending.
 - Preserve failed, rejected, deferred, and in-progress outcomes as such; do not synthesize acceptance commits for them.
-- Keep the accepted 2026-10-22 Overlay B POC checkpoint (`3a0a3fa`) distinct from production port acceptance.
+- Keep the accepted 2026-10-22 Overlay B POC checkpoint distinct from production port acceptance; its rewritten SHA is `2712858d912fb87e5c467ec8af766e849894c472` (original `3a0a3fa`).
 - Resolve the conflicting `10-23-fixed-danmaku-line-spacing` task metadata/PRD by preserving its unresolved status unless a stronger explicit acceptance record is found.
 
 ## Media paths to purge from history
@@ -54,3 +54,13 @@
 - Do not include pre-existing uncommitted working-tree edits.
 - Do not publish the local-only `codex/production-overlay-b` branch as a new remote branch.
 - Do not claim visual/product acceptance for tasks whose Trellis evidence says pending, failed, or deferred.
+
+
+## Rewrite result
+
+- Compressed the 236-commit first-pass main to 148 history commits; the `feat(history)` record is commit 149 and the final Trellis synchronization is planned as commit 150. The rewritten main has no merge commits.
+- Preserved 21 start nodes, 51 task archive nodes, 9 validation-artifact records, 6 standalone status/checkpoint records, and the separate geometry POC / production local branch nodes. `milestones.tsv` contains 89 evidence rows.
+- `history-map.tsv` maps all 289 original commit IDs to 154 unique rewritten IDs. `branch-ref-map.json` records rewritten branch tips at the 148-commit history base; the final `main` tip adds the two documented maintenance commits.
+- Replaced 88 Trellis commit pointers across 31 files; line-by-line diff verification found 0 mismatches, and the updater reported 0 unresolved or ambiguous references. Existing line-ending counts stayed unchanged.
+- Verified the 10 listed sample-video paths are absent from history reachable from all rewritten refs. The rewritten main tree at the 148-commit base matches the first-pass tree.
+- Verification was limited to Git graph/tree/ref checks and `git diff --check`; no app tests or builds were run.

@@ -1,6 +1,6 @@
 # Stage ownership audit and refactor boundary
 
-The user re-tested 47137cf and rejected headset acceptance. Earlier SDK coordinate evidence is retained in the archived verify-cylinder-coordinate-contract task; this task does not reinterpret its sign or claim a new headset measurement.
+The user re-tested 01426d33e407bc4062a6015e6a758097540cd6b4 and rejected headset acceptance. Earlier SDK coordinate evidence is retained in the archived verify-cylinder-coordinate-contract task; this task does not reinterpret its sign or claim a new headset measurement.
 
 ## Direct call-chain findings
 - Activity app-state emission updates scale/curvature/ratio; Media3 listener updates source dimensions.

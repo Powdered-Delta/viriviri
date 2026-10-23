@@ -16,7 +16,7 @@ Offsets 302 onward select quad/cylinder/equirect geometry using panelShapeType.
 PanelShape constructor calls this generator, creates the SceneMesh, then creates
 the SceneLayer from the SAME config. A custom shadow creator bypasses the
 aperture setup but does not bypass layer creation. This proves a configuration
-regression in 5671cbb. The user's exact glyph-only output remains a device-level
+regression in e9057e80307419827da5700a3706ada5b46b8ebe. The user's exact glyph-only output remains a device-level
 observation, with the remaining MASKED UI apertures a strongly supported cause.
 
 ## UIPanelRenderOptions / MediaPanelRenderOptions

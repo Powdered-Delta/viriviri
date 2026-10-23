@@ -19,7 +19,7 @@ sidecar are intentionally ignored under `app/build/`.
 
 ## Included Change
 
-`b252fc8 fix(spatial): contain video content in stage`
+`4d62ed8525010c9bdccb0016931d740b2feedc3b fix(spatial): contain video content in stage`
 
 The existing shared player listener updates only the pre-existing video mesh
 front-content vertices on a valid Media3 `VideoSize`. The pure contain formula
