@@ -22,8 +22,26 @@
 | `playwright-core` | 装在工作流目录：`npm i playwright-core` |
 | 已缓存的 chromium | 本机已有 `%LOCALAPPDATA%\ms-playwright\chromium-1243\`。**不要重新下载**（CDN 常被重置） |
 | PowerShell 7 / Windows PowerShell | 跑 `*.ps1` |
-| `cred.json` | `{"email":"…","password":"…"}`，放工作流目录。**不要提交** |
-| `mcp.json` | 仓库根已存在，里面是 Penpot 的 MCP URL（含 userToken）。**唯一的明文 token 位置** |
+| `cred.json` | `{"email":"…","password":"…"}`，放工作流目录。**不要提交**（已 gitignore） |
+| **`mcp.json`** | **不入库**（含个人 userToken，已 gitignore）。用仓库根的模板生成：见下 |
+
+**`mcp.json` 从模板生成**（它是唯一存放 host + token 的地方）：
+
+```powershell
+Copy-Item mcp.example.json mcp.json
+# 然后把 https://penpot.example.com 换成你的 Penpot 主机
+# 把 <YOUR_PENPOT_USER_TOKEN> 换成你的 userToken（Penpot 里生成）
+```
+
+`mcp.example.json` 是**入库的、无凭据的**模板，含两条 Penpot 条目：
+
+| 条目 | 形态 | 谁用 |
+| --- | --- | --- |
+| `penpot` | `npx mcp-remote <url> --transport http-only` | Claude Code / DSH 等 MCP 客户端 |
+| `penpot-http` | `{"type":"http","url":…}` | **本目录的脚本**（`Invoke-PenpotMcp.ps1` 直接读这个 `url`） |
+
+> 脚本会**自动**从 `mcp.json` 解析 host + token —— **不要把 token 抄进脚本、也不要写进文档**。
+> 提交范围内只允许出现占位符。
 
 > **`playwright-core` 一定要配 `executablePath`** 指向已缓存的 chromium。
 > 装全量 `playwright` 包会触发浏览器下载，而本机到 CDN 的连接不稳定。
@@ -53,18 +71,68 @@ node tools\penpot-workflow\keepalive.mjs --base https://<你的 Penpot 主机> -
 
 ---
 
-## 第 2 步 · 提取
+## 第 2 步 · 提取（**两条腿，输出同构**）
+
+| 路径 | 命令 | 依赖 | 适用 |
+| --- | --- | --- | --- |
+| **A · MCP 插件** | `extract-panels.ps1` | 浏览器常驻 + WebSocket（第 1 步） | 交互式；需要**写** Penpot |
+| **B · ZIP 解析** | `penpot-zip-to-snapshot.mjs` | **只要一个 `.penpot` 文件** | **CI / 批量 / 需要稳定** |
+
+两条路的产出**同构**（同样含 `dpCanvas` / `pxPerDp` / `framePx` / `elements` / `labels`），可互相替换。
+**已逐项验收**：8 块板 × (dpCanvas / pxPerDp / elementCount / **每个元素的 dp 矩形**) **全部一致，0 差异**。
+
+### A · MCP 插件
 
 ```powershell
 .\tools\penpot-workflow\extract-panels.ps1
 # 默认抓 ^[CW]\d （W1–W8 面板详图 + C1–C4 路由板），输出 out\panel-snapshot.json
 ```
 
-产出结构：
+### B · ZIP 解析（**不需要插件**）
+
+```powershell
+node tools\penpot-workflow\penpot-zip-to-snapshot.mjs "C:\path\file.penpot" `
+     --out out\panel-snapshot.json [--pattern "^[CW]\d "]
+```
+
+`.penpot` 的获取：仪表盘 → 文件卡片右键 → **`下载 Penpot 文件（.penpot）`**（见「文件级操作」）。
+
+**为什么要有这条腿**：MCP 那条依赖浏览器常驻 + WebSocket，是整个流程最脆弱的一环
+（节流 / `frozen` / 孤儿浏览器占槽位，实测撞过三次）。ZIP 只依赖一次 HTTP 下载，可离线、可进 CI。
+
+**`--pattern` 也能取原型图**：用 `--pattern '^V2'` 会解析出状态板的互动边
+（`links: [{ from, trigger, action, to, toId }]`），导出里**确实带互动**
+（实测 10 条全在，`{ eventType, actionType, destination }`）。
+
+### 导出文件的真实结构（实测，revn 135）
+
+```text
+file.penpot                       ← 就是 ZIP（magic 50 4b 03 04）
+  files/<fileId>.json             ← 文件元数据（name / revn / id）
+  files/<fileId>/pages/<pageId>.json            ← 页面元数据（name / flows / index）
+  files/<fileId>/pages/<pageId>/<shapeId>.json  ← 【每个形状一个 JSON】共 651 个
+  objects/<uuid>.json + .png      ← 媒体对象（图片资产）
+  manifest.json
+```
+
+**读这个格式要注意的四点**（都踩过）：
+
+| # | 事实 | 影响 |
+| --- | --- | --- |
+| 1 | 形状树靠 `parentId` + `shapes: [子id...]`（**`shapes` 才是绘制顺序**），页面 JSON **不含**形状 | 必须把全部形状载入成 map 再走树 |
+| 2 | 文本在 `content.children[0].children[0].children[0].text` | 要**递归**收集所有 `text` 字段 |
+| 3 | 互动是**平铺字段**：`{ eventType, actionType, destination }`，**不在** `action.destination` 下；`destination` 是**目标板的 frame id** | 我第一版按嵌套去取，结果 `links` 全是 0 |
+| 4 | dp 标注里的乘号**可能是全角 `×`**（MCP 写 ASCII `x`、手绘常是全角） | 正则要写成 `[x×X]`，否则 dpCanvas 全为 null |
+
+**用法假设**：不支持 ZIP64（>4 GB）；面板框取「**面积最大的非文本子形状**」，因此不依赖标签叫
+`panel` 还是 `xxx_panel`。
+
+### 产出结构（两条腿相同）
 
 ```jsonc
 {
   "file": "…", "page": "main-view", "extractedAt": "…",
+  "source": "mcp" | "penpot-zip",
   "panels": [{
     "board": "W1 transport",
     "dpCanvas": { "w": 460, "h": 132 },      // 面板的 dp 画布
@@ -75,6 +143,8 @@ node tools\penpot-workflow\keepalive.mjs --base https://<你的 Penpot 主机> -
   }]
 }
 ```
+
+> ZIP 路径额外带 `revn` 与 `links`（MCP 路径的 `interactions` 是计数）。
 
 **提取的前提约定**（画板时必须遵守，否则机械对账失效）：
 

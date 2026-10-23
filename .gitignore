@@ -79,3 +79,5 @@ tools/penpot-workflow/*.log
 # is tracked as `mcp.example.json`; copy it and fill in your own token.
 mcp.json
 
+# Trellis workflow records stay versioned; ignore only the local developer identity.
+.trellis/.developer
