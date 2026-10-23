@@ -500,7 +500,6 @@ MediaPanelSettings(
 This waits for the VR-ready panel lifecycle, makes compositing intent explicit,
 and preserves full-frame sampling without rebuilding the player.
 
-
 ### 3.12 Scene geometry used for clipping observations
 
 When authoring a diagnostic background through `mse-agent`, primitive scale is

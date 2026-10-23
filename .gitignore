@@ -79,6 +79,7 @@ tools/penpot-workflow/*.log
 # is tracked as `mcp.example.json`; copy it and fill in your own token.
 mcp.json
 
+.trellis/
 
 # Local diagram design skill
 .agents/skills/diagram-design/

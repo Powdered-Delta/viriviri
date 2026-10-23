@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 12
-- **Last Active**: 2026-10-21
+- **Total Sessions**: 13
+- **Last Active**: 2026-10-23
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~403 | Active |
+| `journal-1.md` | ~456 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 13 | 2026-10-23 | Wolvic offline input migration | `d7e1c4f` | `codex/wolvic-input-method` |
 | 12 | 2026-10-21 | Handoff rejected stage aperture implementation | `8e0dd32` | `main` |
 | 11 | 2026-10-21 | Separate surface opening from video cylinder axis carrier | `107bccb` | `main` |
 | 10 | 2026-10-21 | Restore explicit video aperture and sole trigger owner | `d14f93f` | `main` |

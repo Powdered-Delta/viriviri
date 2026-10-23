@@ -401,3 +401,56 @@ User rejected latest 107bccb build: video opening does not respond to curvature;
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: Wolvic offline input migration
+
+**Date**: 2026-10-23
+**Task**: Wolvic offline input migration
+**Branch**: `codex/wolvic-input-method`
+
+### Summary
+
+Implemented three-language generic InputConnection keyboard; 379 JVM tests and Windows build pass. Android test APKs built; device acceptance pending authorization.
+
+### Main Changes
+
+# Local verification
+
+- Windows JDK 17, scripts/build-windows-debug.ps1: PASS.
+- JVM tests: playback-stage-core 25, spatial-workbench-core 138,
+  input-method-engine 3, spatial-workbench-compose 8, app 205; 379 total,
+  no failures/errors/skips.
+- Component-library boundary: PASS (three existing non-fatal portability debt entries).
+- app and input-method-engine assembleDebugAndroidTest: PASS. Tests were compiled
+  and packaged, not installed or executed on a device.
+- APK verified to contain the pinned Pinyin SQLite resource, arm64 OpenWnn
+  libraries and third-party notices. Retired Rime asset and Vosk absent.
+- Updated input terminology: 24 whole-word identifiers resolve in source.
+- git diff --check: PASS before builds.
+
+Device acceptance is pending explicit authorization: cross-panel field focus,
+real system keyboard handoff, physical input and offline Japanese JNI conversion.
+The task remains available for that acceptance step. No device writes occurred.
+
+Final APK build identity: d7e1c4f6 (verified in DEX).
+APK SHA-256: 3c5389789f5a07309360022e595a2925f0802d73324a35a0da5dc34171e145de
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d7e1c4f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
