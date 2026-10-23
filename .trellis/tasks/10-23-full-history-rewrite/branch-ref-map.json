@@ -1,0 +1,50 @@
+[
+  {
+    "ref": "refs/heads/archive/legacy-android",
+    "old_tip": "108f47e3b283b1e1814deb8fd0e4e9ec1d912de0",
+    "first_pass_tip": "63d925cc17a25665dfbd95116d1164ad090a7227",
+    "rewritten_tip": "f5dcab3aafc747cae33787653e63a1c6e3d3baec"
+  },
+  {
+    "ref": "refs/heads/codex/geometry-overlay-poc",
+    "old_tip": "3a0a3fa5e821521f5078c6b16385710e8cdf6b2f",
+    "first_pass_tip": "5dac5893694bb53f7eb07d59e68c17213157ed16",
+    "rewritten_tip": "2712858d912fb87e5c467ec8af766e849894c472"
+  },
+  {
+    "ref": "refs/heads/codex/production-overlay-b",
+    "old_tip": "9ba453855cffa6b60caa7216bbbbc640e0f5466a",
+    "first_pass_tip": "942e8640bb219b35366b82366923125b18f45080",
+    "rewritten_tip": "7a42cbe70af973a8be776b0383758821e46addc3"
+  },
+  {
+    "ref": "refs/heads/feature/grab-workbench-hx",
+    "old_tip": "b2a26ff647c3dee52f59cda8897c1ffecee9db69",
+    "first_pass_tip": "71c8b9fb97a3bda0674a146ef3404a00dd284e3e",
+    "rewritten_tip": "2e0d9eac62e96c1dd39e21f7d2e24db9a48ffd72"
+  },
+  {
+    "ref": "refs/heads/fix/fix-init-stage-scale",
+    "old_tip": "a595d1ec5c77b395421dcdbe89ec1142bdb1c9c7",
+    "first_pass_tip": "243f945f10dafeda4260868b1fbe9e6cfc3b103a",
+    "rewritten_tip": "b0590eb7362402aaf2c780bd014135cb37024700"
+  },
+  {
+    "ref": "refs/heads/main",
+    "old_tip": "a3c561dce3b1a0820463945457f6e4a378d4c8c4",
+    "first_pass_tip": "201a391ab1c9d5bd46a84b8b451f6855bb90987e",
+    "rewritten_tip": "5997374d31135c822985cad6a6903f750dc079ac"
+  },
+  {
+    "ref": "refs/heads/poc/godot-hybrid-panel",
+    "old_tip": "088b88baeacdfe87d4bfb5c062a00f156463bbbf",
+    "first_pass_tip": "088b88baeacdfe87d4bfb5c062a00f156463bbbf",
+    "rewritten_tip": "088b88baeacdfe87d4bfb5c062a00f156463bbbf"
+  },
+  {
+    "ref": "refs/remotes/origin/main",
+    "old_tip": "af39a78a83f55d13de0e9bb2971ba8c447863169",
+    "first_pass_tip": "a27512dfa2a6d30ff17012d522e07fbeac40d711",
+    "rewritten_tip": "5997374d31135c822985cad6a6903f750dc079ac"
+  }
+]

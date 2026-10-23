@@ -1,0 +1,256 @@
+{
+  "edits": 88,
+  "changed_files": [
+    {
+      "path": ".trellis/workspace/M0e_N00b/index.md",
+      "occurrences": 12,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 51,
+      "lf_only_after": 51
+    },
+    {
+      "path": ".trellis/workspace/M0e_N00b/journal-1.md",
+      "occurrences": 13,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 403,
+      "lf_only_after": 403
+    },
+    {
+      "path": ".trellis/tasks/10-06-workbench-dismiss-scope-fix/prd.md",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 88,
+      "lf_only_after": 88
+    },
+    {
+      "path": ".trellis/tasks/10-07-stage-tap-cannot-close-workbench/prd.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 345,
+      "lf_only_after": 345
+    },
+    {
+      "path": ".trellis/tasks/10-07-workbench-backdrop-layer-order/prd.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 108,
+      "lf_only_after": 108
+    },
+    {
+      "path": ".trellis/tasks/10-21-aperture-transform-drift/prd.md",
+      "occurrences": 5,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 45,
+      "lf_only_after": 45
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/08-25-curved-video-stage/task.json",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 28,
+      "lf_only_after": 28
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/08-25-workbench-dismiss-scrim/task.json",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 28,
+      "lf_only_after": 28
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/09-02-popup-menu-dark-theme/task.json",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 25,
+      "lf_only_after": 25
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/09-02-workbench-collapse-reset/task.json",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 25,
+      "lf_only_after": 25
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/09-10-stage-scale-curvature-bake/task.json",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 29,
+      "lf_only_after": 29
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/09-11-ui-structure-terms-doc/prd.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 62,
+      "lf_only_after": 62
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/09-11-ui-structure-terms-doc/task.json",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 26,
+      "lf_only_after": 26
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/10-20-compositor-environment-visibility/prd.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 50,
+      "lf_only_after": 50
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/10-20-stage-rendering-spec-review/prd.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 23,
+      "lf_only_after": 23
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/10-20-playback-stage-controller/research/ownership-audit.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 19,
+      "lf_only_after": 19
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-10/10-20-compositor-environment-visibility/research/sdk-findings.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 58,
+      "lf_only_after": 58
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-13-fix-video-mesh-visibility-reset-yaw/research/visibility-and-reset-yaw-findings.md",
+      "occurrences": 2,
+      "crlf_before": 35,
+      "crlf_after": 35,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-13-archive-spatial-foreground-backdrop-validation-apk/research/spatial-foreground-backdrop-validation-artifact.md",
+      "occurrences": 2,
+      "crlf_before": 39,
+      "crlf_after": 39,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-13-archive-spatial-content-aspect-validation-apk/research/spatial-content-aspect-validation-artifact.md",
+      "occurrences": 1,
+      "crlf_before": 33,
+      "crlf_after": 33,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-13-archive-media-list-aspect-validation-apk/research/media-list-aspect-validation-artifact.md",
+      "occurrences": 1,
+      "crlf_before": 32,
+      "crlf_after": 32,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-transport-timeline-validation-apk/research/transport-timeline-validation-artifact.md",
+      "occurrences": 2,
+      "crlf_before": 30,
+      "crlf_after": 30,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-playback-speed-validation-apk/research/playback-speed-validation-artifact.md",
+      "occurrences": 4,
+      "crlf_before": 36,
+      "crlf_after": 36,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-playback-canvas-validation-apk/research/playback-canvas-validation-artifact.md",
+      "occurrences": 5,
+      "crlf_before": 33,
+      "crlf_after": 33,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-immersive-validation-apk/research/immersive-controls-validation-artifact.md",
+      "occurrences": 4,
+      "crlf_before": 34,
+      "crlf_after": 34,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-immersive-browse-validation-apk/research/immersive-browse-validation-artifact.md",
+      "occurrences": 3,
+      "crlf_before": 35,
+      "crlf_after": 35,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/archive/2026-08/08-12-archive-canvas-visibility-validation-apk/research/canvas-visibility-validation-artifact.md",
+      "occurrences": 6,
+      "crlf_before": 35,
+      "crlf_after": 35,
+      "lf_only_before": 0,
+      "lf_only_after": 0
+    },
+    {
+      "path": ".trellis/tasks/10-21-aperture-transform-drift/research/findings.md",
+      "occurrences": 5,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 49,
+      "lf_only_after": 49
+    },
+    {
+      "path": ".trellis/tasks/10-07-immersive-ui-theme-runtime-assessment/research/audit-danmaku-runtime.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 663,
+      "lf_only_after": 663
+    },
+    {
+      "path": ".trellis/tasks/09-02-workbench-lift-and-grab/research/01-grab-diagnosis.md",
+      "occurrences": 2,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 69,
+      "lf_only_after": 69
+    },
+    {
+      "path": ".trellis/spec/frontend/playback-stage-geometry.md",
+      "occurrences": 1,
+      "crlf_before": 0,
+      "crlf_after": 0,
+      "lf_only_before": 124,
+      "lf_only_after": 124
+    }
+  ],
+  "unresolved": [],
+  "ambiguous": [],
+  "preserved_artifact_occurrences": 0
+}
