@@ -1580,9 +1580,8 @@ class SpatialVideoSampleActivity : AppSystemActivity() {
   private fun syncInputMethodPanelVisibility(appState: ViriViriUiState) {
     val entity = inputMethodPanelEntity ?: return
     val visible =
-        appState.searchWorkspace.route == SearchWorkspaceRoute.SEARCH_EMPTY &&
-            appState.searchWorkspace.isKeyboardVisible &&
-            !appState.searchWorkspace.isKeyboardDismissed
+        appState.inputUi.targetId != null && appState.inputUi.visible &&
+            appState.inputUi.mode == com.m0e_n00b.spatialworkbench.core.InputMode.INTERNAL
     if (::spatialPanelVisibilityController.isInitialized) {
       spatialPanelVisibilityController.setVisible(PanelSlot.ACTION_SHEET, entity, visible)
     } else {

@@ -339,17 +339,17 @@ context 槽位
 
 ### 3.7 `input_console` — `input_method_panel`（1.62 × 0.68 m，pitch 20，z −0.78，`ACTION_SHEET`）
 
-**仅当 `route == SEARCH_EMPTY && isKeyboardVisible && !isKeyboardDismissed` 时可见**，且只渲染不超出候选区所需的候选项。
+**仅当 InputUiState 存在活动编辑目标、visible 为真且模式为 INTERNAL 时可见**，且只渲染不超出候选区所需的候选项。
 
 | 区域 | 内容 |
 | --- | --- |
 | header | **空**——查询框在中心工作区头部，不在键盘面板内 |
-| mainArea | 合成区 `composition`（宽度对齐中列）；候选条 `SearchCandidateStrip`（自然宽度排布 + 右侧展开/收起箭头，展开态用 `LazyVerticalGrid` 覆盖字母区）；`SearchInputMethodBoard` 三栏：**数字列** `7-8-9-+ / 4-5-6-− / 1-2-3-× / 0-.-=-÷`、**字母列** `qwertyuiop / asdfghjkl / [Shift]zxcvbnm[符号] / [中/eng] , . [拼音] ! ? '`、**动作列** `⌫ / 麦克风 / ↵ / 收起` |
-| footer | `⌫删除 · 语音 · 系统输入法 · 收起 · [清空输入] · [确定搜索]`（动作列非空时改由动作列承担，footer 只渲染动作列） |
+| mainArea | 合成区 `composition`（宽度对齐中列）；候选条 `SearchCandidateStrip`（自然宽度排布 + 右侧展开/收起箭头，展开态用 `LazyVerticalGrid` 覆盖字母区）；`SearchInputMethodBoard` 三栏：**数字列** `7-8-9-+ / 4-5-6-− / 1-2-3-× / 0-.-=-÷`、**字母列** `qwertyuiop / asdfghjkl / [Shift]zxcvbnm[符号] / [中/eng/日] , . [拼音] ! ? '`、**动作列** `⌫ / 麦克风 / ↵ / 收起` |
+| footer | `⌫删除 · 语音 · 系统输入法 · 收起 · [清空输入] · [确定搜索]`（动作列存在时 footer 为空；系统输入法入口位于字段宿主） |
 
-输入法契约（纯 Kotlin）：`SearchInputMethod` / `SearchInputMethodRegistry`（当前仅 `ChinesePinyinQwertyInputMethod`）/
-`SearchInputSession` / `SearchInputKeyboard` / `SearchInputAction` / `SearchInputCandidate` /
-`SearchInputLanguage` / `SearchInputShiftState` / `SearchInputKeyboardLayer`。
+输入契约：`InputSession` / `InputAction` / `InputComposer` / `InputEngine` / `InputCandidate`。
+`AppInputField` 拥有文本和选区，`AppInputController` 管理活动连接；
+`AppInputConsole` 复用原布局，麦克风保留禁用占位。详见实现文档 §5.6。
 
 来源：`ui-structure-and-terminology.md` §5.6。
 

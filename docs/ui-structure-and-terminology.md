@@ -419,7 +419,7 @@ ACTION_SHEET    = TRANSIENT       SHORTS_DETAILS / SHORTS_COMMENTS = AUTO_FADE
 ```mermaid
 stateDiagram-v2
     [*] --> RECOMMENDATIONS
-    RECOMMENDATIONS --> SEARCH_EMPTY: openSearchCanvas / requestInternalSearchInput
+    RECOMMENDATIONS --> SEARCH_EMPTY: openSearchCanvas / AppInputField
     SEARCH_EMPTY --> SEARCH_RESULTS: submitSearch（提交查询）
     SEARCH_RESULTS --> SEARCH_EMPTY: returnToSearchEmpty（返回键）
     SEARCH_EMPTY --> RECOMMENDATIONS: closeSearchWorkspace
@@ -432,7 +432,7 @@ stateDiagram-v2
 | 枚举 | 取值 | 含义 |
 | --- | --- | --- |
 | `WorkbenchReturnTarget` | `VIDEO_LIST` / `SEARCH_RESULTS` | `WORKBENCH_EMPTY` 中央返回筹码要回到哪个列表 |
-| `SearchTextInputTarget` | `INTERNAL` / `SYSTEM` | 当前查询框由应用内输入法还是系统 IME 接管 |
+| `InputMode` | `INTERNAL` / `SYSTEM` | 当前查询框由应用内输入法还是系统 IME 接管 |
 | `ViriViriDestination` | `RECOMMENDATIONS` / `VIEWER` | 是否已进入观看页 |
 | `ImmersiveBrowseCommand` | `RETURN_TO_PLAYBACK` | 观看页回到播放画布的命令通道 |
 
@@ -641,41 +641,49 @@ id 与触发位置均不变。同一时刻只允许一个设置浮层。
 
 ### 5.6 `input_method_panel` — 近场输入台
 
-仅当 `route == SEARCH_EMPTY && isKeyboardVisible && !isKeyboardDismissed` 时可见，
-并且**只渲染不超出候选区所需的候选项**。
+[实现] 由 SpatialVideoSampleActivity 拥有面板生命周期，父节点为 MediaStage；
+布局尺寸、相对深度、位置和 pitch 维持第 2 节。面板没有视频 Surface 所有权。
+AppInputController 管理唯一活动编辑目标及 INTERNAL / SYSTEM 输入模式，
+仅当 InputUiState 有活动目标、visible 为真且模式为 INTERNAL 时显示；不依赖搜索路由。
+Compose 按键不请求编辑焦点，字段卸载时释放连接。2D 宿主复用同一内容。
 
 ```text
-ImmersiveInputMethodPanel → SearchInputPanel → CinemaInputConsole（showQueryField = false）
-└── SpatialPanelShell（transparentRoot = true）
-    ├── header    （此处为空：查询框在中心工作区头部，不在键盘面板内）
+AppInputField（字段拥有 TextFieldValue / 光标 / 选区）
+    ↓ 生命周期绑定的 InputConnection
+AppInputController ← AppInputConsole ← ImmersiveInputMethodPanel / PancakeActivity
+    ↓ InputComposer → InputEngine → WolvicInputEngine
+    ├── 简体拼音：google_pinyin.db（离线）
+    ├── 英文：直接输入
+    └── 日语：Romaji → OpenWnn 假名及候选（离线）
+
+AppInputConsole → CinemaInputConsole（showQueryField = false）
+└── SpatialPanelShell
+    ├── header（字段位于其原有宿主）
     ├── mainArea
-    │   ├── 合成区     composition（宽度对齐中列）
-    │   ├── 候选条     SearchCandidateStrip：按自然宽度排布 + 右侧展开/收起箭头
-    │   │              展开态 → LazyVerticalGrid 覆盖字母区
-    │   └── SearchInputMethodBoard（数字列 / 字母列 / 动作列三栏）
-    │       ├── 数字列  numberRows：7-8-9-+ / 4-5-6-− / 1-2-3-× / 0-.-=-÷
-    │       ├── 字母列  mainRows（字母层）：
-    │       │           q w e r t y u i o p
-    │       │           a s d f g h j k l
-    │       │           [Shift] z x c v b n m [符号]
-    │       │           [中/eng] , . [拼音/English(w=4)] ! ? '
-    │       │           字母列还会叠加「展开候选」覆盖层
-    │       └── 动作列  actionKeys：⌫ / 麦克风 / ↵ / 收起
-    └── footer   SearchActions：⌫删除 · 语音 · 系统输入法 · 收起 · [清空输入] · [确定搜索]
-                 （动作列非空时改由动作列承担，footer 只渲染动作列）
+    │   ├── 合成区（中列；资源错误时提供重试及系统输入法）
+    │   ├── SearchCandidateStrip / 展开候选覆盖层
+    │   └── SearchInputMethodBoard
+    │       ├── numberRows：7-8-9-+ / 4-5-6-− / 1-2-3-× / 0-.-=-÷
+    │       ├── mainRows：QWERTY / 符号层，空格权重 4
+    │       │             语言键轮换 中 → eng → 日；键位和尺寸保持
+    │       └── actionKeys：⌫ / 麦克风（禁用占位） / ↵ / 收起
+    └── footer（动作列存在时不渲染；保留通用回调）
 ```
 
-输入法契约（纯 Kotlin，与 UI 无关）：
-
-| 术语 | 类型 | 说明 |
+| 术语 | 类型 | 层与说明 |
 | --- | --- | --- |
-| 输入法 | `SearchInputMethod` | `id` / `displayName` / `keyboard` / `reduce` |
-| 输入法注册表 | `SearchInputMethodRegistry` | 按 `inputMethodId` 分派，当前仅 `ChinesePinyinQwertyInputMethod` |
-| 输入会话 | `SearchInputSession` | `committedText` / `composition` / `candidates` / `language` / `shiftState` / `keyboardLayer` |
-| 键盘布局 | `SearchInputKeyboard` | `numberRows` / `mainRows` / `actionKeys` |
-| 输入动作 | `SearchInputAction` | `PressKey` / `SelectCandidate` / `Backspace` / `CommitComposition` |
-| 候选 | `SearchInputCandidate` | `value` / `label` / `consumedCompositionLength` |
-| 语言 / 上档 / 键盘层 | `SearchInputLanguage` / `SearchInputShiftState` / `SearchInputKeyboardLayer` | `CHINESE|ENGLISH` / `OFF|SHIFTED|CAPS_LOCK` / `LETTERS|SYMBOLS` |
+| 输入状态 | `InputSession` / `InputAction` / `InputComposition` / `InputEdit` | [实现] core 中的组合状态及平台中立编辑命令，不持有文档 |
+| 输入转换 | `InputComposer` / `InputEngine` | [实现] core 转换语义及引擎接口 |
+| 候选 | `InputCandidate` / `CompositionRange` | [实现] 唯一标识与原始组合消耗范围 |
+| 输入目标控制 | `AppInputController` / `InputUiState` | [实现] app 中唯一活动连接、代次隔离及可见状态 |
+| 通用字段 | `AppInputField` / `InputFieldHandle` / `InputFieldOptions` / `InputFieldKind` | [实现] app Compose 桥接，显式系统 IME，密码遮蔽及禁止预测 |
+| 布局 | `InputKeyboardLayout` / `InputKeyboard` / `InputKey` | [实现] 原有布局独立于引擎 |
+| 语言及模式 | `InputLanguage` / `InputShift` / `InputLayer` / `InputMode` | [实现] 中英日、上档、符号层和系统接管 |
+| 词库引擎 | `WolvicInputEngine` / `PinyinCandidates` | [实现] input-method-engine 模块，SQLite 与 JNI 串行运行 |
+
+空格在中日组合期间选首候选且不额外加空格；Enter 先上屏拼音/假名，
+无组合时执行字段动作。候选只消费声明范围。系统回写不自动发起搜索。
+搜索按钮先完成组合再提交。语音保留回调但不加载识别服务。
 
 ### 5.7 舞台覆盖层
 
@@ -841,7 +849,7 @@ SHORTS_COMMENTS  [契约]
 | --- | --- | --- |
 | 中心工作区路由 | `SearchWorkspaceRoute` | 实现 |
 | 返回目标 | `WorkbenchReturnTarget` | 实现 |
-| 文本输入目标 | `SearchTextInputTarget` | 实现 |
+| 文本输入目标 | `InputMode` | 实现 |
 | 观看目的地 | `ViriViriDestination` | 实现 |
 | 浏览会话 | `ImmersiveBrowseSession` + `ImmersiveBrowseSessionReducer` | 实现 |
 | 浏览来源 | `PlaybackBrowseOrigin` / `BrowseContinuation` / `BrowseOriginResolver` | 契约 |
@@ -854,8 +862,9 @@ SHORTS_COMMENTS  [契约]
 | 术语 | 代码 | 状态 |
 | --- | --- | --- |
 | 搜索工作区 | `SearchWorkspaceState` | 实现 |
-| 拼音词库 | `DefaultOfflinePinyinLexicon` / `BundledPinyinData` | 实现 |
-| 候选合成 | `SearchComposition` / `InputCandidate` / `CompositionRange` | 契约 + 实现 |
+| 离线输入引擎 | `WolvicInputEngine` / `PinyinCandidates` | [实现] |
+| 生产候选合成 | `InputComposer` / `InputCandidate` / `CompositionRange` | [实现] |
+| 旧搜索合成辅助 | `SearchComposition` | [契约] core 独立辅助函数，未接管运行时编辑 |
 | 搜索筛选 | `VideoListFilterState` / `VideoListSort` / `VideoListDateFilter` / `VideoListDurationFilter` | 实现 |
 
 ### 6.7 播放控制

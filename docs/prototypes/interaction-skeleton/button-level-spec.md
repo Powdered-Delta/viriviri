@@ -95,9 +95,9 @@ IconButton  = 48 × 48 dp（Material 默认）
 | # | 元素 | 尺寸 | x 区间 | 说明 |
 | --- | --- | --- | --- | --- |
 | 1 | 搜索图标 | 24 × 24 | 24 – 48 | `Icons.Default.Search` |
-| 2 | 查询框 | **528 × 40** | 54 – 582 | `weight(1f)`、圆角 20、可点 → `requestInternalSearchInput` |
+| 2 | 查询框 | **528 × 40** | 54 – 582 | `weight(1f)`、圆角 20、可点 → `AppInputField` |
 | 3 | 系统输入法 | 48 × 48 | 588 – 636 | `Icons.Default.Keyboard` |
-| 4 | 语音 | 48 × 48 | 642 – 690 | `Icons.Default.Mic` |
+| 4 | 语音 | 48 × 48 | 642 – 690 | `Icons.Default.Mic`（禁用占位） |
 | 5 | **返回** | 48 × 48 | **696 – 744** | `Icons.AutoMirrored.Filled.ArrowBack` |
 
 行内间距 6 dp；`Row` 自身 padding horizontal 8 / vertical 4。

@@ -1,0 +1,4 @@
+<resources>
+  <string name="input_unavailable">Input method unavailable</string>
+  <string name="input_retry">Retry</string>
+</resources>

@@ -16,6 +16,7 @@ pluginManagement {
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
+    maven { url = uri("input-method-engine/vendor-maven"); content { includeGroup("org.wolvic.thirdparty") } }
     mavenCentral()
     google()
   }
@@ -27,3 +28,5 @@ include(":app")
 include(":playback-stage-core")
 include(":spatial-workbench-core")
 include(":spatial-workbench-compose")
+
+include(":input-method-engine")

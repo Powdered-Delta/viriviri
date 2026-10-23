@@ -7,10 +7,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -48,18 +52,26 @@ class PancakeActivity : ComponentActivity() {
 @Composable
 private fun PancakeScreen(appState: ViriViriAppState, onReturnToImmersive: () -> Unit) {
   val state by appState.state.collectAsState()
-  Column(
-      modifier = Modifier.fillMaxSize().background(Color(0xFF102025)).padding(20.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
-  ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+  BoxWithConstraints(Modifier.fillMaxSize()) {
+    val keyboardHeightLimit = minOf(348.dp, maxHeight * 0.5f)
+    Column(
+        modifier = Modifier.fillMaxSize().background(Color(0xFF102025)).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-      Text("ViriViri", style = MaterialTheme.typography.h5, color = Color.White)
-      Button(onClick = onReturnToImmersive) { Text("Return to immersive") }
+      Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text("ViriViri", style = MaterialTheme.typography.h5, color = Color.White)
+        Button(onClick = onReturnToImmersive) { Text("Return to immersive") }
+      }
+      Box(modifier = Modifier.weight(1f).fillMaxWidth()) { RecommendationContent(state, appState, showPlayer = true) }
+      if (state.inputUi.visible) {
+        Box(Modifier.fillMaxWidth().heightIn(max = keyboardHeightLimit).verticalScroll(rememberScrollState())) {
+          AppInputConsole(appState.inputController)
+        }
+      }
     }
-    Box(modifier = Modifier.fillMaxSize()) { RecommendationContent(state, appState, showPlayer = true) }
   }
 }

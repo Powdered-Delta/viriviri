@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.Layout
@@ -64,6 +65,7 @@ data class SearchKeyItem(
     val label: String,
     val hint: String = "",
     val widthWeight: Float = 1f,
+    val enabled: Boolean = true,
 )
 
 @Composable
@@ -230,7 +232,7 @@ private fun CandidateChip(
       color = style.candidate.background,
       contentColor = style.candidate.content,
       shape = RoundedCornerShape(4.dp),
-      modifier = modifier.clickable(onClick = onClick),
+      modifier = modifier.focusProperties { canFocus = false }.clickable(onClick = onClick),
   ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -364,7 +366,8 @@ private fun InputConsoleKeyButton(
 ) {
   Button(
       onClick = onClick,
-      modifier = modifier.height(style.height),
+      enabled = key.enabled,
+      modifier = modifier.focusProperties { canFocus = false }.height(style.height),
       contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp),
       colors =
           ButtonDefaults.buttonColors(
@@ -476,6 +479,8 @@ fun CinemaInputConsole(
     actionKeys: List<SearchKeyItem> = emptyList(),
     modifier: Modifier = Modifier,
     style: InputConsoleStyle = DefaultInputConsoleStyle,
+    inputUnavailable: Boolean = false,
+    onRetryInput: () -> Unit = {},
 ) {
   val focusRequester = remember { FocusRequester() }
   // Number of candidates that fit in the collapsed strip; the remainder show expanded.
@@ -483,12 +488,14 @@ fun CinemaInputConsole(
   val hiddenCandidates = candidates.drop(visibleCandidateCount.coerceAtLeast(0))
   val softwareKeyboardController = LocalSoftwareKeyboardController.current
   val requestSystemIme = {
-    focusRequester.requestFocus()
-    softwareKeyboardController?.show()
+    if (showQueryField) {
+      focusRequester.requestFocus()
+      softwareKeyboardController?.show()
+    }
     actions.onSystemIme()
   }
   SpatialPanelShell(
-      modifier = modifier,
+      modifier = if (showQueryField) modifier else modifier.focusProperties { canFocus = false },
       style =
           style.shell.copy(
               background = if (transparentRoot) Color.Transparent else style.shell.background,
@@ -525,7 +532,13 @@ fun CinemaInputConsole(
                         .height(style.skin.compositionHeight),
             ) {
               Box(modifier = Modifier.padding(horizontal = 8.dp), contentAlignment = Alignment.CenterStart) {
-                Text(text = composition.ifBlank { " " }, color = style.compositionText)
+                if (inputUnavailable) {
+                  Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.input_unavailable), color = style.compositionText)
+                    Text(stringResource(R.string.input_retry), color = style.compositionText, modifier = Modifier.clickable(onClick = onRetryInput))
+                    Text(stringResource(R.string.search_system_ime), color = style.compositionText, modifier = Modifier.clickable(onClick = actions.onSystemIme))
+                  }
+                } else Text(text = composition.ifBlank { " " }, color = style.compositionText)
               }
             }
             if (actionKeys.isNotEmpty()) Spacer(Modifier.weight(style.skin.actionColumnWeight))

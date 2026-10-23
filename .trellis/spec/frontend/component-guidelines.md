@@ -35,57 +35,33 @@ fun BrowseScreen(
 }
 ```
 
-### Convention: Offline QWERTY Input Method and Search Routes
+### Convention: App-owned input and offline conversion
 
-**What**: Search input uses a pure Kotlin `SearchInputMethod` contract. The
-first-party implementation is `ChinesePinyinQwertyInputMethod`, registered
-through `SearchInputMethodRegistry`. It owns Pinyin composition, continuous
-candidate generation, key semantics, and candidate consumption; shared Compose
-UI only renders the method-provided session and keyboard layout.
+AppInputField bridges Compose TextFieldValue to a lifecycle-bound InputConnection
+using InterceptPlatformTextInput (Compose 1.7.3). The owning field is the only
+document source. AppInputController retains only the active connection and input
+session; passwords never enter ViriViriUiState, prediction, history or logs.
 
-**Why**: QWERTY Pinyin can evolve independently from Compose browse UI,
-`ViriViriAppState`, the Bilibili provider, player ownership, and Spatial panel
-lifecycle. Candidate generation remains offline and produces continuous
-composition candidates such as `woshi -> 我是` rather than requiring a user to
-commit each character separately.
+InputComposer and InputEngine contracts live in spatial-workbench-core. The
+input-method-engine Android library contains Wolvic-derived Pinyin lookup and
+OpenWnn Japanese conversion, with pinned offline assets. Run all SQLite / JNI
+operations on the controller's single worker and close them on that worker.
+Tag asynchronous commands with the target generation, reject stale candidates,
+and perform connection edits on the UI thread. Candidate IDs identify a specific
+consumption range, not just the resulting text.
 
-**Example**:
+InputKeyboardLayout preserves the existing calculator zone, QWERTY/symbol rows,
+wide space key and action column. Shared Compose owns visuals and callbacks only.
+The voice slot remains disabled; no ASR is loaded. A normal field click opens
+the internal keyboard. An explicit InputFieldHandle.system() / controller system
+action forwards the field's platform request. System text changes must not
+silently submit a search. Generic callers must expose that explicit system action.
 
-```kotlin
-val methods = SearchInputMethodRegistry(listOf(ChinesePinyinQwertyInputMethod()))
-val appState = ViriViriAppState(context, inputMethods = methods)
-```
-
-The input-method session must not expose a single-character/phrase UI mode.
-`OfflinePinyinLexicon.candidatesFor()` is the single candidate contract and
-returns ordered continuous candidates with consumed-composition metadata.
-
-Search itself is a center-workspace route:
-
-```text
-RECOMMENDATIONS -> SEARCH_EMPTY -> SEARCH_RESULTS
-```
-
-- `SEARCH_EMPTY` renders search history and recommended keywords, never a
-  video list. Opening this route does not show the keyboard; the near-field panel
-  appears only after the query field receives focus or the explicit keyboard action
-  is used.
-- `SEARCH_RESULTS` renders the result list after committing a query and
-  synchronously hides the app-owned keyboard panel.
-- The query field belongs in the center workspace header, not inside the
-  keyboard panel. A regular query-field click is intercepted for the internal
-  keyboard; only the explicit `[IME]` action can request Android system IME focus.
-
-- The keyboard panel is a single near-field `input_method_panel` Spatial Compose
-  panel. It is parented to MediaStage and positioned below the center content,
-  above and in front of Transport, but it is never a video Surface or player owner.
-  Its number, keyboard, and options surfaces are Compose children inside that one panel.
-- Keyboard geometry follows the active `InputConsoleSkin`: the number zone uses
-  a calculator-oriented `7-9/+`, `4-6/-`, `1-3/x`, `0/./=/÷` grid and the
-  QWERTY/symbol space key has a wider weight than adjacent punctuation keys.
-
-System IME input is an optional host callback that updates the same committed
-query but must not silently start a search.
+The existing input_method_panel remains parented to MediaStage with unchanged
+placement. SpatialVideoSampleActivity owns panel visibility/lifecycle and reads
+InputUiState; the 2D PancakeActivity hosts the same AppInputConsole inline. No
+input component owns a video Surface. Buttons on the console must not steal
+editor focus. Update docs/ui-structure-and-terminology.md with ownership changes.
 
 ### Convention: Transient Messages
 

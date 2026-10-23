@@ -404,8 +404,7 @@ private fun CenterWorkspaceHeader(
       SearchWorkspaceRoute.RECOMMENDATIONS -> Unit
       SearchWorkspaceRoute.SEARCH_EMPTY,
       SearchWorkspaceRoute.SEARCH_RESULTS -> {
-        val systemFocusRequester = remember { FocusRequester() }
-        val systemKeyboardController = LocalSoftwareKeyboardController.current
+        val inputHandle = remember { InputFieldHandle() }
         Icon(Icons.Default.Search, contentDescription = null, tint = style.secondaryText)
         Surface(
             color = style.surface,
@@ -413,39 +412,36 @@ private fun CenterWorkspaceHeader(
             modifier =
                 Modifier.weight(1f)
                     .height(40.dp)
-                    .border(1.dp, style.border, RoundedCornerShape(20.dp))
-                    .clickable { appState.requestInternalSearchInput() },
+                    .border(1.dp, style.border, RoundedCornerShape(20.dp)),
         ) {
           Row(
               modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
               verticalAlignment = Alignment.CenterVertically,
           ) {
-            Text(
-                text = state.searchInput.committedText.ifBlank { stringResource(R.string.nav_search) },
-                color = if (state.searchInput.committedText.isBlank()) style.secondaryText else style.text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            AppInputField(
+                id = "search",
+                value = state.searchWorkspace.editor,
+                onValueChange = appState::updateSearchEditorValue,
+                controller = appState.inputController,
+                handle = inputHandle,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Search,
+                textStyle = androidx.compose.ui.text.TextStyle(color = style.text),
+                cursorColor = style.text,
+                onEditorAction = appState::performSearchFromEditor,
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { field ->
+                  Box {
+                    if (state.searchWorkspace.editor.text.isEmpty()) Text(stringResource(R.string.nav_search), color = style.secondaryText)
+                    field()
+                  }
+                },
             )
           }
         }
-        Box(modifier = Modifier.size(1.dp).alpha(0f)) {
-          BasicTextField(
-              value = state.searchInput.committedText,
-              onValueChange = appState::updateSearchQuery,
-              modifier = Modifier.fillMaxSize().focusRequester(systemFocusRequester),
-              singleLine = true,
-          )
-        }
-        IconButton(
-            onClick = {
-              appState.requestSystemSearchInput()
-              systemFocusRequester.requestFocus()
-              systemKeyboardController?.show()
-            }
-        ) {
+        IconButton(onClick = { inputHandle.system() }) {
           Icon(Icons.Default.Keyboard, contentDescription = stringResource(R.string.search_system_ime), tint = style.secondaryText)
         }
-        IconButton(onClick = { appState.requestInternalSearchInput() }) {
+        IconButton(onClick = {}, enabled = false) {
           Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.search_voice), tint = style.secondaryText)
         }
         IconButton(

@@ -252,7 +252,7 @@
 
 ## 5. `input_method_panel` — 输入台（**832 × 348 dp** @512）
 
-来源：`ImmersiveInputMethodPanel` → `SearchInputPanel` → `CinemaInputConsole(showQueryField = false)`。
+来源：`ImmersiveInputMethodPanel` → `AppInputConsole` → `CinemaInputConsole(showQueryField = false)`。
 
 ```text
  0                                                          832

@@ -89,6 +89,7 @@ android {
 //noinspection UseTomlInstead
 dependencies {
   implementation(project(":spatial-workbench-compose"))
+  implementation(project(":input-method-engine"))
   implementation(project(":playback-stage-core"))
   implementation(libs.androidx.core.ktx)
   testImplementation(libs.junit)

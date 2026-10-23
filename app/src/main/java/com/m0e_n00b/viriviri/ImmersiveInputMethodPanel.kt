@@ -20,22 +20,11 @@ internal fun ImmersiveInputMethodPanel(
     palette: CinemaPalette = CinemaPalette.DARK,
 ) {
   val state by appState.state.collectAsState()
-  val workspace = state.searchWorkspace
-  if (workspace.route != SearchWorkspaceRoute.SEARCH_EMPTY || !workspace.isKeyboardVisible) return
+  if (!state.inputUi.visible) return
 
   Box(modifier = Modifier.fillMaxSize()) {
-    SearchInputPanel(
-        session = workspace.input,
-        method = appState.inputMethods.methodFor(workspace.input),
-        candidateExpanded = workspace.isCandidatesExpanded,
-        onSystemTextChanged = appState::updateSearchQuery,
-        onInputAction = appState::applySearchInputAction,
-        onToggleCandidates = appState::toggleSearchCandidates,
-        onClear = appState::clearSearchInput,
-        onSearch = appState::submitSearch,
-        onVoice = {},
-        onSystemIme = {},
-        onDismiss = { appState.setSearchKeyboardVisible(false) },
+    AppInputConsole(
+        controller = appState.inputController,
         style = InputConsoleStyle.fromPalette(palette),
         transparentRoot = true,
     )

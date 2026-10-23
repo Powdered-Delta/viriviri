@@ -6,14 +6,11 @@ class ViriViriApplication : Application() {
   override fun onCreate() {
     super.onCreate()
     appState = ViriViriAppState(applicationContext)
-    Thread(
-        {
-          DefaultSearchInputMethods.warmUp()
-          DefaultSearchInputMethods.preloadDictionary(this)
-        },
-        "OfflinePinyinWarmUp",
-      )
-      .start()
+  }
+
+  override fun onTerminate() {
+    appState.inputController.close()
+    super.onTerminate()
   }
 
   companion object {

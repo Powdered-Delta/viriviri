@@ -190,7 +190,7 @@ data class CompositionRange(val start: Int, val endExclusive: Int) {
   fun isValidFor(composition: String): Boolean = start >= 0 && start < endExclusive && endExclusive <= composition.length
 }
 
-data class InputCandidate(val text: String, val consumedRange: CompositionRange)
+data class InputCandidate(val text: String, val consumedRange: CompositionRange, val id: String = "")
 
 data class CandidateConsumption(
     val committedText: String,

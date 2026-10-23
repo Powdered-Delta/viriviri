@@ -26,6 +26,9 @@ $env:JAVA_HOME = $JavaHome
 $tasks = @('--no-daemon', '--no-configuration-cache', '--console=plain')
 if (-not $SkipTests) {
   $tasks += ':playback-stage-core:test'
+  $tasks += ':spatial-workbench-core:test'
+  $tasks += ':input-method-engine:testDebugUnitTest'
+  $tasks += ':spatial-workbench-compose:testDebugUnitTest'
   $tasks += ':app:testDebugUnitTest'
 }
 $tasks += ':app:assembleDebug'
